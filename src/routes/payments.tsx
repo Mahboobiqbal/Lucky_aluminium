@@ -1,0 +1,355 @@
+import { useMemo, useState, useEffect, useCallback } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import {
+  Banknote, CalendarDays, CalendarRange, CheckCircle2, CreditCard, FileText, Receipt, Search, WalletCards,
+} from "lucide-react";
+import { toast } from "sonner";
+import { AppShell, PageContainer } from "@/components/layout/AppShell";
+import { currency, dateShort } from "@/lib/format";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { companyFromSettings } from "@/lib/print";
+import { createDailyPaymentStatementPdf, createMonthlyPaymentStatementPdf, createAllPaymentsStatementPdf } from "@/lib/pdf";
+import { PaymentTable, type PaymentRow } from "@/components/payments/PaymentTable";
+import { DateField } from "@/components/ui/DateField";
+import { PDFExporter } from "@/components/payments/PDFExporter";
+import { PRESET_LABELS, rangeFromCustom, resolvePresetRange, type DateRange, type DateRangePreset } from "@/components/payments/paymentFilterUtils";
+
+export const Route = createFileRoute("/payments")({
+  head: () => ({ meta: [{ title: "Payments - UDYANA" }] }),
+  component: PaymentsPage,
+});
+
+type Order = {
+  id: number; number: string; customerId: number; customerName: string;
+  orderDate: string; items: any[]; total: number; paid: number; status: string; notes?: string; createdAt: string;
+};
+
+type Payment = {
+  id: number; orderId?: number; customerId?: number; customerName?: string;
+  amount: number; method: string; date: string; notes?: string; createdAt: string;
+};
+
+type Setting = { key: string; value: string };
+
+function inputDateStr(ts: number | string) {
+  const d = typeof ts === "string" ? new Date(ts) : new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function dateFromInput(value: string) {
+  return new Date(`${value}T12:00:00`).toISOString();
+}
+
+function sameDay(dateStr: string, yyyyMmDd: string) {
+  return inputDateStr(dateStr) === yyyyMmDd;
+}
+
+function sameMonth(dateStr: string, month: string, year: string) {
+  const d = new Date(dateStr);
+  return String(d.getMonth() + 1).padStart(2, "0") === month && String(d.getFullYear()) === year;
+}
+
+function pendingBalance(order: Order) {
+  return Math.max(0, order.total - order.paid);
+}
+
+function monthLabel(month: string, year: string) {
+  return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString("en-IN", { month: "long" });
+}
+
+function matchesSearch(row: PaymentRow, query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return [row.number, row.referenceNumber, row.customerName, row.method ?? "", row.notes ?? ""].some((v) => v.toLowerCase().includes(q));
+}
+
+function withinRange(row: PaymentRow, range: DateRange) {
+  return row.orderDate >= range.start && row.orderDate <= range.end;
+}
+
+function toPaymentRows(orders: Order[], payments: Payment[]): PaymentRow[] {
+  return orders.flatMap((order) => {
+    if (order.paid <= 0) return [];
+    const recordedPayments = payments
+      .filter((p) => p.orderId === order.id && p.amount > 0)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const recordedTotal = recordedPayments.reduce((sum, p) => sum + p.amount, 0);
+    const openingPaid = Math.max(0, order.paid - recordedTotal);
+    const entries: Array<{ id: string; date: number; amount: number; method: string; referenceNumber: string; notes?: string }> = [];
+    if (openingPaid > 0) {
+      entries.push({ id: `order-${order.id}-opening`, date: new Date(order.orderDate).getTime(), amount: openingPaid, method: "Opening Payment", referenceNumber: `PAY-${String(order.id).padStart(4, "0")}`, notes: order.notes });
+    }
+    recordedPayments.forEach((p) => {
+      entries.push({ id: `payment-${p.id}`, date: new Date(p.date).getTime(), amount: p.amount, method: p.method || "Payment", referenceNumber: `RCPT-${String(p.id).padStart(4, "0")}`, notes: p.notes });
+    });
+    let runningPaid = 0;
+    return entries.map((entry) => {
+      runningPaid += entry.amount;
+      return { id: entry.id, number: order.number, referenceNumber: entry.referenceNumber, customerName: order.customerName, orderDate: entry.date, paid: entry.amount, balance: Math.max(0, order.total - runningPaid), method: entry.method, notes: entry.notes };
+    });
+  }).sort((a, b) => b.orderDate - a.orderDate || b.referenceNumber.localeCompare(a.referenceNumber));
+}
+
+function toStatementRows(rows: PaymentRow[]) {
+  return rows.map((row) => ({ date: row.orderDate, invoiceNumber: row.number, customerName: row.customerName, paymentMethod: row.method || "Payment", amountPaid: row.paid, remainingBalance: row.balance, notes: row.notes }));
+}
+
+function StatTile({ label, value, tone, icon: Icon }: { label: string; value: string; tone?: "emerald" | "rose" | "amber"; icon: typeof Banknote }) {
+  const toneClass = tone === "emerald" ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10" : tone === "rose" ? "text-rose-600 dark:text-rose-400 bg-rose-500/10" : tone === "amber" ? "text-amber-600 dark:text-amber-400 bg-amber-500/10" : "text-primary bg-primary/10";
+  return (
+    <div className="bg-card border border-border rounded-md p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div><div className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div><div className="mt-1 text-xl font-semibold tabular-nums">{value}</div></div>
+        <div className={`size-9 rounded-md flex items-center justify-center ${toneClass}`}><Icon className="size-4" /></div>
+      </div>
+    </div>
+  );
+}
+
+function PaymentsPage() {
+  const { can } = useAuth();
+  const now = new Date();
+  const [selectedDate, setSelectedDate] = useState(inputDateStr(Date.now()));
+  const [selectedMonth, setSelectedMonth] = useState(String(now.getMonth() + 1).padStart(2, "0"));
+  const [selectedYear, setSelectedYear] = useState(String(now.getFullYear()));
+  const [preset, setPreset] = useState<DateRangePreset>("all");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [search, setSearch] = useState("");
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [paymentDate, setPaymentDate] = useState(inputDateStr(Date.now()));
+  const [paymentNotes, setPaymentNotes] = useState("");
+
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [settings, setSettings] = useState<Setting[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const company = companyFromSettings(settings);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [o, p, s] = await Promise.all([
+        api.safeGet<Order[]>("/api/orders"),
+        api.safeGet<Payment[]>("/api/payments"),
+        api.safeGet<Setting[]>("/api/settings"),
+      ]);
+      setOrders(o || []);
+      setPayments(p || []);
+      setSettings(s || []);
+    } catch {} finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const allRows = useMemo(() => toPaymentRows(orders, payments), [orders, payments]);
+  const totalPaid = allRows.reduce((sum, row) => sum + row.paid, 0);
+  const totalDue = orders.reduce((sum, order) => sum + pendingBalance(order), 0);
+  const paidOrderCount = orders.filter((order) => order.paid >= order.total && order.total > 0).length;
+
+  const range: DateRange = useMemo(() => preset === "custom" ? rangeFromCustom(customStart, customEnd) : resolvePresetRange(preset), [preset, customStart, customEnd]);
+  const searchedRows = useMemo(() => allRows.filter((row) => matchesSearch(row, search)), [allRows, search]);
+  const dailyRows = useMemo(() => searchedRows.filter((row) => sameDay(new Date(row.orderDate).toISOString(), selectedDate)), [searchedRows, selectedDate]);
+  const monthlyRows = useMemo(() => searchedRows.filter((row) => sameMonth(new Date(row.orderDate).toISOString(), selectedMonth, selectedYear)), [searchedRows, selectedMonth, selectedYear]);
+  const filteredRows = useMemo(() => searchedRows.filter((row) => withinRange(row, range)), [searchedRows, range]);
+
+  const pendingOrders = useMemo(
+    () => orders.filter((order) => pendingBalance(order) > 0).filter((order) => {
+      const q = pendingSearch.trim().toLowerCase();
+      if (!q) return true;
+      return [order.customerName, order.number, order.notes ?? ""].some((v) => v.toLowerCase().includes(q));
+    }).sort((a, b) => pendingBalance(b) - pendingBalance(a) || new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()),
+    [orders, pendingSearch],
+  );
+  const pendingTotal = pendingOrders.reduce((sum, order) => sum + pendingBalance(order), 0);
+
+  const dailyTotals = useMemo(() => ({ totalPaymentsReceived: dailyRows.reduce((sum, r) => sum + r.paid, 0), outstandingAmount: dailyRows.reduce((sum, r) => sum + r.balance, 0), numberOfTransactions: dailyRows.length }), [dailyRows]);
+  const monthlyTotals = useMemo(() => ({ totalPaymentsReceived: monthlyRows.reduce((sum, r) => sum + r.paid, 0), outstandingAmount: monthlyRows.reduce((sum, r) => sum + r.balance, 0), numberOfTransactions: monthlyRows.length }), [monthlyRows]);
+  const allTotals = useMemo(() => ({ totalPaymentsReceived: filteredRows.reduce((sum, r) => sum + r.paid, 0), outstandingAmount: filteredRows.reduce((sum, r) => sum + r.balance, 0), numberOfTransactions: filteredRows.length }), [filteredRows]);
+
+  const buildDaily = () => createDailyPaymentStatementPdf({ ...dailyTotals, rows: toStatementRows(dailyRows) }, company, new Date(`${selectedDate}T12:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }));
+  const buildMonthly = () => createMonthlyPaymentStatementPdf({ ...monthlyTotals, rows: toStatementRows(monthlyRows) }, company, monthLabel(selectedMonth, selectedYear), selectedYear);
+  const buildAll = () => createAllPaymentsStatementPdf({ ...allTotals, rows: toStatementRows(filteredRows) }, company);
+
+  const openPayment = (order: Order) => {
+    setSelectedOrder(order);
+    setPaymentAmount(pendingBalance(order));
+    setPaymentMethod("Cash");
+    setPaymentDate(inputDateStr(Date.now()));
+    setPaymentNotes("");
+    setPaymentOpen(true);
+  };
+
+  const savePayment = async () => {
+    if (!selectedOrder?.id) return;
+    const balance = pendingBalance(selectedOrder);
+    if (!paymentAmount || paymentAmount <= 0) return toast.error("Payment amount required");
+    if (paymentAmount > balance) return toast.error("Payment cannot be more than the balance");
+    try {
+      await api.post("/api/payments", {
+        orderId: selectedOrder.id,
+        customerId: selectedOrder.customerId,
+        customerName: selectedOrder.customerName,
+        amount: paymentAmount,
+        method: paymentMethod,
+        date: dateFromInput(paymentDate),
+        notes: paymentNotes,
+      });
+      toast.success("Payment recorded");
+      setPaymentOpen(false);
+      setSelectedOrder(null);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed");
+    }
+  };
+
+  const selectedBalance = selectedOrder ? pendingBalance(selectedOrder) : 0;
+  const selectedRemaining = Math.max(0, selectedBalance - paymentAmount);
+
+  return (
+    <AppShell title="Payments">
+      <PageContainer>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <StatTile label="Received" value={currency(totalPaid)} tone="emerald" icon={Banknote} />
+            <StatTile label="Outstanding" value={currency(totalDue)} tone="rose" icon={WalletCards} />
+            <StatTile label="Pending orders" value={String(pendingOrders.length)} tone="amber" icon={Receipt} />
+            <StatTile label="Fully paid" value={String(paidOrderCount)} icon={CheckCircle2} />
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <section className="min-w-0 bg-card border border-border rounded-md shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-border">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div><div className="flex items-center gap-2 text-base font-semibold"><FileText className="size-4 text-primary" />Statement history</div><p className="mt-1 text-xs text-muted-foreground">Review received payments by day, month, or custom reporting range.</p></div>
+                  <div className="relative w-full lg:w-80"><Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search customer, order, receipt..." className="h-9 pl-8" /></div>
+                </div>
+              </div>
+
+              <Tabs defaultValue="daily" className="w-full">
+                <div className="px-4 pt-4">
+                  <TabsList className="grid w-full grid-cols-3 lg:w-[520px]">
+                    <TabsTrigger value="daily"><CalendarDays className="size-3.5 mr-2" />Daily</TabsTrigger>
+                    <TabsTrigger value="monthly"><CalendarRange className="size-3.5 mr-2" />Monthly</TabsTrigger>
+                    <TabsTrigger value="all"><Receipt className="size-3.5 mr-2" />All</TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <TabsContent value="daily" className="p-4 space-y-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div><Label className="text-xs">Payment date</Label><Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="h-9 w-44" /></div>
+                      <div className="rounded-md border border-border bg-muted/30 px-3 py-2"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Received</div><div className="text-sm font-semibold tabular-nums text-emerald-600">{currency(dailyTotals.totalPaymentsReceived)}</div></div>
+                      <div className="rounded-md border border-border bg-muted/30 px-3 py-2"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Transactions</div><div className="text-sm font-semibold tabular-nums">{dailyTotals.numberOfTransactions}</div></div>
+                    </div>
+                    {can("payments", "export") && <PDFExporter build={buildDaily} fileName={`daily-payment-statement-${selectedDate}.pdf`} disabled={!dailyRows.length} />}
+                  </div>
+                  <PaymentTable rows={dailyRows} withNotes emptyLabel="No payments received on this date" />
+                </TabsContent>
+
+                <TabsContent value="monthly" className="p-4 space-y-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div><Label className="text-xs">Month</Label><Select value={selectedMonth} onValueChange={setSelectedMonth}><SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger><SelectContent>{Array.from({ length: 12 }, (_, i) => { const v = String(i + 1).padStart(2, "0"); return <SelectItem key={v} value={v}>{monthLabel(v, selectedYear)}</SelectItem>; })}</SelectContent></Select></div>
+                      <div><Label className="text-xs">Year</Label><Input type="number" min="2000" max="2100" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="h-9 w-28" /></div>
+                      <div className="rounded-md border border-border bg-muted/30 px-3 py-2"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Received</div><div className="text-sm font-semibold tabular-nums text-emerald-600">{currency(monthlyTotals.totalPaymentsReceived)}</div></div>
+                    </div>
+                    {can("payments", "export") && <PDFExporter build={buildMonthly} fileName={`monthly-payment-statement-${selectedYear}-${selectedMonth}.pdf`} disabled={!monthlyRows.length} />}
+                  </div>
+                  <PaymentTable rows={monthlyRows} emptyLabel="No payments found for this month" />
+                </TabsContent>
+
+                <TabsContent value="all" className="p-4 space-y-4">
+                  <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div><Label className="text-xs">Range</Label><Select value={preset} onValueChange={(v) => setPreset(v as DateRangePreset)}><SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger><SelectContent>{(Object.keys(PRESET_LABELS) as DateRangePreset[]).map((k) => <SelectItem key={k} value={k}>{PRESET_LABELS[k]}</SelectItem>)}</SelectContent></Select></div>
+                      {preset === "custom" && (<><div><Label className="text-xs">From</Label><Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="h-9 w-40" /></div><div><Label className="text-xs">To</Label><Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="h-9 w-40" /></div></>)}
+                      <div className="rounded-md border border-border bg-muted/30 px-3 py-2"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Filtered total</div><div className="text-sm font-semibold tabular-nums text-emerald-600">{currency(allTotals.totalPaymentsReceived)}</div></div>
+                    </div>
+                    {can("payments", "export") && <PDFExporter build={buildAll} fileName="all-payments-statement.pdf" disabled={!filteredRows.length} />}
+                  </div>
+                  <PaymentTable rows={filteredRows} emptyLabel="No payments match the selected filters" />
+                </TabsContent>
+              </Tabs>
+            </section>
+
+            <aside className="bg-card border border-border rounded-md shadow-sm overflow-hidden xl:sticky xl:top-4 xl:self-start">
+              <div className="p-4 border-b border-border space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div><div className="flex items-center gap-2 text-base font-semibold"><WalletCards className="size-4 text-primary" />Collection queue</div><p className="mt-1 text-xs text-muted-foreground">Click a customer to receive their balance.</p></div>
+                  <Badge variant="outline" className="shrink-0">{currency(pendingTotal)}</Badge>
+                </div>
+                <div className="relative"><Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input value={pendingSearch} onChange={(e) => setPendingSearch(e.target.value)} placeholder="Search pending customer..." className="h-9 pl-8" /></div>
+              </div>
+              <div className="max-h-[68vh] overflow-y-auto divide-y divide-border">
+                {pendingOrders.map((order) => {
+                  const balance = pendingBalance(order);
+                  const progress = order.total ? Math.min(100, Math.max(0, (order.paid / order.total) * 100)) : 0;
+                  return (
+                    <button key={order.id} type="button" onClick={() => can("payments", "create") && openPayment(order)} className="w-full p-4 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0"><div className="font-semibold truncate">{order.customerName}</div><div className="mt-1 text-xs text-muted-foreground">{order.number} - {dateShort(order.orderDate)}</div></div>
+                        <div className="text-right shrink-0"><div className="font-semibold tabular-nums text-rose-600">{currency(balance)}</div><div className="text-[11px] text-muted-foreground">due</div></div>
+                      </div>
+                      <div className="mt-3 flex items-center gap-2">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} /></div>
+                        <span className="text-[11px] tabular-nums text-muted-foreground">{Math.round(progress)}%</span>
+                      </div>
+                    </button>
+                  );
+                })}
+                {!pendingOrders.length && <div className="p-8 text-center text-sm text-muted-foreground">{loading ? "Loading..." : "No pending payments found"}</div>}
+              </div>
+            </aside>
+          </div>
+        </div>
+      </PageContainer>
+
+      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-xl">
+          <DialogHeader><DialogTitle>Receive payment</DialogTitle></DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0"><div className="font-semibold truncate">{selectedOrder.customerName}</div><div className="text-xs text-muted-foreground">{selectedOrder.number}</div></div>
+                  <div className="text-right"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Remaining Balance</div><div className="font-semibold tabular-nums text-rose-600">{currency(selectedBalance)}</div></div>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><Label className="text-xs">Amount paid</Label><Input type="number" min="1" max={selectedBalance} value={paymentAmount} onChange={(e) => setPaymentAmount(Number(e.target.value))} className="h-9" /></div>
+                <div><DateField label="Payment date" value={new Date(paymentDate).getTime()} onChange={(v) => setPaymentDate(inputDateStr(v))} /></div>
+                <div><Label className="text-xs">Method</Label><Select value={paymentMethod} onValueChange={setPaymentMethod}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Cash">Cash</SelectItem><SelectItem value="UPI">UPI</SelectItem><SelectItem value="Bank Transfer">Bank Transfer</SelectItem><SelectItem value="Card">Card</SelectItem><SelectItem value="Cheque">Cheque</SelectItem></SelectContent></Select></div>
+                <div><Label className="text-xs">Remaining balance</Label><div className="h-9 rounded-md border border-border bg-background px-3 flex items-center text-sm font-semibold tabular-nums">{currency(selectedRemaining)}</div></div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setPaymentAmount(selectedBalance)}>Full balance</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPaymentAmount(Math.round(selectedBalance / 2))}>Half</Button>
+              </div>
+              <div><Label className="text-xs">Notes</Label><Input value={paymentNotes} onChange={(e) => setPaymentNotes(e.target.value)} placeholder="Optional note" className="h-9" /></div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setPaymentOpen(false)}>Cancel</Button>
+            <Button size="sm" onClick={savePayment}><CreditCard className="size-3.5 mr-1" />Record payment</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AppShell>
+  );
+}

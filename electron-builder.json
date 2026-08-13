@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/electron-builder/scheme.json",
+  "appId": "com.udyana.erp",
+  "productName": "UDYANA ERP",
+  "directories": {
+    "output": "dist-electron2"
+  },
+  "files": [
+    "electron/**/*",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": ".output",
+      "to": "app",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "server/dist/udyana-server",
+      "to": "backend",
+      "filter": ["**/*"]
+    }
+  ],
+  "electronDist": "node_modules/electron/dist",
+  "win": {
+    "target": ["nsis"]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "UDYANA ERP"
+  }
+}
