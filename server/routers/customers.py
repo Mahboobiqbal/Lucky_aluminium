@@ -30,7 +30,13 @@ async def get_customer(customer_id: int, db: AsyncSession = Depends(get_db), _us
 
 @router.post("", response_model=CustomerResponse)
 async def create_customer(body: CustomerCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("customers", "create"))):
-    customer = Customer(**body.model_dump(), created_at=datetime.utcnow())
+    data = body.model_dump()
+    if not data.get("code"):
+        result = await db.execute(select(Customer).order_by(Customer.id.desc()).limit(1))
+        last = result.scalar_one_or_none()
+        next_num = (last.id + 1) if last else 1
+        data["code"] = f"CUS-{str(next_num).zfill(4)}"
+    customer = Customer(**data, created_at=datetime.utcnow())
     db.add(customer)
     await db.commit()
     await db.refresh(customer)

@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
 import { currency, dateShort, statusColor, statusLabel } from "@/lib/format";
@@ -13,6 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateField } from "@/components/ui/DateField";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/orders")({
   head: () => ({ meta: [{ title: "Orders - UDYANA" }] }),
@@ -79,6 +82,8 @@ function OrdersPage() {
     status: "pending",
     notes: "",
   });
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
@@ -155,9 +160,16 @@ function OrdersPage() {
   };
 
   const saveOrder = async () => {
-    if (!form.customerId) return toast.error("Select a customer");
+    if (!form.customerName) return toast.error("Enter a customer name");
     if (!form.items.length || form.items.some((i) => !i.productName || i.amount <= 0)) return toast.error("Add valid order items");
     try {
+      let customerId = form.customerId;
+      if (!customerId) {
+        const newCust = await api.post<Customer>("/api/customers", { name: form.customerName });
+        customerId = newCust.id;
+        toast.success("New customer created");
+        fetchData();
+      }
       const items = form.items.map((i) => ({
         ...i,
         width: i.width || 0,
@@ -169,7 +181,7 @@ function OrdersPage() {
         amount: i.amount || 0,
       }));
       const body = {
-        number: form.number, customerId: form.customerId, customerName: form.customerName,
+        number: form.number, customerId, customerName: form.customerName,
         orderDate: new Date(form.orderDate).toISOString(),
         deliveryDate: form.deliveryDate ? new Date(form.deliveryDate).toISOString() : null,
         items, total: form.total, paid: form.paid, status: form.status, notes: form.notes,
@@ -275,15 +287,45 @@ function OrdersPage() {
               <div><Label className="text-xs">Order #</Label><Input value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} className="h-8" /></div>
               <div>
                 <Label className="text-xs">Customer *</Label>
-                <Select value={form.customerId ? String(form.customerId) : ""} onValueChange={(v) => {
-                  const customer = customers.find((c) => c.id === Number(v));
-                  setForm({ ...form, customerId: Number(v), customerName: customer?.name || "" });
-                }}>
-                  <SelectTrigger className="h-8"><SelectValue placeholder="Select customer" /></SelectTrigger>
-                  <SelectContent>
-                    {customers.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" aria-expanded={customerOpen} className="h-8 w-full justify-between text-sm font-normal">
+                      {form.customerName || "Select or type customer..."}
+                      <ChevronsUpDown className="ml-2 size-3.5 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search customer..." value={customerSearch} onValueChange={setCustomerSearch} />
+                      <CommandEmpty>
+                        <div className="py-2 px-2 text-sm">
+                          <div className="text-muted-foreground mb-1">No customer found</div>
+                          <Button size="sm" className="w-full h-7" onClick={() => {
+                            const name = customerSearch.trim();
+                            if (!name) return;
+                            setForm({ ...form, customerId: 0, customerName: name });
+                            setCustomerSearch("");
+                            setCustomerOpen(false);
+                          }}>
+                            <Plus className="size-3 mr-1" />Add "{customerSearch}"
+                          </Button>
+                        </div>
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {customers.filter((c) => !customerSearch || c.name.toLowerCase().includes(customerSearch.toLowerCase())).map((c) => (
+                          <CommandItem key={c.id} value={c.name} onSelect={() => {
+                            setForm({ ...form, customerId: c.id, customerName: c.name });
+                            setCustomerSearch("");
+                            setCustomerOpen(false);
+                          }}>
+                            <Check className={cn("size-3.5 mr-2", form.customerId === c.id ? "opacity-100" : "opacity-0")} />
+                            {c.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <DateField label="Order date" value={form.orderDate} onChange={(v) => setForm({ ...form, orderDate: v })} />
               <DateField label="Delivery date" value={form.deliveryDate || Date.now()} onChange={(v) => setForm({ ...form, deliveryDate: v })} />

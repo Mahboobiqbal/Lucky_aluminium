@@ -4,9 +4,9 @@ from pydantic import BaseModel, Field
 
 
 class CustomerBase(BaseModel):
-    code: str
+    code: str = ""
     name: str
-    mobile: str
+    mobile: str = ""
     whatsapp: str | None = None
     email: str | None = None
     address: str | None = None
