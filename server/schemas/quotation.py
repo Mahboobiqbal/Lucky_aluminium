@@ -6,8 +6,10 @@ from pydantic import BaseModel, Field
 class QuotationItemBase(BaseModel):
     productId: int | None = None
     productName: str
+    itemType: str = "other"
     width: float = 0
     height: float = 0
+    length: float = 0
     sqft: float | None = None
     quantity: int = 1
     unitPrice: float = 0

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Pencil, Search, Download, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { currency, dateShort, statusColor, statusLabel } from "@/lib/format";
@@ -25,8 +26,10 @@ export const Route = createFileRoute("/quotations")({
 type QuotationItem = {
   productId?: number;
   productName: string;
+  itemType: "window" | "other";
   width: number;
   height: number;
+  length: number;
   sqft?: number;
   quantity: number;
   unitPrice: number;
@@ -90,18 +93,23 @@ function QuotationsPage() {
   );
 
   const subtotal = items.reduce((s, it) => s + it.amount, 0);
-  const total = Math.max(0, subtotal - discount + extra);
+  const discountAmount = subtotal * discount / 100;
+  const total = Math.max(0, subtotal - discountAmount + extra);
 
-  const addItem = () => setItems([...items, { productName: "", width: 0, height: 0, sqft: 0, quantity: 1, unitPrice: 0, amount: 0, notes: "" }]);
+  const addItem = () => setItems([...items, { productName: "", itemType: "other", width: 0, height: 0, length: 0, sqft: 0, quantity: 1, unitPrice: 0, amount: 0, notes: "" }]);
   const updateItem = (i: number, patch: Partial<QuotationItem>) => {
     setItems((prev) => prev.map((it, idx) => {
       if (idx !== i) return it;
       const next = { ...it, ...patch };
-      const w = next.width || 0;
-      const h = next.height || 0;
-      const s = next.sqft || 0;
-      const area = s > 0 ? s : w * h;
-      next.amount = Number((area * next.quantity * next.unitPrice).toFixed(2));
+      if (next.itemType === "window") {
+        next.amount = Number((next.length * next.quantity * next.unitPrice).toFixed(2));
+      } else {
+        const w = next.width || 0;
+        const h = next.height || 0;
+        const s = next.sqft || 0;
+        const area = s > 0 ? s : w * h;
+        next.amount = Number((area * next.quantity * next.unitPrice).toFixed(2));
+      }
       return next;
     }));
   };
@@ -198,6 +206,7 @@ function QuotationsPage() {
                 <th>Date</th>
                 <th>Items</th>
                 <th className="text-right whitespace-nowrap">Subtotal</th>
+                <th className="text-center whitespace-nowrap">Discount</th>
                 <th className="text-right whitespace-nowrap">Total</th>
                 <th>Status</th>
                 <th className="w-28 text-right">Actions</th>
@@ -215,6 +224,7 @@ function QuotationsPage() {
                   <td className="text-muted-foreground">{dateShort(qt.date)}</td>
                   <td>{qt.items.length}</td>
                   <td className="text-right tabular-nums whitespace-nowrap">{currency(qt.subtotal)}</td>
+                  <td className="text-center tabular-nums whitespace-nowrap">{qt.discount > 0 ? `${qt.discount}%` : "-"}</td>
                   <td className="text-right tabular-nums font-semibold whitespace-nowrap">{currency(qt.total)}</td>
                   <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[11px] border ${statusColor[qt.status]}`}>{statusLabel(qt.status)}</span></td>
                   <td className="text-right">
@@ -242,7 +252,7 @@ function QuotationsPage() {
                 </tr>
               ))}
               {!filtered.length && (
-                <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">{loading ? "Loading..." : "No quotations yet"}</td></tr>
+                <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">{loading ? "Loading..." : "No quotations yet"}</td></tr>
               )}
             </tbody>
           </table>
@@ -287,16 +297,33 @@ function QuotationsPage() {
 
           <div className="px-6 pt-3 pb-1 space-y-3">
             {items.map((it, i) => {
+              const isWindow = it.itemType === "window";
               const s = it.sqft || 0;
               const sqftVal = s > 0 ? s : (it.width || 0) * (it.height || 0);
-              const measTotal = sqftVal * (it.quantity || 1);
+              const measTotal = isWindow ? it.length * (it.quantity || 1) : sqftVal * (it.quantity || 1);
               return (
                 <div key={i} className="border border-border rounded-md bg-card">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[2fr_repeat(8,1fr)_auto] gap-1.5 p-2 items-end">
+                  <div className={`grid grid-cols-1 sm:grid-cols-2 ${isWindow ? "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]" : "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]"} gap-1.5 p-2 items-end`}>
                     <div><Label className="text-[10px]">Product</Label><Input className={inputClass} type="text" value={it.productName} onChange={(e) => updateItem(i, { productName: e.target.value })} placeholder="Product name" /></div>
-                    <div><Label className="text-[10px]">W</Label><Input className={inputClass} type="number" value={it.width || ""} onChange={(e) => updateItem(i, { width: Number(e.target.value) })} /></div>
-                    <div><Label className="text-[10px]">H</Label><Input className={inputClass} type="number" value={it.height || ""} onChange={(e) => updateItem(i, { height: Number(e.target.value) })} /></div>
-                    <div><Label className="text-[10px]">Sq Ft</Label><Input className={inputClass} type="number" value={it.sqft || ""} onChange={(e) => updateItem(i, { sqft: Number(e.target.value) })} /></div>
+                    <div>
+                      <Label className="text-[10px]">Type</Label>
+                      <Select value={it.itemType || "other"} onValueChange={(v) => updateItem(i, { itemType: v as "window" | "other" })}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="other">Other</SelectItem>
+                          <SelectItem value="window">Window</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {isWindow ? (
+                      <div><Label className="text-[10px]">Length (ft)</Label><Input className={inputClass} type="number" value={it.length || ""} onChange={(e) => updateItem(i, { length: Number(e.target.value) })} /></div>
+                    ) : (
+                      <>
+                        <div><Label className="text-[10px]">W</Label><Input className={inputClass} type="number" value={it.width || ""} onChange={(e) => updateItem(i, { width: Number(e.target.value) })} /></div>
+                        <div><Label className="text-[10px]">H</Label><Input className={inputClass} type="number" value={it.height || ""} onChange={(e) => updateItem(i, { height: Number(e.target.value) })} /></div>
+                        <div><Label className="text-[10px]">Sq Ft</Label><Input className={inputClass} type="number" value={it.sqft || ""} onChange={(e) => updateItem(i, { sqft: Number(e.target.value) })} /></div>
+                      </>
+                    )}
                     <div><Label className="text-[10px]">Meas.</Label><div className="h-8 px-2 rounded border bg-muted/30 flex items-center text-sm font-semibold tabular-nums">{measTotal.toFixed(2)}</div></div>
                     <div><Label className="text-[10px]">Qty</Label><Input className={inputClass} type="number" value={it.quantity || ""} onChange={(e) => updateItem(i, { quantity: Number(e.target.value) })} /></div>
                     <div><Label className="text-[10px]">Rate</Label><Input className={inputClass} type="number" value={it.unitPrice || ""} onChange={(e) => updateItem(i, { unitPrice: Number(e.target.value) })} /></div>
@@ -313,15 +340,15 @@ function QuotationsPage() {
 
           <Separator className="mx-6 w-auto" />
 
-          <div className="px-6 pt-3 pb-4 flex justify-end">
+            <div className="px-6 pt-3 pb-4 flex justify-end">
             <div className="w-72 space-y-1">
               <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums font-medium">{currency(subtotal)}</span></div>
-              <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Discount</span><span className="tabular-nums text-destructive">− {currency(discount)}</span></div>
+              {discount > 0 && <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Discount ({discount}%)</span><span className="tabular-nums text-destructive">− {currency(discountAmount)}</span></div>}
               <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Extra Charges</span><span className="tabular-nums font-medium">{currency(extra)}</span></div>
               <Separator />
               <div className="flex justify-between items-center py-2"><span className="text-base font-bold">Grand Total</span><span className="text-lg font-bold tabular-nums text-destructive">{currency(total)}</span></div>
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
-                <div><Label className="text-[10px] text-muted-foreground">Discount</Label><Input type="number" value={discount || ""} onChange={(e) => setDiscount(Number(e.target.value))} className="h-7 text-xs" /></div>
+                <div><Label className="text-[10px] text-muted-foreground">Discount %</Label><Input type="number" min="0" max="100" value={discount || ""} onChange={(e) => setDiscount(Number(e.target.value))} className="h-7 text-xs" /></div>
                 <div><Label className="text-[10px] text-muted-foreground">Extra charges</Label><Input type="number" value={extra || ""} onChange={(e) => setExtra(Number(e.target.value))} className="h-7 text-xs" /></div>
               </div>
             </div>

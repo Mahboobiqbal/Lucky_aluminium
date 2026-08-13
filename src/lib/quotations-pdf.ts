@@ -108,18 +108,18 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
   y += 4;
 
   // --- ITEMS TABLE ---
-  const thead = [["#", "Product", "Description", "WxH", "Sq Ft", "Meas.", "Qty", "Rate", "Amount"]];
+  const thead = [["#", "Product", "Description", "Type", "Measurement", "Qty", "Rate", "Amount"]];
   const tbody = data.items.map((item, i) => {
-    const wh = item.width && item.height ? item.width + "x" + item.height : "-";
-    const area = (item.sqft && item.sqft > 0) ? item.sqft : (item.width * item.height);
-    const measurement = area * item.quantity;
+    const isWindow = (item as any).itemType === "window";
+    const measurement = isWindow
+      ? `${(item as any).length || 0} ft`
+      : (item.sqft && item.sqft > 0) ? `${item.sqft} sqft` : (item.width && item.height ? `${item.width}x${item.height} = ${(item.width * item.height).toFixed(2)} sqft` : "-");
     return [
       String(i + 1),
       item.productName || "-",
       item.notes || "-",
-      wh,
-      area ? String(area) : "-",
-      measurement ? measurement.toFixed(2) : "-",
+      isWindow ? "Window" : "Other",
+      measurement,
       String(item.quantity),
       currency(item.unitPrice),
       currency(item.amount),
@@ -153,13 +153,12 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
     columnStyles: {
       0: { halign: "center", cellWidth: 8 },
       1: { cellWidth: 36 },
-      2: { cellWidth: 26 },
-      3: { halign: "center", cellWidth: 14 },
-      4: { halign: "center", cellWidth: 14 },
-      5: { halign: "center", cellWidth: 14 },
-      6: { halign: "center", cellWidth: 10 },
-      7: { halign: "right", cellWidth: 24 },
-      8: { halign: "right", cellWidth: 32 },
+      2: { cellWidth: 28 },
+      3: { halign: "center", cellWidth: 16 },
+      4: { cellWidth: 30 },
+      5: { halign: "center", cellWidth: 10 },
+      6: { halign: "right", cellWidth: 24 },
+      7: { halign: "right", cellWidth: 32 },
     },
     didParseCell: (cellData) => {
       if (cellData.section === "body" && cellData.column.index === 0) {
@@ -172,14 +171,20 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
 
   // --- TOTALS SECTION (right-aligned box) ---
   const totalMeasurement = data.items.reduce((sum, item) => {
+    const isWindow = (item as any).itemType === "window";
+    if (isWindow) {
+      return sum + ((item as any).length || 0) * item.quantity;
+    }
     const area = (item.sqft && item.sqft > 0) ? item.sqft : (item.width * item.height);
     return sum + area * item.quantity;
   }, 0);
 
+  const discountAmount = data.subtotal * data.discount / 100;
+
   const totalsRows: Array<[string, string]> = [
-    ["Total Measurement", totalMeasurement.toFixed(2) + " sqft"],
+    ["Total Measurement", totalMeasurement.toFixed(2)],
     ...(data.discount > 0 || data.extraCharges > 0 ? [["Subtotal", currency(data.subtotal)]] as [string, string][] : []),
-    ...(data.discount > 0 ? [["Discount", "- " + currency(data.discount)]] as [string, string][] : []),
+    ...(data.discount > 0 ? [["Discount (" + data.discount + "%)", "- " + currency(discountAmount)]] as [string, string][] : []),
     ...(data.extraCharges > 0 ? [["Extra Charges", currency(data.extraCharges)]] as [string, string][] : []),
     ["Grand Total", currency(data.total)],
   ];
