@@ -76,7 +76,7 @@ function InvoicesPage() {
       <PageContainer>
         <div className="bg-card border border-border rounded-md overflow-hidden">
           <table className="data-table">
-            <thead><tr><th>Invoice #</th><th>Customer</th><th>Order</th><th>Date</th><th>Items</th><th className="text-center">Total</th><th className="text-center">Paid</th><th className="text-center">Balance</th><th className="w-28 text-right">Actions</th></tr></thead>
+            <thead><tr><th>Invoice #</th><th>Customer</th><th>Order</th><th>Date</th><th>Items</th><th className="text-center">Subtotal</th><th className="text-center">Discount</th><th className="text-center">Total</th><th className="text-center">Paid</th><th className="text-center">Balance</th><th className="w-28 text-right">Actions</th></tr></thead>
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
@@ -85,6 +85,8 @@ function InvoicesPage() {
                   <td className="text-muted-foreground">{o.number}</td>
                   <td className="text-muted-foreground">{dateShort(o.orderDate)}</td>
                   <td>{o.items.length}</td>
+                  <td className="text-center tabular-nums">{currency(o.subtotal ?? o.total)}</td>
+                  <td className="text-center tabular-nums">{o.discountPercent > 0 ? `${o.discountPercent}%` : "-"}</td>
                   <td className="text-center tabular-nums">{currency(o.total)}</td>
                   <td className="text-center tabular-nums text-emerald-600">{currency(o.paid)}</td>
                   <td className="text-center tabular-nums text-rose-600">{currency(Math.max(0, o.total - o.paid))}</td>
@@ -96,7 +98,7 @@ function InvoicesPage() {
                   </td>
                 </tr>
               ))}
-              {!orders.length && <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">{loading ? "Loading..." : "No invoices"}</td></tr>}
+              {!orders.length && <tr><td colSpan={11} className="text-center py-12 text-muted-foreground">{loading ? "Loading..." : "No invoices"}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -147,6 +149,8 @@ function InvoicesPage() {
                   </table>
                 </div>
                 <div className="flex justify-end"><div className="w-64 space-y-1 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">{currency(selectedOrder.subtotal ?? selectedOrder.total)}</span></div>
+                  {selectedOrder.discountPercent > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount ({selectedOrder.discountPercent}%)</span><span className="text-destructive">- {currency((selectedOrder.subtotal ?? selectedOrder.total) * selectedOrder.discountPercent / 100)}</span></div>}
                   <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="font-medium">{currency(selectedOrder.total)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="font-medium text-emerald-600">{currency(selectedOrder.paid)}</span></div>
                   <div className="flex justify-between border-t pt-1"><span className="font-semibold">Balance</span><span className="font-semibold text-rose-600">{currency(Math.max(0, selectedOrder.total - selectedOrder.paid))}</span></div>
