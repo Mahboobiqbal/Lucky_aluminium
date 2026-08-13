@@ -18,7 +18,7 @@ export const Route = createFileRoute("/invoices")({
   component: InvoicesPage,
 });
 
-type Order = { id: number; number: string; customerId: number; customerName: string; orderDate: string; deliveryDate?: string; items: any[]; total: number; paid: number; status: string; notes?: string; createdAt: string };
+type Order = { id: number; number: string; customerId: number; customerName: string; orderDate: string; deliveryDate?: string; items: any[]; subtotal: number; discountPercent: number; total: number; paid: number; status: string; notes?: string; createdAt: string };
 type Customer = { id: number; name: string; mobile?: string; whatsapp?: string; email?: string; address?: string; city?: string };
 type Setting = { key: string; value: string };
 
@@ -50,7 +50,7 @@ function InvoicesPage() {
     invoiceNumber: invoiceNumber(order), orderNumber: order.number, orderDate: new Date(order.orderDate).getTime(),
     deliveryDate: order.deliveryDate ? new Date(order.deliveryDate).getTime() : undefined, status: order.status,
     customer: { name: order.customerName, mobile: customer?.mobile, whatsapp: customer?.whatsapp, email: customer?.email, address: customer?.address, city: customer?.city },
-    items: order.items, total: order.total, paid: order.paid, balance: Math.max(0, order.total - order.paid), notes: order.notes,
+    items: order.items, subtotal: order.subtotal ?? order.total, discountPercent: order.discountPercent ?? 0, total: order.total, paid: order.paid, balance: Math.max(0, order.total - order.paid), notes: order.notes,
   });
 
   const handleView = (order: Order) => { setSelectedOrder(order); setViewOpen(true); };

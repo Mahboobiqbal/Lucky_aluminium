@@ -93,6 +93,8 @@ export type CustomerInvoiceData = {
   status: string;
   customer: CustomerInvoiceCustomer;
   items: CustomerInvoiceItem[];
+  subtotal: number;
+  discountPercent: number;
   total: number;
   paid: number;
   balance: number;
@@ -403,6 +405,8 @@ export function createCustomerInvoicePdf(data: CustomerInvoiceData, company: Com
   const totalWidth = 205;
   const totalLeft = right - totalWidth;
   const totals: Array<[string, string, boolean]> = [
+    ["Subtotal", currency(data.subtotal), false],
+    ...(data.discountPercent > 0 ? [["Discount (" + data.discountPercent + "%)", "-" + currency(data.subtotal * data.discountPercent / 100), false] as [string, string, boolean]] : []),
     ["Grand Total", currency(data.total), true],
     ["Paid / Advance", currency(data.paid), false],
     ["Remaining Balance", currency(data.balance), false],

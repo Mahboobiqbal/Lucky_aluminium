@@ -35,6 +35,8 @@ def _to_response(o: Order) -> dict:
         "quotationId": o.quotation_id,
         "orderDate": o.order_date,
         "deliveryDate": o.delivery_date,
+        "subtotal": float(o.subtotal),
+        "discountPercent": float(o.discount_percent),
         "total": float(o.total),
         "paid": float(o.paid),
         "status": o.status,
@@ -69,7 +71,7 @@ async def _sync_invoice(db: AsyncSession, order: Order, items: list):
         "customer_id": order.customer_id,
         "customer_name": order.customer_name,
         "date": naive(order.order_date),
-        "subtotal": order.total,
+        "subtotal": order.subtotal,
         "total": order.total,
         "paid": order.paid,
     }
@@ -128,6 +130,8 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
         quotation_id=body.quotationId,
         order_date=naive(body.orderDate),
         delivery_date=naive(body.deliveryDate),
+        subtotal=body.subtotal,
+        discount_percent=body.discountPercent,
         total=body.total,
         paid=body.paid,
         status=body.status,
@@ -184,6 +188,8 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
     order.quotation_id = body.quotationId
     order.order_date = naive(body.orderDate)
     order.delivery_date = naive(body.deliveryDate)
+    order.subtotal = body.subtotal
+    order.discount_percent = body.discountPercent
     order.total = body.total
     order.paid = body.paid
     order.status = body.status

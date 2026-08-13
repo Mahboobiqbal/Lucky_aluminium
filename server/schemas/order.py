@@ -34,6 +34,8 @@ class OrderBase(BaseModel):
     quotationId: int | None = None
     orderDate: datetime
     deliveryDate: datetime | None = None
+    subtotal: float = 0
+    discountPercent: float = 0
     total: float = 0
     paid: float = 0
     status: str = "pending"

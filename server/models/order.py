@@ -16,6 +16,8 @@ class Order(Base):
     quotation_id: Mapped[int | None] = mapped_column(ForeignKey("quotations.id"), default=None)
     order_date: Mapped[datetime] = mapped_column()
     delivery_date: Mapped[datetime | None] = mapped_column(default=None)
+    subtotal: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    discount_percent: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
     total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     paid: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     status: Mapped[str] = mapped_column(String(20), default="pending")

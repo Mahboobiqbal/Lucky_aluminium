@@ -47,6 +47,8 @@ type Order = {
   orderDate: string;
   deliveryDate?: string;
   items: OrderItem[];
+  subtotal: number;
+  discountPercent: number;
   total: number;
   paid: number;
   status: string;
@@ -77,6 +79,8 @@ function OrdersPage() {
     orderDate: Date.now(),
     deliveryDate: Date.now() + 86400000 * 7,
     items: [emptyItem] as OrderItem[],
+    subtotal: 0,
+    discountPercent: 0,
     total: 0,
     paid: 0,
     status: "pending",
@@ -112,7 +116,12 @@ function OrdersPage() {
     }
   };
 
-  const recalc = (items: OrderItem[]) => items.reduce((s, item) => s + item.amount, 0);
+  const recalc = (items: OrderItem[], discountPercent?: number) => {
+    const subtotal = items.reduce((s, item) => s + item.amount, 0);
+    const dp = discountPercent ?? form.discountPercent;
+    const total = subtotal - (subtotal * dp / 100);
+    return { subtotal, total };
+  };
 
   const updateItem = (index: number, patch: Partial<OrderItem>) => {
     const items = [...form.items];
@@ -123,7 +132,8 @@ function OrdersPage() {
       next.amount = next.width * next.height * next.quantity * next.unitPrice;
     }
     items[index] = next;
-    setForm({ ...form, items, total: recalc(items) });
+    const { subtotal, total } = recalc(items);
+    setForm({ ...form, items, subtotal, total });
   };
 
   const openNew = () => {
@@ -132,7 +142,7 @@ function OrdersPage() {
       number: `ORD-${String(list.length + 1).padStart(4, "0")}`,
       customerId: 0, customerName: "",
       orderDate: Date.now(), deliveryDate: Date.now() + 86400000 * 7,
-      items: [{ ...emptyItem }], total: 0, paid: 0, status: "pending", notes: "",
+      items: [{ ...emptyItem }], subtotal: 0, discountPercent: 0, total: 0, paid: 0, status: "pending", notes: "",
     });
     setOpen(true);
   };
@@ -142,7 +152,7 @@ function OrdersPage() {
     setForm({
       number: o.number, customerId: o.customerId, customerName: o.customerName,
       orderDate: new Date(o.orderDate).getTime(), deliveryDate: o.deliveryDate ? new Date(o.deliveryDate).getTime() : Date.now() + 86400000 * 7,
-      items: o.items.map((i) => ({ ...i })), total: o.total, paid: o.paid, status: o.status, notes: o.notes ?? "",
+      items: o.items.map((i) => ({ ...i })), subtotal: o.subtotal ?? o.total, discountPercent: o.discountPercent ?? 0, total: o.total, paid: o.paid, status: o.status, notes: o.notes ?? "",
     });
     setOpen(true);
   };
@@ -184,6 +194,7 @@ function OrdersPage() {
         number: form.number, customerId, customerName: form.customerName,
         orderDate: new Date(form.orderDate).toISOString(),
         deliveryDate: form.deliveryDate ? new Date(form.deliveryDate).toISOString() : null,
+        subtotal: form.subtotal, discountPercent: form.discountPercent,
         items, total: form.total, paid: form.paid, status: form.status, notes: form.notes,
       };
       if (editingId) {
@@ -372,9 +383,14 @@ function OrdersPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+              <div><Label className="text-xs">Discount %</Label><Input type="number" min="0" max="100" value={form.discountPercent || ""} onChange={(e) => {
+                const dp = Number(e.target.value);
+                const total = form.subtotal - (form.subtotal * dp / 100);
+                setForm({ ...form, discountPercent: dp, total });
+              }} className="h-8" /></div>
               <div><Label className="text-xs">Paid amount</Label><Input type="number" value={form.paid || ""} onChange={(e) => setForm({ ...form, paid: Number(e.target.value) })} className="h-8" /></div>
-              <div className="stat-card py-3"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Total</div><div className="text-lg font-semibold">{currency(form.total)}</div></div>
+              <div className="stat-card py-3"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Subtotal</div><div className="text-sm font-semibold text-muted-foreground">{currency(form.subtotal)}</div>{form.discountPercent > 0 && <><div className="text-[11px] text-muted-foreground">Discount: {form.discountPercent}% (-{currency(form.subtotal * form.discountPercent / 100)})</div><div className="text-lg font-semibold">{currency(form.total)}</div></>}</div>
               <div className="stat-card py-3"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Remaining Balance</div><div className="text-lg font-semibold text-rose-600">{currency(form.total - form.paid)}</div></div>
             </div>
           </div>
