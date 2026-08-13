@@ -24,8 +24,10 @@ const STATUSES = ["pending", "confirmed", "in_production", "ready", "delivered",
 type OrderItem = {
   productId?: number;
   productName: string;
+  itemType: "window" | "other";
   width: number;
   height: number;
+  length: number;
   sqft?: number;
   quantity: number;
   unitPrice: number;
@@ -51,7 +53,7 @@ type Order = {
 
 type Customer = { id: number; name: string };
 
-const emptyItem: OrderItem = { productName: "", width: 1, height: 1, quantity: 1, unitPrice: 0, amount: 0 };
+const emptyItem: OrderItem = { productName: "", itemType: "other", width: 1, height: 1, length: 1, quantity: 1, unitPrice: 0, amount: 0 };
 
 function OrdersPage() {
   const { can } = useAuth();
@@ -110,7 +112,11 @@ function OrdersPage() {
   const updateItem = (index: number, patch: Partial<OrderItem>) => {
     const items = [...form.items];
     const next = { ...items[index], ...patch };
-    next.amount = next.width * next.height * next.quantity * next.unitPrice;
+    if (next.itemType === "window") {
+      next.amount = next.length * next.quantity * next.unitPrice;
+    } else {
+      next.amount = next.width * next.height * next.quantity * next.unitPrice;
+    }
     items[index] = next;
     setForm({ ...form, items, total: recalc(items) });
   };
@@ -152,11 +158,21 @@ function OrdersPage() {
     if (!form.customerId) return toast.error("Select a customer");
     if (!form.items.length || form.items.some((i) => !i.productName || i.amount <= 0)) return toast.error("Add valid order items");
     try {
+      const items = form.items.map((i) => ({
+        ...i,
+        width: i.width || 0,
+        height: i.height || 0,
+        length: i.length || 0,
+        sqft: i.sqft || 0,
+        quantity: i.quantity || 1,
+        unitPrice: i.unitPrice || 0,
+        amount: i.amount || 0,
+      }));
       const body = {
         number: form.number, customerId: form.customerId, customerName: form.customerName,
         orderDate: new Date(form.orderDate).toISOString(),
         deliveryDate: form.deliveryDate ? new Date(form.deliveryDate).toISOString() : null,
-        items: form.items, total: form.total, paid: form.paid, status: form.status, notes: form.notes,
+        items, total: form.total, paid: form.paid, status: form.status, notes: form.notes,
       };
       if (editingId) {
         await api.put(`/api/orders/${editingId}`, { id: editingId, ...body });
@@ -278,10 +294,26 @@ function OrdersPage() {
               <div className="divide-y divide-border">
                 {form.items.map((item, index) => (
                   <div key={index} className="p-3 space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_repeat(5,1fr)_auto] gap-2 items-end">
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 ${item.itemType === "window" ? "lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto_auto]" : "lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto_auto]"} gap-2 items-end`}>
                       <div><Label className="text-xs">Product</Label><Input value={item.productName} onChange={(e) => updateItem(index, { productName: e.target.value })} placeholder="Type product name" className="h-8" /></div>
-                      <div><Label className="text-xs">Width</Label><Input type="number" value={item.width || ""} onChange={(e) => updateItem(index, { width: Number(e.target.value) })} className="h-8" /></div>
-                      <div><Label className="text-xs">Height</Label><Input type="number" value={item.height || ""} onChange={(e) => updateItem(index, { height: Number(e.target.value) })} className="h-8" /></div>
+                      <div>
+                        <Label className="text-xs">Type</Label>
+                        <Select value={item.itemType || "other"} onValueChange={(v) => updateItem(index, { itemType: v as "window" | "other" })}>
+                          <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="other">Other Items</SelectItem>
+                            <SelectItem value="window">Window</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {item.itemType === "window" ? (
+                        <div><Label className="text-xs">Length</Label><Input type="number" value={item.length || ""} onChange={(e) => updateItem(index, { length: Number(e.target.value) })} className="h-8" /></div>
+                      ) : (
+                        <>
+                          <div><Label className="text-xs">Width</Label><Input type="number" value={item.width || ""} onChange={(e) => updateItem(index, { width: Number(e.target.value) })} className="h-8" /></div>
+                          <div><Label className="text-xs">Height</Label><Input type="number" value={item.height || ""} onChange={(e) => updateItem(index, { height: Number(e.target.value) })} className="h-8" /></div>
+                        </>
+                      )}
                       <div><Label className="text-xs">Qty</Label><Input type="number" value={item.quantity || ""} onChange={(e) => updateItem(index, { quantity: Number(e.target.value) })} className="h-8" /></div>
                       <div><Label className="text-xs">Unit Price</Label><Input type="number" value={item.unitPrice || ""} onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })} className="h-8" /></div>
                       <div><Label className="text-xs">Amount</Label><div className="h-8 px-2 rounded border bg-muted/40 flex items-center text-sm font-semibold">{currency(item.amount)}</div></div>

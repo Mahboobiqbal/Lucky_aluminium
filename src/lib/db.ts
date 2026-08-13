@@ -35,8 +35,10 @@ export interface Product {
 export interface QuotationItem {
   productId?: number;
   productName: string;
+  itemType?: "window" | "other";
   width: number;
   height: number;
+  length?: number;
   sqft?: number;
   quantity: number;
   unitPrice: number;

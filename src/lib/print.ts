@@ -254,17 +254,20 @@ export function printInvoice(order: Order, company?: CompanyProfile) {
         <div><div class="label">Delivery date</div><div class="value">${esc(dateShort(order.deliveryDate))}</div></div>
       </div>
       <table>
-        <thead><tr><th>Item</th><th class="right">Description</th><th class="right">Width</th><th class="right">Height</th><th class="right">Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>
+        <thead><tr><th>Item</th><th>Description</th><th>Dimensions</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
         <tbody>
           ${order.items
             .map(
-              (item) =>
-                `<tr><td>${esc(item.productName)}</td><td class="right">${esc(item.notes || "")}</td><td class="right">${esc(item.width)}</td><td class="right">${esc(item.height)}</td><td class="right">${esc(item.quantity)}</td><td class="right">${esc(currency(item.unitPrice))}</td><td class="right">${esc(currency(item.amount))}</td></tr>`,
+              (item) => {
+                const isWindow = item.itemType === "window";
+                const dims = isWindow ? `${item.length} ft` : `${item.width} × ${item.height} = ${(item.width * item.height).toFixed(2)} sq ft`;
+                return `<tr><td>${esc(item.productName)}</td><td>${esc(item.notes || "")}</td><td>${esc(dims)}</td><td class="right">${esc(item.quantity)}</td><td class="right">${esc(currency(item.unitPrice))}</td><td class="right">${esc(currency(item.amount))}</td></tr>`;
+              }
             )
             .join("")}
-          <tr class="total"><td colspan="6" class="right">Total</td><td class="right">${esc(currency(order.total))}</td></tr>
-          <tr class="total"><td colspan="6" class="right">Paid</td><td class="right">${esc(currency(order.paid))}</td></tr>
-          <tr class="total"><td colspan="6" class="right">Remaining Balance</td><td class="right">${esc(currency(order.total - order.paid))}</td></tr>
+          <tr class="total"><td colspan="5" class="right">Total</td><td class="right">${esc(currency(order.total))}</td></tr>
+          <tr class="total"><td colspan="5" class="right">Paid</td><td class="right">${esc(currency(order.paid))}</td></tr>
+          <tr class="total"><td colspan="5" class="right">Remaining Balance</td><td class="right">${esc(currency(order.total - order.paid))}</td></tr>
         </tbody>
       </table>
       <div class="footer muted">Thank you for your business.</div>

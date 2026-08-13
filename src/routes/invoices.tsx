@@ -67,7 +67,7 @@ function InvoicesPage() {
 
   const handleDelete = async () => {
     if (deleteTarget == null) return;
-    try { await api.delete(`/api/invoices/${deleteTarget}`); toast.success("Invoice deleted"); setDeleteTarget(null); fetchData(); }
+    try { await api.delete(`/api/invoices/by-order/${deleteTarget}`); toast.success("Invoice deleted"); setDeleteTarget(null); fetchData(); }
     catch (err: any) { toast.error(err.message || "Failed"); }
   };
 
@@ -103,7 +103,7 @@ function InvoicesPage() {
       </PageContainer>
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-5xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Invoice {selectedOrder ? invoiceNumber(selectedOrder) : ""}</DialogTitle></DialogHeader>
           {selectedOrder && (() => {
             const customer = findCustomer(selectedOrder);
@@ -116,9 +116,34 @@ function InvoicesPage() {
                   <div className="rounded-md border p-3"><div className="text-[11px] uppercase text-muted-foreground">Status</div><div className="mt-1"><Badge variant="outline" className={`text-[11px] ${statusColor[selectedOrder.status]}`}>{statusLabel(selectedOrder.status)}</Badge></div></div>
                 </div>
                 <div className="border rounded-md overflow-hidden">
-                  <table className="data-table text-sm">
-                    <thead><tr><th>Product</th><th>W</th><th>H</th><th>Qty</th><th>Rate</th><th className="text-right">Amount</th></tr></thead>
-                    <tbody>{selectedOrder.items.map((it: any, i: number) => <tr key={i}><td>{it.productName}</td><td>{it.width}</td><td>{it.height}</td><td>{it.quantity}</td><td>{currency(it.unitPrice)}</td><td className="text-right font-medium">{currency(it.amount)}</td></tr>)}</tbody>
+                  <table className="data-table text-sm w-full">
+                    <thead>
+                      <tr>
+                        <th className="w-8 text-center">#</th>
+                        <th>Product</th>
+                        <th className="w-20 text-center">Type</th>
+                        <th className="w-40 text-center">Dimensions</th>
+                        <th className="w-16 text-center">Qty</th>
+                        <th className="w-28 text-right">Rate</th>
+                        <th className="w-28 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedOrder.items.map((it: any, i: number) => {
+                        const isWindow = it.itemType === "window";
+                        return (
+                          <tr key={i}>
+                            <td className="text-center text-muted-foreground">{i + 1}</td>
+                            <td className="font-medium">{it.productName}</td>
+                            <td className="text-center">{isWindow ? "Window" : "Other"}</td>
+                            <td className="text-center tabular-nums">{isWindow ? `${it.length} ft` : `${it.width} × ${it.height} = ${((it.width || 0) * (it.height || 0)).toFixed(2)} sq ft`}</td>
+                            <td className="text-center">{it.quantity}</td>
+                            <td className="text-right tabular-nums">{currency(it.unitPrice)}</td>
+                            <td className="text-right font-medium tabular-nums">{currency(it.amount)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
                   </table>
                 </div>
                 <div className="flex justify-end"><div className="w-64 space-y-1 text-sm">

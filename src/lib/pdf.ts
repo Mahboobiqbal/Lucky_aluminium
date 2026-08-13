@@ -75,8 +75,10 @@ type CustomerInvoiceCustomer = {
 
 type CustomerInvoiceItem = {
   productName: string;
+  itemType?: "window" | "other";
   width: number;
   height: number;
+  length?: number;
   quantity: number;
   unitPrice: number;
   amount: number;
@@ -348,14 +350,13 @@ export function createCustomerInvoicePdf(data: CustomerInvoiceData, company: Com
   const tableStartY = headerBottom + 84 + 26;
 
   const body = data.items.map((item, index) => {
-    const sqft = item.width * item.height;
+    const isWindow = item.itemType === "window";
+    const dimensions = isWindow ? `${item.length || 0} Length` : `${item.width} × ${item.height} = ${formatNumber(item.width * item.height)} Sq Ft`;
     return [
       String(index + 1),
       item.productName,
       item.notes || "",
-      formatNumber(item.width),
-      formatNumber(item.height),
-      formatNumber(sqft),
+      dimensions,
       formatNumber(item.quantity),
       currency(item.unitPrice),
       currency(item.amount),
@@ -364,7 +365,7 @@ export function createCustomerInvoicePdf(data: CustomerInvoiceData, company: Com
 
   addAutoTable(doc, {
     startY: tableStartY,
-    head: [["#", "Item", "Description", "Width", "Height", "Sq Ft", "Qty", "Price", "Amount"]],
+    head: [["#", "Item", "Description", "Dimensions", "Qty", "Price", "Amount"]],
     body,
     theme: "grid",
     margin: { left, right: 30, bottom: 54 },
@@ -383,15 +384,13 @@ export function createCustomerInvoicePdf(data: CustomerInvoiceData, company: Com
       valign: "middle",
     },
     columnStyles: {
-      0: { halign: "center", cellWidth: 24 },
-      1: { cellWidth: 120 },
+      0: { halign: "center", cellWidth: 20 },
+      1: { cellWidth: 80 },
       2: { cellWidth: 100 },
-      3: { halign: "right", cellWidth: 44 },
-      4: { halign: "right", cellWidth: 44 },
-      5: { halign: "right", cellWidth: 48 },
-      6: { halign: "right", cellWidth: 34 },
-      7: { halign: "right", cellWidth: 58 },
-      8: { halign: "right", cellWidth: 74 },
+      3: { cellWidth: 155 },
+      4: { halign: "center", cellWidth: 35 },
+      5: { halign: "right", cellWidth: 60 },
+      6: { halign: "right", cellWidth: 70 },
     },
   });
 

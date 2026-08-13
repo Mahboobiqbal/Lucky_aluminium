@@ -28,8 +28,10 @@ def _to_response(inv: Invoice) -> dict:
             {
                 "id": i.id,
                 "productName": i.product_name,
+                "itemType": i.item_type,
                 "width": float(i.width),
                 "height": float(i.height),
+                "length": float(i.length),
                 "quantity": i.quantity,
                 "unitPrice": float(i.unit_price),
                 "amount": float(i.amount),
@@ -57,6 +59,18 @@ async def get_invoice(invoice_id: int, db: AsyncSession = Depends(get_db), _user
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
     return _to_response(inv)
+
+
+@router.delete("/by-order/{order_id}")
+async def delete_invoice_by_order(order_id: int, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("invoices", "delete"))):
+    result = await db.execute(select(Invoice).where(Invoice.order_id == order_id))
+    inv = result.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    await db.delete(inv)
+    await db.commit()
+    return {"message": "Invoice deleted", "success": True}
 
 
 @router.delete("/{invoice_id}")
