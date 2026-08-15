@@ -3,12 +3,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Pencil, Trash2, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, ChevronsUpDown, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
+import { TableShell } from "@/components/layout/TableShell";
+import { EmptyState } from "@/components/layout/EmptyState";
 import { currency, dateShort, statusColor, statusLabel } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -261,10 +264,7 @@ function OrdersPage() {
       title="Orders"
       actions={
         <>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search orders..." className="h-8 pl-8 w-64 text-sm" />
-          </div>
+          <SearchInput value={q} onChange={setQ} placeholder="Search orders..." className="w-64 h-8" />
           {can("orders", "create") && (
             <Button size="sm" className="ml-auto" onClick={openNew}>
               <Plus className="size-3.5 mr-1" />New order
@@ -274,7 +274,7 @@ function OrdersPage() {
       }
     >
       <PageContainer>
-        <div className="bg-card border border-border rounded-md overflow-hidden">
+        <TableShell>
           <table className="data-table">
             <thead>
               <tr>
@@ -327,12 +327,10 @@ function OrdersPage() {
                   </td>
                 </tr>
               ))}
-              {!filtered.length && (
-                <tr><td colSpan={10} className="text-center py-12 text-muted-foreground">{loading ? "Loading..." : "No orders found"}</td></tr>
-              )}
             </tbody>
           </table>
-        </div>
+          {!filtered.length && <EmptyState icon={ShoppingCart} title={loading ? "Loading..." : "No orders found"} hint={loading ? "Please wait" : "Create your first order to get started"} />}
+        </TableShell>
       </PageContainer>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) setEditingId(null); setOpen(v); }}>

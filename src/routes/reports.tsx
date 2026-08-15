@@ -2,8 +2,10 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Download } from "lucide-react";
+import { BarChart3, Download } from "lucide-react";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
+import { TableShell } from "@/components/layout/TableShell";
+import { EmptyState } from "@/components/layout/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -107,7 +109,7 @@ function ReportsPage() {
             {report === "Monthly sale report" && <div><Label className="text-xs">Month</Label><Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="h-9 w-44" /></div>}
             {can("reports", "export") && rows.length > 1 && <Button variant="outline" size="sm" className="h-9" onClick={() => printReport(labels[report], rows, company)}><Download className="size-3.5 mr-1" />Export PDF</Button>}
           </div>
-          <div className="bg-card border border-border rounded-md overflow-hidden">
+          <TableShell>
             <div className="px-4 py-2.5 border-b border-border text-sm font-semibold">{labels[report]}</div>
             {rows.length > 1 ? (
               <div className="overflow-x-auto">
@@ -117,9 +119,9 @@ function ReportsPage() {
                 </table>
               </div>
             ) : (
-              <div className="p-8 text-center text-sm text-muted-foreground">No data available</div>
+              <EmptyState icon={BarChart3} title="No data available" hint="Try selecting a different report or date range" />
             )}
-          </div>
+          </TableShell>
         </div>
       </PageContainer>
     </AppShell>

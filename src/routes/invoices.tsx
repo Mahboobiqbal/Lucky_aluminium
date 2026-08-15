@@ -3,12 +3,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
+import { TableShell } from "@/components/layout/TableShell";
+import { EmptyState } from "@/components/layout/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { currency, dateShort, statusLabel, statusColor } from "@/lib/format";
-import { Download, Eye, Printer, Trash2 } from "lucide-react";
+import { Download, Eye, FileText, Printer, Trash2 } from "lucide-react";
 import { companyFromSettings } from "@/lib/print";
 import { createCustomerInvoicePdf, downloadPdf, printPdf, type CustomerInvoiceData } from "@/lib/pdf";
 import { toast } from "sonner";
@@ -74,7 +76,7 @@ function InvoicesPage() {
   return (
     <AppShell title="Invoices">
       <PageContainer>
-        <div className="bg-card border border-border rounded-md overflow-hidden">
+        <TableShell>
           <table className="data-table">
             <thead><tr><th>Invoice #</th><th>Customer</th><th>Order</th><th>Date</th><th>Items</th><th className="text-center">Subtotal</th><th className="text-center">Discount</th><th className="text-center">Total</th><th className="text-center">Paid</th><th className="text-center">Balance</th><th className="w-28 text-right">Actions</th></tr></thead>
             <tbody>
@@ -98,10 +100,10 @@ function InvoicesPage() {
                   </td>
                 </tr>
               ))}
-              {!orders.length && <tr><td colSpan={11} className="text-center py-12 text-muted-foreground">{loading ? "Loading..." : "No invoices"}</td></tr>}
             </tbody>
           </table>
-        </div>
+          {!orders.length && <EmptyState icon={FileText} title={loading ? "Loading..." : "No invoices"} hint={loading ? "Please wait" : "Invoices are generated from orders"} />}
+        </TableShell>
       </PageContainer>
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
