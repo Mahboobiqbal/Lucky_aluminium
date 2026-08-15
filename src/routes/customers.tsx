@@ -3,14 +3,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
+import { TableShell } from "@/components/layout/TableShell";
+import { EmptyState } from "@/components/layout/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Search, Eye, FileText, ShoppingBag, Banknote, WalletCards, CalendarDays, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, ShoppingBag, Banknote, WalletCards, CalendarDays, Download, Users } from "lucide-react";
 import { toast } from "sonner";
 import { currency, dateShort, statusColor, statusLabel } from "@/lib/format";
 import { companyFromSettings, printCustomer, printCustomers } from "@/lib/print";
@@ -145,10 +148,7 @@ function CustomersPage() {
       title="Customers"
       actions={
         <>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search customers..." className="h-8 pl-8 w-64 text-sm" />
-          </div>
+          <SearchInput value={q} onChange={setQ} placeholder="Search customers..." className="w-64 h-8" />
           <div className="ml-auto flex gap-2">
             {can("customers", "export") && (
               <Button variant="outline" size="sm" onClick={() => printCustomers(filtered as any, company, customerPayments)}><Download className="size-3.5 mr-1" />Export PDF</Button>
@@ -161,7 +161,7 @@ function CustomersPage() {
       }
     >
       <PageContainer>
-        <div className="bg-card border border-border rounded-md overflow-hidden">
+        <TableShell>
           <table className="data-table">
             <thead><tr><th>Code</th><th>Name</th><th>Mobile</th><th>City</th><th>Email</th><th className="text-center whitespace-nowrap">Paid</th><th className="text-center whitespace-nowrap">Remaining Balance</th><th>Added</th><th className="w-24 text-right">Actions</th></tr></thead>
             <tbody>
@@ -191,10 +191,10 @@ function CustomersPage() {
                   </tr>
                 );
               })}
-              {!filtered.length && <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">{loading ? "Loading..." : "No customers found"}</td></tr>}
             </tbody>
           </table>
-        </div>
+          {!filtered.length && <EmptyState icon={Users} title={loading ? "Loading..." : "No customers found"} hint={loading ? "Please wait" : "Add your first customer to get started"} />}
+        </TableShell>
       </PageContainer>
 
       <Dialog open={open} onOpenChange={setOpen}>

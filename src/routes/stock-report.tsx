@@ -3,9 +3,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { currency } from "@/lib/format";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
-import { Input } from "@/components/ui/input";
+import { StatCard } from "@/components/layout/StatCard";
+import { TableShell } from "@/components/layout/TableShell";
+import { EmptyState } from "@/components/layout/EmptyState";
+import { SearchInput } from "@/components/ui/search-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Boxes, Package, Search, TrendingDown, Warehouse } from "lucide-react";
+import { AlertTriangle, Boxes, Package, TrendingDown, Warehouse } from "lucide-react";
 
 export const Route = createFileRoute("/stock-report")({
   head: () => ({ meta: [{ title: "Stock Report — UDYANA" }] }),
@@ -69,21 +72,16 @@ function StockReportPage() {
     <AppShell title="Stock Report">
       <PageContainer>
         <div className="space-y-5">
-          {/* Summary cards */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-            <SummaryCard icon={Package} label="Total Items" value={String(totalItems)} tone="primary" />
-            <SummaryCard icon={Warehouse} label="Total Units" value={String(totalUnits)} tone="blue" />
-            <SummaryCard icon={Boxes} label="Stock Value" value={currency(totalStockValue)} tone="emerald" />
-            <SummaryCard icon={AlertTriangle} label="Low Stock" value={String(lowStockCount)} tone="amber" />
-            <SummaryCard icon={TrendingDown} label="Out of Stock" value={String(outOfStockCount)} tone="rose" />
+            <StatCard icon={Package} label="Total Items" value={String(totalItems)} tone="primary" />
+            <StatCard icon={Warehouse} label="Total Units" value={String(totalUnits)} tone="blue" />
+            <StatCard icon={Boxes} label="Stock Value" value={currency(totalStockValue)} tone="emerald" />
+            <StatCard icon={AlertTriangle} label="Low Stock" value={String(lowStockCount)} tone="amber" />
+            <StatCard icon={TrendingDown} label="Out of Stock" value={String(outOfStockCount)} tone="rose" />
           </div>
 
-          {/* Filters */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full sm:w-80">
-              <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, category, supplier..." className="h-9 pl-8 rounded-lg" />
-            </div>
+            <SearchInput value={search} onChange={setSearch} placeholder="Search by name, category, supplier..." className="w-full sm:w-80" />
             <div className="flex flex-wrap gap-2">
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="h-9 w-40 rounded-lg"><SelectValue placeholder="Category" /></SelectTrigger>
@@ -113,9 +111,7 @@ function StockReportPage() {
             </div>
           </div>
 
-          {/* Table */}
-          <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+          <TableShell>
             <table className="data-table">
               <thead>
                 <tr>
@@ -147,7 +143,7 @@ function StockReportPage() {
                     <tr key={item.id} className={out ? "bg-rose-500/5" : low ? "bg-amber-500/5" : ""}>
                       <td className="text-center text-muted-foreground">{idx + 1}</td>
                       <td className="font-medium">{item.name}</td>
-                      <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${isWindow ? "bg-violet-500/10 text-violet-600 border-violet-500/30" : "bg-slate-500/10 text-slate-600 border-slate-500/30"}`}>{isWindow ? "Window" : "Other"}</span></td>
+                      <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${isWindow ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30" : "bg-muted/50 text-muted-foreground border-border"}`}>{isWindow ? "Window" : "Other"}</span></td>
                       <td>{item.category || "-"}</td>
                       <td className="text-muted-foreground">{item.supplier || "-"}</td>
                       <td>{item.unit}</td>
@@ -173,15 +169,13 @@ function StockReportPage() {
                     </tr>
                   );
                 })}
-                {!filtered.length && (
-                  <tr><td colSpan={13} className="text-center py-12 text-muted-foreground">{loading ? "Loading..." : "No items found"}</td></tr>
-                )}
               </tbody>
             </table>
-            </div>
-          </div>
+            {!filtered.length && (
+              <EmptyState icon={Boxes} title={loading ? "Loading..." : "No items found"} hint={loading ? "Please wait" : "Try adjusting your filters"} />
+            )}
+          </TableShell>
 
-          {/* Footer summary */}
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>Showing {filtered.length} of {totalItems} items</span>
             <span>Total value: <span className="font-bold text-foreground">{currency(filtered.reduce((s, i) => s + i.currentStock * i.costPrice, 0))}</span></span>
@@ -189,29 +183,5 @@ function StockReportPage() {
         </div>
       </PageContainer>
     </AppShell>
-  );
-}
-
-function SummaryCard({ icon: Icon, label, value, tone }: { icon: typeof Package; label: string; value: string; tone: "primary" | "emerald" | "amber" | "rose" | "blue" }) {
-  const tones = {
-    primary: { bg: "bg-primary/10", text: "text-primary", border: "border-l-primary" },
-    emerald: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", border: "border-l-emerald-500" },
-    amber: { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", border: "border-l-amber-500" },
-    rose: { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", border: "border-l-rose-500" },
-    blue: { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", border: "border-l-blue-500" },
-  };
-  const t = tones[tone];
-  return (
-    <div className={`bg-card border border-border border-l-[3px] ${t.border} rounded-xl p-4 shadow-sm`}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
-          <div className="mt-1.5 text-2xl font-bold tracking-tight tabular-nums truncate">{value}</div>
-        </div>
-        <div className={`size-11 rounded-xl flex items-center justify-center shrink-0 ${t.bg} ${t.text}`}>
-          <Icon className="size-5" />
-        </div>
-      </div>
-    </div>
   );
 }

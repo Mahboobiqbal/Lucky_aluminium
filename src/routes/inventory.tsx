@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { AlertTriangle, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Boxes, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
+import { TableShell } from "@/components/layout/TableShell";
+import { EmptyState } from "@/components/layout/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -60,8 +62,7 @@ function InventoryPage() {
           <div className="stat-card"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Stock value</div><div className="text-xl font-semibold tabular-nums">{currency(totalValue)}</div></div>
           <div className="stat-card"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Low stock</div><div className="text-xl font-semibold tabular-nums text-amber-600">{lowStock.length}</div></div>
         </div>
-        <div className="bg-card border border-border rounded-md overflow-hidden">
-          <div className="overflow-x-auto">
+        <TableShell>
           <table className="data-table">
             <thead><tr><th>Item</th><th>Type</th><th>Category</th><th>Supplier</th><th>Unit</th><th className="text-right">Dimension</th><th className="text-right">Qty</th><th className="text-right">Total stock</th><th className="text-right">Min</th><th className="text-right">Cost</th><th>Status</th><th className="w-20 text-right">Actions</th></tr></thead>
             <tbody>
@@ -75,7 +76,7 @@ function InventoryPage() {
                 return (
                   <tr key={i.id}>
                     <td className="font-medium">{i.name}</td>
-                    <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${isWindow ? "bg-violet-500/10 text-violet-600 border-violet-500/30" : "bg-slate-500/10 text-slate-600 border-slate-500/30"}`}>{isWindow ? "Window" : "Other"}</span></td>
+                    <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${isWindow ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30" : "bg-muted/50 text-muted-foreground border-border"}`}>{isWindow ? "Window" : "Other"}</span></td>
                     <td>{i.category}</td><td className="text-muted-foreground">{i.supplier || "-"}</td><td>{i.unit}</td>
                     <td className="text-right tabular-nums text-muted-foreground">{dimension}</td>
                     <td className="text-right tabular-nums text-muted-foreground">{i.stockQty ?? 0}</td>
@@ -89,11 +90,10 @@ function InventoryPage() {
                   </tr>
                 );
               })}
-              {!list.length && <tr><td colSpan={12} className="text-center py-12 text-muted-foreground">{loading ? "Loading..." : "No inventory items"}</td></tr>}
             </tbody>
           </table>
-          </div>
-        </div>
+          {!list.length && <EmptyState icon={Boxes} title={loading ? "Loading..." : "No inventory items"} hint={loading ? "Please wait" : "Add your first item to get started"} />}
+        </TableShell>
       </PageContainer>
 
       <Dialog open={open} onOpenChange={setOpen}>

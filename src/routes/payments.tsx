@@ -3,12 +3,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
-  Banknote, CalendarDays, CalendarRange, CheckCircle2, CreditCard, FileText, Receipt, Search, WalletCards,
+  Banknote, CalendarDays, CalendarRange, CheckCircle2, CreditCard, FileText, Receipt, WalletCards,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
+import { StatCard } from "@/components/layout/StatCard";
 import { currency, dateShort } from "@/lib/format";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -99,34 +101,6 @@ function toPaymentRows(orders: Order[], payments: Payment[]): PaymentRow[] {
 
 function toStatementRows(rows: PaymentRow[]) {
   return rows.map((row) => ({ date: row.orderDate, invoiceNumber: row.number, customerName: row.customerName, paymentMethod: row.method || "Payment", amountPaid: row.paid, remainingBalance: row.balance, notes: row.notes }));
-}
-
-function StatTile({ label, value, tone, icon: Icon }: { label: string; value: string; tone?: "emerald" | "rose" | "amber" | "slate"; icon: typeof Banknote }) {
-  const tones = {
-    emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-    rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-    amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-    slate: "bg-primary/10 text-primary",
-  };
-  const accents = {
-    emerald: "border-l-emerald-500",
-    rose: "border-l-rose-500",
-    amber: "border-l-amber-500",
-    slate: "border-l-primary",
-  };
-  return (
-    <div className={`bg-card border border-border border-l-[3px] ${accents[tone || "slate"]} rounded-lg p-4 shadow-sm`}>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
-          <div className="mt-1.5 text-2xl font-bold tracking-tight tabular-nums">{value}</div>
-        </div>
-        <div className={`size-10 rounded-lg flex items-center justify-center ${tones[tone || "slate"]}`}>
-          <Icon className="size-5" />
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function PaymentsPage() {
@@ -241,10 +215,10 @@ function PaymentsPage() {
       <PageContainer>
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatTile label="Total Received" value={currency(totalPaid)} tone="emerald" icon={Banknote} />
-            <StatTile label="Outstanding" value={currency(totalDue)} tone="rose" icon={WalletCards} />
-            <StatTile label="Pending Orders" value={String(pendingOrders.length)} tone="amber" icon={Receipt} />
-            <StatTile label="Fully Paid" value={String(paidOrderCount)} tone="slate" icon={CheckCircle2} />
+            <StatCard icon={Banknote} label="Total Received" value={currency(totalPaid)} tone="emerald" />
+            <StatCard icon={WalletCards} label="Outstanding" value={currency(totalDue)} tone="rose" />
+            <StatCard icon={Receipt} label="Pending Orders" value={String(pendingOrders.length)} tone="amber" />
+            <StatCard icon={CheckCircle2} label="Fully Paid" value={String(paidOrderCount)} tone="primary" />
           </div>
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -259,8 +233,7 @@ function PaymentsPage() {
                     <p className="mt-1 text-xs text-muted-foreground">Review received payments by day, month, or custom range.</p>
                   </div>
                   <div className="relative w-full lg:w-80">
-                    <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search customer, order, receipt..." className="h-9 pl-8 rounded-lg" />
+                    <SearchInput value={search} onChange={setSearch} placeholder="Search customer, order, receipt..." />
                   </div>
                 </div>
               </div>
@@ -327,7 +300,7 @@ function PaymentsPage() {
                     <div className="text-lg font-bold tabular-nums text-rose-600">{currency(pendingTotal)}</div>
                   </div>
                 </div>
-                <div className="relative"><Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input value={pendingSearch} onChange={(e) => setPendingSearch(e.target.value)} placeholder="Search pending customer..." className="h-9 pl-8 rounded-lg" /></div>
+                <SearchInput value={pendingSearch} onChange={setPendingSearch} placeholder="Search pending customer..." />
               </div>
               <div className="max-h-[68vh] overflow-y-auto">
                 {pendingOrders.map((order, idx) => {

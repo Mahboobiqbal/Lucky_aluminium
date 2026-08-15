@@ -261,12 +261,12 @@ function QuotationsPage() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-6xl max-h-[88vh] overflow-y-auto p-0">
-          <div className="bg-slate-800 text-white px-6 py-4 rounded-t-lg flex items-start justify-between gap-4">
+          <div className="bg-primary text-primary-foreground px-6 py-4 rounded-t-lg flex items-start justify-between gap-4">
             <div className="flex items-center gap-2.5">
               <img src={APP_LOGO_URL} alt="Logo" className="size-7 object-contain brightness-0 invert" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
               <div>
                 <div className="text-base font-bold tracking-tight">{company?.companyName || "UDYANA uPVC Works"}</div>
-                <div className="text-[10px] text-slate-400 leading-tight">
+                <div className="text-[10px] text-primary-foreground/60 leading-tight">
                   {company?.address && <div>{company.address}</div>}
                   <div>{[phoneDisplay(company), company?.email].filter(Boolean).join(" | ")}</div>
                 </div>
@@ -274,7 +274,7 @@ function QuotationsPage() {
             </div>
             <div className="text-right shrink-0">
               <div className="text-xl font-bold tracking-wide">QUOTATION</div>
-              <div className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
+              <div className="text-[10px] text-primary-foreground/60 mt-0.5 leading-relaxed">
                 <div>Reference: {editingId ? list.find((x) => x.id === editingId)?.number : `QT-${String(list.length + 1).padStart(4, "0")}`}</div>
                 <div>Date: {editingId ? dateShort(list.find((x) => x.id === editingId)?.date) : dateShort(new Date().toISOString())}</div>
               </div>
@@ -289,7 +289,7 @@ function QuotationsPage() {
                   <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter customer name" className="h-9 text-base font-semibold border-0 bg-transparent px-0 focus-visible:ring-0 focus-visible:border-b focus-visible:rounded-none" />
                 </div>
               </div>
-              <Badge variant="outline" className="text-xs px-3 py-1 border-slate-400 text-slate-500 bg-slate-50">Draft</Badge>
+                <Badge variant="outline" className="text-xs px-3 py-1 border-border text-muted-foreground bg-muted/50">Draft</Badge>
             </div>
           </div>
 
