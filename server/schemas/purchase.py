@@ -5,8 +5,10 @@ from pydantic import BaseModel, Field
 
 class PurchaseItemBase(BaseModel):
     productName: str
+    itemType: str = "other"
     widthFt: float = 0
     heightFt: float = 0
+    length: float = 0
     quantity: int = 1
     purchasePrice: float = 0
     salePrice: float = 0

@@ -83,20 +83,27 @@ async def _sync_purchase_inventory(purchase: Purchase, items: list, db: AsyncSes
 
         width_ft = float(getattr(item, "widthFt", 0) or 0)
         height_ft = float(getattr(item, "heightFt", 0) or 0)
+        length = float(getattr(item, "length", 0) or 0)
         quantity = float(getattr(item, "quantity", 0) or 0)
-        total_stock = width_ft * height_ft * quantity if width_ft and height_ft else quantity
+        item_type = getattr(item, "itemType", "other") or "other"
+        if item_type == "window":
+            total_stock = length * quantity if length else quantity
+        else:
+            total_stock = width_ft * height_ft * quantity if width_ft and height_ft else quantity
 
         if inventory is None:
             inventory = InventoryItem(
                 name=product_name,
                 category="Purchased",
                 unit="pcs",
+                item_type=item_type,
                 current_stock=total_stock,
                 min_stock=0,
                 cost_price=float(getattr(item, "purchasePrice", 0) or 0),
                 supplier=purchase.supplier_name,
                 width_ft=width_ft,
                 height_ft=height_ft,
+                length=length,
                 stock_qty=quantity,
                 created_at=datetime.utcnow(),
             )
@@ -104,6 +111,7 @@ async def _sync_purchase_inventory(purchase: Purchase, items: list, db: AsyncSes
         else:
             inventory.category = inventory.category or "Purchased"
             inventory.unit = inventory.unit or "pcs"
+            inventory.item_type = item_type
             inventory.supplier = inventory.supplier or purchase.supplier_name
             if float(getattr(item, "purchasePrice", 0) or 0) > 0:
                 inventory.cost_price = float(getattr(item, "purchasePrice", 0) or 0)
@@ -111,6 +119,8 @@ async def _sync_purchase_inventory(purchase: Purchase, items: list, db: AsyncSes
                 inventory.width_ft = width_ft
             if height_ft > 0:
                 inventory.height_ft = height_ft
+            if length > 0:
+                inventory.length = length
             inventory.stock_qty = float(inventory.stock_qty or 0) + quantity
             inventory.current_stock = float(inventory.current_stock or 0) + total_stock
 
@@ -130,8 +140,10 @@ def _to_response(p: Purchase) -> dict:
             {
                 "id": i.id,
                 "productName": i.product_name,
+                "itemType": i.item_type,
                 "widthFt": float(i.width_ft or 0),
                 "heightFt": float(i.height_ft or 0),
+                "length": float(i.length or 0),
                 "quantity": i.quantity,
                 "purchasePrice": float(i.purchase_price),
                 "salePrice": float(i.sale_price),
@@ -186,8 +198,10 @@ async def create_purchase(body: PurchaseCreate, db: AsyncSession = Depends(get_d
         db.add(PurchaseItem(
             purchase_id=purchase.id,
             product_name=item.productName,
+            item_type=item.itemType,
             width_ft=item.widthFt,
             height_ft=item.heightFt,
+            length=item.length,
             quantity=item.quantity,
             purchase_price=item.purchasePrice,
             sale_price=item.salePrice,

@@ -7,12 +7,14 @@ class InventoryItemBase(BaseModel):
     name: str
     category: str
     unit: str
+    itemType: str = "other"
     currentStock: float = 0
     minStock: float = 0
     costPrice: float = 0
     supplier: str | None = None
     widthFt: float = 0
     heightFt: float = 0
+    length: float = 0
     stockQty: float = 0
 
 

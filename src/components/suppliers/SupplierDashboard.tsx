@@ -4,7 +4,8 @@ import type { CompanyProfile } from "@/lib/print";
 import { SupplierProfile } from "@/components/suppliers/SupplierProfile";
 import { SupplierSummaryCards } from "@/components/suppliers/SupplierSummaryCards";
 import { SupplierActions } from "@/components/suppliers/SupplierActions";
-import { RecentTransactions } from "@/components/suppliers/RecentTransactions";
+import { PurchaseProductsSummary } from "@/components/suppliers/PurchaseProductsSummary";
+import { RecentPurchasesList } from "@/components/suppliers/RecentPurchasesList";
 import { SupplierTransactionHistory } from "@/components/suppliers/SupplierTransactionHistory";
 import { SupplierStatement } from "@/components/suppliers/SupplierStatement";
 
@@ -53,14 +54,12 @@ export function SupplierDashboard({
   purchases: Purchase[];
   company: CompanyProfile;
 }) {
-  const recentTransactions = [...transactions].sort((a, b) => b.date - a.date).slice(0, 8);
-
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <div className="text-xl font-semibold">Supplier Dashboard</div>
-          <div className="text-sm text-muted-foreground">{supplier.name}</div>
+          <div className="text-2xl font-bold tracking-tight">Supplier Dashboard</div>
+          <div className="text-sm text-muted-foreground mt-1">{supplier.name}</div>
         </div>
         <SupplierActions
           onBack={onBack}
@@ -72,17 +71,19 @@ export function SupplierDashboard({
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+      <SupplierSummaryCards
+        totalPurchases={totalPurchases}
+        totalPayments={totalPayments}
+        outstandingBalance={outstandingBalance}
+        lastPurchaseDate={lastPurchaseDate}
+      />
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <SupplierProfile supplier={supplier} />
-        <SupplierSummaryCards
-          totalPurchases={totalPurchases}
-          totalPayments={totalPayments}
-          outstandingBalance={outstandingBalance}
-          lastPurchaseDate={lastPurchaseDate}
-        />
+        <PurchaseProductsSummary purchases={purchases} />
       </div>
 
-      <RecentTransactions transactions={recentTransactions} />
+      <RecentPurchasesList purchases={purchases} />
 
       <div id="transaction-history">
         <SupplierTransactionHistory transactions={ledgerEntries} purchases={purchases} supplier={supplier} company={company} outstandingBalance={outstandingBalance} />

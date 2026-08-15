@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { currency } from "@/lib/format";
 
 export const Route = createFileRoute("/inventory")({
@@ -17,8 +18,8 @@ export const Route = createFileRoute("/inventory")({
   component: InventoryPage,
 });
 
-type InventoryItem = { id: number; name: string; category: string; unit: string; currentStock: number; minStock: number; costPrice: number; supplier?: string; widthFt?: number; heightFt?: number; stockQty?: number; createdAt: string };
-const empty: Omit<InventoryItem, "id" | "createdAt"> = { name: "", category: "", unit: "pcs", currentStock: 0, minStock: 0, costPrice: 0, supplier: "", widthFt: 0, heightFt: 0, stockQty: 0 };
+type InventoryItem = { id: number; name: string; category: string; unit: string; itemType: string; currentStock: number; minStock: number; costPrice: number; supplier?: string; widthFt?: number; heightFt?: number; length?: number; stockQty?: number; createdAt: string };
+const empty: Omit<InventoryItem, "id" | "createdAt"> = { name: "", category: "", unit: "pcs", itemType: "other", currentStock: 0, minStock: 0, costPrice: 0, supplier: "", widthFt: 0, heightFt: 0, length: 0, stockQty: 0 };
 
 function InventoryPage() {
   const { can } = useAuth();
@@ -60,22 +61,28 @@ function InventoryPage() {
           <div className="stat-card"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Low stock</div><div className="text-xl font-semibold tabular-nums text-amber-600">{lowStock.length}</div></div>
         </div>
         <div className="bg-card border border-border rounded-md overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="data-table">
-            <thead><tr><th>Item</th><th>Category</th><th>Supplier</th><th>Unit</th><th className="text-right">W (ft)</th><th className="text-right">H (ft)</th><th className="text-right">Qty</th><th className="text-right">Total stock</th><th className="text-right">Min</th><th className="text-right">Cost</th><th>Status</th><th className="w-20 text-right">Actions</th></tr></thead>
+            <thead><tr><th>Item</th><th>Type</th><th>Category</th><th>Supplier</th><th>Unit</th><th className="text-right">Dimension</th><th className="text-right">Qty</th><th className="text-right">Total stock</th><th className="text-right">Min</th><th className="text-right">Cost</th><th>Status</th><th className="w-20 text-right">Actions</th></tr></thead>
             <tbody>
               {list.map((i) => {
                 const low = i.currentStock < i.minStock;
+                const isWindow = (i.itemType || "other") === "window";
+                const dimension = isWindow
+                  ? `${i.length || 0} ft`
+                  : (i.widthFt || i.heightFt) ? `${i.widthFt ?? 0} × ${i.heightFt ?? 0} ft` : "-";
                 return (
                   <tr key={i.id}>
-                    <td className="font-medium">{i.name}</td><td>{i.category}</td><td className="text-muted-foreground">{i.supplier || "-"}</td><td>{i.unit}</td>
-                    <td className="text-right tabular-nums text-muted-foreground">{i.widthFt ?? 0}</td>
-                    <td className="text-right tabular-nums text-muted-foreground">{i.heightFt ?? 0}</td>
+                    <td className="font-medium">{i.name}</td>
+                    <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${isWindow ? "bg-violet-500/10 text-violet-600 border-violet-500/30" : "bg-slate-500/10 text-slate-600 border-slate-500/30"}`}>{isWindow ? "Window" : "Other"}</span></td>
+                    <td>{i.category}</td><td className="text-muted-foreground">{i.supplier || "-"}</td><td>{i.unit}</td>
+                    <td className="text-right tabular-nums text-muted-foreground">{dimension}</td>
                     <td className="text-right tabular-nums text-muted-foreground">{i.stockQty ?? 0}</td>
                     <td className={`text-right tabular-nums ${low ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}`}>{i.currentStock}</td>
                     <td className="text-right tabular-nums text-muted-foreground">{i.minStock}</td><td className="text-right tabular-nums">{currency(i.costPrice)}</td>
                     <td>{low ? <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] border bg-amber-500/15 text-amber-600 border-amber-500/30"><AlertTriangle className="size-3" />Low</span> : <span className="inline-flex rounded px-1.5 py-0.5 text-[11px] border bg-emerald-500/15 text-emerald-600 border-emerald-500/30">OK</span>}</td>
                     <td className="text-right">
-                      {can("inventory", "edit") && <button onClick={() => { setEditingId(i.id); setForm({ name: i.name, category: i.category, unit: i.unit, currentStock: i.currentStock, minStock: i.minStock, costPrice: i.costPrice, supplier: i.supplier || "", widthFt: i.widthFt ?? 0, heightFt: i.heightFt ?? 0, stockQty: i.stockQty ?? 0 }); setOpen(true); }} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Pencil className="size-3.5" /></button>}
+                      {can("inventory", "edit") && <button onClick={() => { setEditingId(i.id); setForm({ name: i.name, category: i.category, unit: i.unit, itemType: (i.itemType || "other") as "window" | "other", currentStock: i.currentStock, minStock: i.minStock, costPrice: i.costPrice, supplier: i.supplier || "", widthFt: i.widthFt ?? 0, heightFt: i.heightFt ?? 0, length: i.length ?? 0, stockQty: i.stockQty ?? 0 }); setOpen(true); }} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Pencil className="size-3.5" /></button>}
                       {can("inventory", "delete") && <button onClick={() => setDeleteTarget(i.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center"><Trash2 className="size-3.5" /></button>}
                     </td>
                   </tr>
@@ -84,6 +91,7 @@ function InventoryPage() {
               {!list.length && <tr><td colSpan={12} className="text-center py-12 text-muted-foreground">{loading ? "Loading..." : "No inventory items"}</td></tr>}
             </tbody>
           </table>
+          </div>
         </div>
       </PageContainer>
 
@@ -94,9 +102,25 @@ function InventoryPage() {
             <div><Label className="text-xs">Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-8" /></div>
             <div><Label className="text-xs">Category</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="h-8" /></div>
             <div><Label className="text-xs">Unit</Label><Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="h-8" /></div>
+            <div>
+              <Label className="text-xs">Type</Label>
+              <Select value={form.itemType || "other"} onValueChange={(v) => setForm({ ...form, itemType: v as "window" | "other" })}>
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="window">Window</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div><Label className="text-xs">Supplier</Label><Input value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} className="h-8" /></div>
-            <div><Label className="text-xs">W (ft)</Label><Input type="number" value={form.widthFt || ""} onChange={(e) => setForm({ ...form, widthFt: Number(e.target.value) })} className="h-8" /></div>
-            <div><Label className="text-xs">H (ft)</Label><Input type="number" value={form.heightFt || ""} onChange={(e) => setForm({ ...form, heightFt: Number(e.target.value) })} className="h-8" /></div>
+            {form.itemType === "window" ? (
+              <div><Label className="text-xs">Length (ft)</Label><Input type="number" value={form.length || ""} onChange={(e) => setForm({ ...form, length: Number(e.target.value) })} className="h-8" /></div>
+            ) : (
+              <>
+                <div><Label className="text-xs">W (ft)</Label><Input type="number" value={form.widthFt || ""} onChange={(e) => setForm({ ...form, widthFt: Number(e.target.value) })} className="h-8" /></div>
+                <div><Label className="text-xs">H (ft)</Label><Input type="number" value={form.heightFt || ""} onChange={(e) => setForm({ ...form, heightFt: Number(e.target.value) })} className="h-8" /></div>
+              </>
+            )}
             <div><Label className="text-xs">Qty</Label><Input type="number" value={form.stockQty || ""} onChange={(e) => setForm({ ...form, stockQty: Number(e.target.value) })} className="h-8" /></div>
             <div><Label className="text-xs">Current stock</Label><Input type="number" value={form.currentStock || ""} onChange={(e) => setForm({ ...form, currentStock: Number(e.target.value) })} className="h-8" /></div>
             <div><Label className="text-xs">Minimum stock</Label><Input type="number" value={form.minStock || ""} onChange={(e) => setForm({ ...form, minStock: Number(e.target.value) })} className="h-8" /></div>

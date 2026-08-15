@@ -26,6 +26,29 @@ async def _adjust_stock(db: AsyncSession, product_name: str, delta: float):
     item.current_stock = max(0, (item.current_stock or 0) + delta)
 
 
+async def _check_stock(db: AsyncSession, items: list) -> list:
+    """Check if enough stock is available for each item. Returns list of errors."""
+    errors = []
+    for item in items:
+        product_name = item.productName if hasattr(item, 'productName') else item.product_name
+        if not product_name:
+            continue
+        result = await db.execute(select(InventoryItem).where(InventoryItem.name == product_name))
+        inv_item = result.scalar_one_or_none()
+        if not inv_item:
+            continue
+        available = inv_item.current_stock or 0
+        requested = item.quantity
+        if requested > available:
+            errors.append({
+                "product": product_name,
+                "requested": requested,
+                "available": available,
+                "shortage": requested - available,
+            })
+    return errors
+
+
 def _to_response(o: Order) -> dict:
     return {
         "id": o.id,
@@ -123,6 +146,17 @@ async def get_order(order_id: int, db: AsyncSession = Depends(get_db), _user=Dep
 
 @router.post("")
 async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("orders", "create"))):
+    # Check stock availability before creating order
+    stock_errors = await _check_stock(db, body.items)
+    if stock_errors:
+        error_messages = []
+        for err in stock_errors:
+            error_messages.append(f"{err['product']}: requested {err['requested']}, available {err['available']} (short by {err['shortage']})")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient stock for: {'; '.join(error_messages)}"
+        )
+
     order = Order(
         number=body.number,
         customer_id=body.customerId,
@@ -178,10 +212,49 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    old_items = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
-    for old in old_items.scalars().all():
+    # Get old items to calculate net stock change
+    old_items_result = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
+    old_items = old_items_result.scalars().all()
+    
+    # Calculate net stock change per product
+    stock_changes = {}
+    for old in old_items:
+        stock_changes[old.product_name] = stock_changes.get(old.product_name, 0) + old.quantity
+    for item in body.items:
+        product_name = item.productName if hasattr(item, 'productName') else item.product_name
+        stock_changes[product_name] = stock_changes.get(product_name, 0) - item.quantity
+    
+    # Check if stock is sufficient for the net changes
+    errors = []
+    for product_name, delta in stock_changes.items():
+        if delta < 0:  # Only check if we're deducting more than returning
+            result = await db.execute(select(InventoryItem).where(InventoryItem.name == product_name))
+            inv_item = result.scalar_one_or_none()
+            if inv_item:
+                available = inv_item.current_stock or 0
+                needed = abs(delta)
+                if needed > available:
+                    errors.append({
+                        "product": product_name,
+                        "requested": needed,
+                        "available": available,
+                        "shortage": needed - available,
+                    })
+    
+    if errors:
+        error_messages = []
+        for err in errors:
+            error_messages.append(f"{err['product']}: requested {err['requested']}, available {err['available']} (short by {err['shortage']})")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient stock for: {'; '.join(error_messages)}"
+        )
+
+    # Delete old items and restore stock
+    for old in old_items:
         await _adjust_stock(db, old.product_name, old.quantity)
         await db.delete(old)
+    
     order.number = body.number
     order.customer_id = body.customerId
     order.customer_name = body.customerName
@@ -220,7 +293,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
     await db.commit()
 
     result = await db.execute(
-        select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
+        select(Order).options(selectinload(Order.items)).where(Order.id == order.id)
     )
     return _to_response(result.scalar_one())
 

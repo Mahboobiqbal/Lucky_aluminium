@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { currency, dateShort } from "@/lib/format";
-import { createPurchaseInvoicePdf, downloadPdf, printPdf } from "@/lib/pdf";
+import { createPurchaseInvoicePdf, downloadPdf, printPdf, openPdfPreview, sharePdf, type PurchaseInvoiceData } from "@/lib/pdf";
 import type { CompanyProfile } from "@/lib/print";
 import type { Purchase, Supplier } from "@/lib/db";
 import type { LedgerEntry } from "@/lib/ledger";
-import { Download, Printer } from "lucide-react";
+import { Download, Printer, ShoppingCart, CreditCard, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { PurchaseInvoice } from "@/components/suppliers/PurchaseInvoice";
 
 export function LedgerTable({
   rows,
@@ -22,29 +25,31 @@ export function LedgerTable({
   company: CompanyProfile;
   outstandingBalance: number;
 }) {
-  const handleInvoiceAction = async (purchase: Purchase, mode: "pdf" | "print") => {
-    const invoiceData = {
-      invoiceNumber: purchase.invoiceNumber,
-      date: new Date(purchase.date).getTime(),
-      supplier: {
-        name: supplier.name,
-        company: supplier.company,
-        contact: supplier.contact,
-        address: supplier.address,
-      },
-      items: purchase.items.map((item) => ({
-        productName: item.productName,
-        quantity: item.quantity,
-        purchasePrice: item.purchasePrice,
-        amount: item.amount,
-      })),
-      paymentType: purchase.paymentType,
-      subtotal: purchase.totalAmount,
-      totalQuantity: purchase.items.reduce((sum, item) => sum + item.quantity, 0),
-      outstandingBalance,
-    };
+  const [viewPurchase, setViewPurchase] = useState<PurchaseInvoiceData | null>(null);
 
-    const doc = createPurchaseInvoicePdf(invoiceData, company);
+  const buildInvoiceData = (purchase: Purchase): PurchaseInvoiceData => ({
+    invoiceNumber: purchase.invoiceNumber,
+    date: new Date(purchase.date).getTime(),
+    supplier: {
+      name: supplier.name,
+      company: supplier.company,
+      contact: supplier.contact,
+      address: supplier.address,
+    },
+    items: purchase.items.map((item) => ({
+      productName: item.productName,
+      quantity: item.quantity,
+      purchasePrice: item.purchasePrice,
+      amount: item.amount,
+    })),
+    paymentType: purchase.paymentType,
+    subtotal: purchase.totalAmount,
+    totalQuantity: purchase.items.reduce((sum, item) => sum + item.quantity, 0),
+    outstandingBalance,
+  });
+
+  const handleInvoiceAction = async (purchase: Purchase, mode: "pdf" | "print") => {
+    const doc = createPurchaseInvoicePdf(buildInvoiceData(purchase), company);
     if (mode === "pdf") {
       await downloadPdf(doc, `${purchase.invoiceNumber}.pdf`);
       toast.success("Invoice saved as PDF");
@@ -54,10 +59,24 @@ export function LedgerTable({
     }
   };
 
+  const handleView = (purchase: Purchase) => {
+    setViewPurchase(buildInvoiceData(purchase));
+  };
+
   return (
-    <div className="bg-card border border-border rounded-md overflow-hidden">
-      <div className="p-4 border-b border-border">
-        <div className="text-sm font-semibold">{title}</div>
+    <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+      <div className="px-5 py-3.5 border-b border-border">
+        <div className="flex items-center gap-2">
+          <div className="size-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-600 dark:text-violet-400">
+            <CreditCard className="size-4" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold tracking-tight">{title}</div>
+            <div className="text-[11px] text-muted-foreground">
+              Purchases (debit) + Payments (credit) = Running Balance
+            </div>
+          </div>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="data-table min-w-full">
@@ -67,32 +86,41 @@ export function LedgerTable({
               <th>Reference</th>
               <th>Type</th>
               <th>Description</th>
-              <th className="text-right">Debit</th>
-              <th className="text-right">Credit</th>
-              <th className="text-right">Remaining Balance</th>
-              <th className="w-44 text-right">Actions</th>
+              <th className="text-right">Debit (Purchase)</th>
+              <th className="text-right">Credit (Payment)</th>
+              <th className="text-right">Running Balance</th>
+              <th className="w-52 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row, index) => {
               const purchase = row.type === "Purchase" ? purchases.find((item) => item.id === row.id) : undefined;
+              const isPurchase = row.type === "Purchase";
               return (
-                <tr key={`${row.reference}-${index}`}>
+                <tr key={`${row.reference}-${index}`} className="hover:bg-muted/30 transition-colors">
                   <td className="text-muted-foreground">{row.date ? dateShort(row.date) : "Opening"}</td>
                   <td className="font-medium">{row.reference}</td>
-                  <td>{row.type}</td>
-                  <td>{row.description}</td>
+                  <td>
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${isPurchase ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}>
+                      {isPurchase ? <ShoppingCart className="size-3" /> : <CreditCard className="size-3" />}
+                      {row.type}
+                    </span>
+                  </td>
+                  <td className="text-muted-foreground">{row.description}</td>
                   <td className="text-right tabular-nums">{row.debit ? currency(row.debit) : ""}</td>
                   <td className="text-right tabular-nums">{row.credit ? currency(row.credit) : ""}</td>
                   <td className="text-right tabular-nums font-semibold">{currency(row.balance)}</td>
                   <td className="text-right">
                     {purchase ? (
-                      <div className="flex justify-end gap-2">
-                        <Button type="button" size="sm" variant="outline" onClick={() => void handleInvoiceAction(purchase, "pdf")}>
-                          <Download className="size-3.5 mr-1" />PDF
+                      <div className="flex justify-end gap-1.5">
+                        <Button type="button" size="sm" variant="ghost" onClick={() => handleView(purchase)} className="h-7 px-2">
+                          <Eye className="size-3.5 mr-1" />View
                         </Button>
-                        <Button type="button" size="sm" variant="outline" onClick={() => void handleInvoiceAction(purchase, "print")}>
-                          <Printer className="size-3.5 mr-1" />Print
+                        <Button type="button" size="sm" variant="ghost" onClick={() => void handleInvoiceAction(purchase, "pdf")} className="h-7 px-2">
+                          <Download className="size-3.5" />
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => void handleInvoiceAction(purchase, "print")} className="h-7 px-2">
+                          <Printer className="size-3.5" />
                         </Button>
                       </div>
                     ) : (
@@ -112,6 +140,22 @@ export function LedgerTable({
           </tbody>
         </table>
       </div>
+
+      {viewPurchase && (
+        <Dialog open={!!viewPurchase} onOpenChange={(open) => !open && setViewPurchase(null)}>
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Purchase Invoice — {viewPurchase.invoiceNumber}</DialogTitle>
+            </DialogHeader>
+            <PurchaseInvoice
+              invoice={viewPurchase}
+              onPrint={async () => { const doc = createPurchaseInvoicePdf(viewPurchase, company); await openPdfPreview(doc); }}
+              onDownload={async () => { const doc = createPurchaseInvoicePdf(viewPurchase, company); await downloadPdf(doc, `${viewPurchase.invoiceNumber}-invoice.pdf`); }}
+              onShare={async () => { const doc = createPurchaseInvoicePdf(viewPurchase, company); await sharePdf(doc, `${viewPurchase.invoiceNumber}-invoice.pdf`); }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

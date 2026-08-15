@@ -57,6 +57,8 @@ type Order = {
 };
 
 type Customer = { id: number; name: string };
+type Product = { id: number; name: string; basePrice: number; active: boolean };
+type InventoryItem = { id: number; name: string; currentStock: number };
 
 const emptyItem: OrderItem = { productName: "", itemType: "other", width: 1, height: 1, length: 1, quantity: 1, unitPrice: 0, amount: 0 };
 
@@ -70,6 +72,8 @@ function OrdersPage() {
 
   const [list, setList] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState({
@@ -91,12 +95,16 @@ function OrdersPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [orders, custs] = await Promise.all([
+      const [orders, custs, prods, inv] = await Promise.all([
         api.safeGet<Order[]>("/api/orders"),
         api.safeGet<Customer[]>("/api/customers"),
+        api.safeGet<Product[]>("/api/products"),
+        api.safeGet<InventoryItem[]>("/api/inventory"),
       ]);
       setList(orders || []);
       setCustomers(custs || []);
+      setProducts((prods || []).filter((p) => p.active));
+      setInventory(inv || []);
     } catch {} finally {
       setLoading(false);
     }
@@ -105,6 +113,11 @@ function OrdersPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = list.filter((o) => !q || [o.number, o.customerName].some((v) => v.toLowerCase().includes(q.toLowerCase())));
+
+  const getAvailableStock = (productName: string): number | null => {
+    const item = inventory.find((i) => i.name.toLowerCase() === productName.toLowerCase());
+    return item ? item.currentStock : null;
+  };
 
   const changeStatus = async (id: number, status: string) => {
     try {
@@ -207,7 +220,12 @@ function OrdersPage() {
       setOpen(false);
       fetchData();
     } catch (err: any) {
-      toast.error(err.message || "Failed to save");
+      const msg = err.message || "Failed to save";
+      if (msg.includes("Insufficient stock")) {
+        toast.error(msg, { duration: 10000 });
+      } else {
+        toast.error(msg);
+      }
     }
   };
 
@@ -348,7 +366,41 @@ function OrdersPage() {
                 {form.items.map((item, index) => (
                   <div key={index} className="p-3 space-y-2">
                     <div className={`grid grid-cols-1 sm:grid-cols-2 ${item.itemType === "window" ? "lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto_auto]" : "lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto_auto]"} gap-2 items-end`}>
-                      <div><Label className="text-xs">Product</Label><Input value={item.productName} onChange={(e) => updateItem(index, { productName: e.target.value })} placeholder="Type product name" className="h-8" /></div>
+                      <div>
+                        <Label className="text-xs">Product</Label>
+                        <Select value={item.productName || "__none__"} onValueChange={(v) => {
+                          if (v === "__none__") return updateItem(index, { productName: "" });
+                          const prod = products.find((p) => p.name === v);
+                          updateItem(index, { productName: v, unitPrice: prod?.basePrice || item.unitPrice });
+                        }}>
+                          <SelectTrigger className="h-8"><SelectValue placeholder="Select product" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">-- Select product --</SelectItem>
+                            {products.map((p) => {
+                              const stock = getAvailableStock(p.name);
+                              return (
+                                <SelectItem key={p.id} value={p.name}>
+                                  {p.name} {stock !== null && <span className="text-muted-foreground ml-1">({stock} in stock)</span>}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                        {item.productName && (
+                          <div className="mt-1">
+                            {(() => {
+                              const stock = getAvailableStock(item.productName);
+                              if (stock === null) return null;
+                              const isLow = stock < item.quantity;
+                              return (
+                                <span className={`text-[11px] ${isLow ? "text-rose-600 font-medium" : "text-muted-foreground"}`}>
+                                  Available: {stock} {isLow && `(need ${item.quantity})`}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
                       <div>
                         <Label className="text-xs">Type</Label>
                         <Select value={item.itemType || "other"} onValueChange={(v) => updateItem(index, { itemType: v as "window" | "other" })}>
@@ -367,7 +419,15 @@ function OrdersPage() {
                           <div><Label className="text-xs">Height</Label><Input type="number" value={item.height || ""} onChange={(e) => updateItem(index, { height: Number(e.target.value) })} className="h-8" /></div>
                         </>
                       )}
-                      <div><Label className="text-xs">Qty</Label><Input type="number" value={item.quantity || ""} onChange={(e) => updateItem(index, { quantity: Number(e.target.value) })} className="h-8" /></div>
+                      <div>
+                        <Label className="text-xs">Qty</Label>
+                        <Input
+                          type="number"
+                          value={item.quantity || ""}
+                          onChange={(e) => updateItem(index, { quantity: Number(e.target.value) })}
+                          className={`h-8 ${item.productName && getAvailableStock(item.productName) !== null && item.quantity > (getAvailableStock(item.productName) || 0) ? "border-rose-500 focus:ring-rose-500" : ""}`}
+                        />
+                      </div>
                       <div><Label className="text-xs">Unit Price</Label><Input type="number" value={item.unitPrice || ""} onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })} className="h-8" /></div>
                       <div><Label className="text-xs">Amount</Label><div className="h-8 px-2 rounded border bg-muted/40 flex items-center text-sm font-semibold">{currency(item.amount)}</div></div>
                       <Button variant="ghost" size="sm" className="h-8 px-2 text-destructive" onClick={() => { const items = form.items.filter((_, i) => i !== index); setForm({ ...form, items, total: recalc(items) }); }} disabled={form.items.length === 1}><Trash2 className="size-3.5" /></Button>

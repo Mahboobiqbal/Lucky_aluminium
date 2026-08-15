@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode, type CSSProperties } from "react";
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, ClipboardList, Clock, Factory, PackageCheck, Truck, Wallet, TrendingDown, AlertTriangle, ArrowUpRight, Plus, Receipt, type LucideIcon } from "lucide-react";
+import { Users, ClipboardList, Clock, Factory, PackageCheck, Truck, Wallet, TrendingDown, AlertTriangle, ArrowUpRight, Plus, Receipt, CreditCard, ChevronRight, type LucideIcon } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 
@@ -23,30 +23,54 @@ type Expense = { id: number; category: string; amount: number; date: string };
 type InventoryItem = { id: number; name: string; currentStock: number; minStock: number };
 type Setting = { key: string; value: string };
 
-function Stat({ icon: Icon, label, value, tone = "primary", onClick }: { icon: LucideIcon; label: string; value: string; tone?: string; onClick?: () => void }) {
-  const tones: Record<string, { cls: string; accent: string }> = {
-    primary: { cls: "text-primary bg-primary/10", accent: "var(--color-primary)" },
-    emerald: { cls: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10", accent: "oklch(0.7 0.17 145)" },
-    amber: { cls: "text-amber-600 dark:text-amber-400 bg-amber-500/10", accent: "oklch(0.75 0.17 60)" },
-    violet: { cls: "text-violet-600 dark:text-violet-400 bg-violet-500/10", accent: "oklch(0.55 0.18 268)" },
-    rose: { cls: "text-rose-600 dark:text-rose-400 bg-rose-500/10", accent: "oklch(0.65 0.22 15)" },
-    blue: { cls: "text-blue-600 dark:text-blue-400 bg-blue-500/10", accent: "oklch(0.65 0.16 195)" },
+function StatCard({ icon: Icon, label, value, tone, onClick, subtitle }: { icon: LucideIcon; label: string; value: string; tone: "primary" | "emerald" | "amber" | "violet" | "rose" | "blue"; onClick?: () => void; subtitle?: string }) {
+  const tones = {
+    primary: { bg: "bg-primary/10", text: "text-primary", border: "border-l-primary" },
+    emerald: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", border: "border-l-emerald-500" },
+    amber: { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", border: "border-l-amber-500" },
+    violet: { bg: "bg-violet-500/10", text: "text-violet-600 dark:text-violet-400", border: "border-l-violet-500" },
+    rose: { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", border: "border-l-rose-500" },
+    blue: { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", border: "border-l-blue-500" },
   };
-  const t = tones[tone] ?? tones.primary;
+  const t = tones[tone];
   const interactive = Boolean(onClick);
   return (
-    <div className={`stat-card flex items-center gap-3.5 ${interactive ? "stat-card--clickable" : ""}`} style={interactive ? ({ "--stat-accent": t.accent } as CSSProperties) : undefined} onClick={onClick} role={interactive ? "button" : undefined} tabIndex={interactive ? 0 : undefined} onKeyDown={interactive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } } : undefined}>
-      <div className={`size-10 rounded-lg grid place-items-center shrink-0 ${t.cls}`}><Icon className="size-5" /></div>
-      <div className="min-w-0 flex-1"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div><div className="text-xl font-semibold tabular-nums truncate leading-tight">{value}</div></div>
-      {interactive && <ArrowUpRight className="size-4 text-muted-foreground/40 shrink-0 self-start mt-1" />}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!interactive}
+      className={`bg-card border border-border border-l-[3px] ${t.border} rounded-xl p-4 shadow-sm text-left transition-all ${interactive ? "hover:shadow-md hover:bg-muted/30 cursor-pointer" : "cursor-default"}`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
+          <div className="mt-1.5 text-2xl font-bold tracking-tight tabular-nums truncate">{value}</div>
+          {subtitle && <div className="text-[11px] text-muted-foreground mt-1">{subtitle}</div>}
+        </div>
+        <div className={`size-11 rounded-xl flex items-center justify-center shrink-0 ${t.bg} ${t.text}`}>
+          <Icon className="size-5" />
+        </div>
+      </div>
+      {interactive && (
+        <div className="mt-3 flex items-center gap-1 text-[11px] font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+          <span className={t.text}>View all</span>
+          <ChevronRight className="size-3" />
+        </div>
+      )}
+    </button>
   );
 }
 
 function Panel({ title, subtitle, action, children, className }: { title: string; subtitle?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <div className={`bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col ${className ?? ""}`}>
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-sm font-semibold leading-tight">{title}</div>{subtitle && <div className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</div>}</div>{action}</div>
+      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold tracking-tight">{title}</div>
+          {subtitle && <div className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</div>}
+        </div>
+        {action}
+      </div>
       <div className="flex-1 min-h-0">{children}</div>
     </div>
   );
@@ -96,8 +120,15 @@ function Dashboard() {
   });
 
   const pieData = Object.entries(byStatus).map(([k, v]) => ({ name: statusLabel(k), value: v }));
-  const pieColors = ["hsl(268 60% 55%)", "hsl(195 65% 50%)", "hsl(145 55% 45%)", "hsl(45 90% 55%)", "hsl(15 75% 55%)", "hsl(0 70% 55%)"];
-  const recent = [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 6);
+  const pieColors = ["#8b5cf6", "#06b6d4", "#22c55e", "#eab308", "#ef4444", "#f97316", "#ec4899"];
+  const recent = useMemo(() => [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8), [orders]);
+
+  const greeting = useMemo(() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  }, []);
 
   const saveCustomer = async () => {
     if (!customerForm.name.trim() || !customerForm.mobile.trim()) return toast.error("Name and mobile required");
@@ -109,71 +140,144 @@ function Dashboard() {
     } catch (err: any) { toast.error(err.message || "Failed"); }
   };
 
-  if (loading) return <AppShell title="Dashboard"><PageContainer><div className="text-center py-12 text-muted-foreground">Loading dashboard...</div></PageContainer></AppShell>;
+  if (loading) return (
+    <AppShell title="Dashboard">
+      <PageContainer>
+        <div className="flex items-center justify-center py-24">
+          <div className="flex flex-col items-center gap-3">
+            <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="text-sm text-muted-foreground">Loading dashboard...</div>
+          </div>
+        </div>
+      </PageContainer>
+    </AppShell>
+  );
 
   return (
-    <AppShell title="Dashboard" actions={<div className="flex gap-2">{can("customers", "create") && <Button size="sm" onClick={() => { setCustomerForm({ code: `CUS-${String(customerCount + 1).padStart(4, "0")}`, name: "", mobile: "", whatsapp: "", email: "", address: "", city: "", notes: "" }); setCustomerOpen(true); }}><Plus className="size-3.5 mr-1" />Add Customer</Button>}{can("orders", "view") && <Button size="sm" variant="outline" onClick={() => navigate({ to: "/orders" })}>Check Orders</Button>}</div>}>
+    <AppShell title="Dashboard" actions={<div className="flex gap-2">{can("customers", "create") && <Button size="sm" className="rounded-lg" onClick={() => { setCustomerForm({ code: `CUS-${String(customerCount + 1).padStart(4, "0")}`, name: "", mobile: "", whatsapp: "", email: "", address: "", city: "", notes: "" }); setCustomerOpen(true); }}><Plus className="size-3.5 mr-1" />Add Customer</Button>}{can("orders", "view") && <Button size="sm" variant="outline" className="rounded-lg" onClick={() => navigate({ to: "/orders" })}>Check Orders</Button>}</div>}>
       <PageContainer>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Stat icon={Users} label="Customers" value={String(customerCount)} tone="primary" onClick={() => navigate({ to: "/customers" })} />
-            <Stat icon={ClipboardList} label="Total Orders" value={String(orders.length)} tone="violet" onClick={() => navigate({ to: "/orders" })} />
-            <Stat icon={Wallet} label="Total Revenue" value={currency(totalSales)} tone="emerald" />
-            <Stat icon={TrendingDown} label="Pending" value={currency(pendingPayments)} tone="rose" />
+        <div className="space-y-5">
+          {/* Welcome header */}
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">{greeting}</h1>
+              <p className="text-sm text-muted-foreground mt-1">Here's what's happening with your business today.</p>
+            </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
-            <div className="space-y-4">
-              <Panel title="Revenue vs Expenses" subtitle="Last 6 months">
+          {/* Stat cards */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatCard icon={Users} label="Customers" value={String(customerCount)} tone="primary" onClick={() => navigate({ to: "/customers" })} subtitle={`${orders.length} total orders`} />
+            <StatCard icon={ClipboardList} label="Total Orders" value={String(orders.length)} tone="violet" onClick={() => navigate({ to: "/orders" })} subtitle={`${byStatus["pending"] || 0} pending`} />
+            <StatCard icon={Wallet} label="Total Revenue" value={currency(totalSales)} tone="emerald" subtitle={`${currency(totalExpenses)} expenses`} />
+            <StatCard icon={CreditCard} label="Pending Payments" value={currency(pendingPayments)} tone="rose" onClick={() => navigate({ to: "/payments" })} subtitle={`${orders.filter((o) => o.paid < o.total && o.total > 0).length} orders`} />
+          </div>
+
+          {/* Main content grid */}
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="space-y-5">
+              {/* Revenue vs Expenses chart */}
+              <Panel title="Revenue vs Expenses" subtitle="Last 6 months overview">
                 {monthly.some((m) => m.revenue > 0 || m.expenses > 0) ? (
-                  <div className="p-4 h-64">
+                  <div className="p-5 h-72">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={monthly}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="label" fontSize={11} tickLine={false} />
-                        <YAxis fontSize={11} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                        <Tooltip formatter={(v: number) => currency(v)} />
-                        <Bar dataKey="revenue" fill="hsl(145 55% 45%)" radius={[4, 4, 0, 0]} name="Revenue" />
-                        <Bar dataKey="expenses" fill="hsl(15 75% 55%)" radius={[4, 4, 0, 0]} name="Expenses" />
+                      <BarChart data={monthly} barGap={4}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                        <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} />
+                        <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                        <Tooltip
+                          formatter={(v: number) => currency(v)}
+                          contentStyle={{ borderRadius: "10px", border: "1px solid hsl(var(--border))", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
+                        />
+                        <Bar dataKey="revenue" fill="#22c55e" radius={[6, 6, 0, 0]} name="Revenue" />
+                        <Bar dataKey="expenses" fill="#ef4444" radius={[6, 6, 0, 0]} name="Expenses" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                ) : <div className="p-8 text-center text-sm text-muted-foreground">No data yet</div>}
+                ) : (
+                  <div className="p-12 text-center text-sm text-muted-foreground">
+                    <div className="size-12 rounded-xl bg-muted/50 flex items-center justify-center mx-auto mb-3"><TrendingDown className="size-5 text-muted-foreground/50" /></div>
+                    No revenue or expense data yet
+                  </div>
+                )}
               </Panel>
 
+              {/* Order Status pie chart */}
               <Panel title="Order Status" subtitle="Current distribution">
                 {pieData.length > 0 ? (
-                  <div className="p-4 h-64 flex items-center justify-center gap-6">
-                    <div className="h-48 w-48">
+                  <div className="p-5 h-72 flex items-center justify-center gap-8">
+                    <div className="h-52 w-52 shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
-                        <PieChart><Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3} dataKey="value">{pieData.map((_, i) => <Cell key={i} fill={pieColors[i % pieColors.length]} />)}</Pie><Tooltip /></PieChart>
+                        <PieChart>
+                          <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={4} dataKey="value" strokeWidth={0}>
+                            {pieData.map((_, i) => <Cell key={i} fill={pieColors[i % pieColors.length]} />)}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{ borderRadius: "10px", border: "1px solid hsl(var(--border))", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
+                          />
+                        </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="space-y-2">{pieData.map((d, i) => <div key={d.name} className="flex items-center gap-2 text-xs"><div className="size-2.5 rounded-full" style={{ backgroundColor: pieColors[i % pieColors.length] }} /><span className="text-muted-foreground">{d.name}</span><span className="font-semibold">{d.value}</span></div>)}</div>
+                    <div className="space-y-3">
+                      {pieData.map((d, i) => (
+                        <div key={d.name} className="flex items-center gap-3">
+                          <div className="size-3 rounded-full shrink-0" style={{ backgroundColor: pieColors[i % pieColors.length] }} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs text-muted-foreground">{d.name}</div>
+                            <div className="text-sm font-bold tabular-nums">{d.value}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ) : <div className="p-8 text-center text-sm text-muted-foreground">No orders yet</div>}
+                ) : (
+                  <div className="p-12 text-center text-sm text-muted-foreground">
+                    <div className="size-12 rounded-xl bg-muted/50 flex items-center justify-center mx-auto mb-3"><ClipboardList className="size-5 text-muted-foreground/50" /></div>
+                    No orders yet
+                  </div>
+                )}
               </Panel>
             </div>
 
-            <div className="space-y-4">
-              <Panel title="Recent Orders" subtitle="Latest activity">
-                <div className="divide-y divide-border max-h-80 overflow-y-auto">
-                  {recent.length > 0 ? recent.map((o) => (
-                    <div key={o.id} className="px-4 py-3 hover:bg-muted/50 transition-colors">
-                      <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="font-medium text-sm truncate">{o.customerName}</div><div className="text-[11px] text-muted-foreground">{o.number} · {dateShort(o.orderDate)}</div></div><div className="text-right shrink-0"><div className="text-sm font-semibold tabular-nums">{currency(o.total)}</div><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${statusColor[o.status]}`}>{statusLabel(o.status)}</span></div></div>
+            <div className="space-y-5">
+              {/* Recent Orders */}
+              <Panel title="Recent Orders" subtitle="Latest activity" action={<Button variant="ghost" size="sm" className="text-xs h-7 rounded-lg" onClick={() => navigate({ to: "/orders" })}>View all <ChevronRight className="size-3 ml-0.5" /></Button>}>
+                <div className="divide-y divide-border max-h-[420px] overflow-y-auto">
+                  {recent.length > 0 ? recent.map((o) => {
+                    const initials = o.customerName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+                    return (
+                      <div key={o.id} className="px-4 py-3 hover:bg-muted/40 transition-colors cursor-pointer" onClick={() => navigate({ to: "/orders" })}>
+                        <div className="flex items-center gap-3">
+                          <div className="size-9 rounded-full bg-gradient-to-br from-violet-500/20 to-violet-500/5 flex items-center justify-center text-[10px] font-bold text-violet-600 dark:text-violet-400 shrink-0">{initials}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">{o.customerName}</div>
+                            <div className="text-[11px] text-muted-foreground">{o.number} &middot; {dateShort(o.orderDate)}</div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-sm font-bold tabular-nums">{currency(o.total)}</div>
+                            <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${statusColor[o.status]}`}>{statusLabel(o.status)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <div className="p-10 text-center text-sm text-muted-foreground">
+                      <div className="size-12 rounded-xl bg-muted/50 flex items-center justify-center mx-auto mb-3"><ClipboardList className="size-5 text-muted-foreground/50" /></div>
+                      No orders yet
                     </div>
-                  )) : <div className="p-6 text-center text-sm text-muted-foreground">No orders yet</div>}
+                  )}
                 </div>
               </Panel>
 
-              <Panel title="Quick Stats">
-                <div className="p-4 space-y-3">
-                  <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground flex items-center gap-2"><Receipt className="size-3.5" />Today's expenses</span><span className="font-semibold tabular-nums">{currency(dailyExpenses)}</span></div>
-                  <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground flex items-center gap-2"><TrendingDown className="size-3.5" />Total expenses</span><span className="font-semibold tabular-nums">{currency(totalExpenses)}</span></div>
-                  <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground flex items-center gap-2"><Factory className="size-3.5" />In production</span><span className="font-semibold">{byStatus["in_production"] || 0}</span></div>
-                  <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground flex items-center gap-2"><Truck className="size-3.5" />Ready for delivery</span><span className="font-semibold">{byStatus["ready"] || 0}</span></div>
-                  <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground flex items-center gap-2"><PackageCheck className="size-3.5" />Delivered</span><span className="font-semibold">{byStatus["delivered"] || 0}</span></div>
-                  {lowStock.length > 0 && <div className="flex items-center justify-between text-sm"><span className="text-amber-600 flex items-center gap-2"><AlertTriangle className="size-3.5" />Low stock items</span><span className="font-semibold text-amber-600">{lowStock.length}</span></div>}
+              {/* Quick Stats */}
+              <Panel title="Quick Stats" subtitle="At a glance">
+                <div className="p-5 space-y-1">
+                  <QuickStatRow icon={Receipt} label="Today's expenses" value={currency(dailyExpenses)} />
+                  <QuickStatRow icon={TrendingDown} label="Total expenses" value={currency(totalExpenses)} />
+                  <QuickStatRow icon={Factory} label="In production" value={String(byStatus["in_production"] || 0)} />
+                  <QuickStatRow icon={Truck} label="Ready for delivery" value={String(byStatus["ready"] || 0)} />
+                  <QuickStatRow icon={PackageCheck} label="Delivered" value={String(byStatus["delivered"] || 0)} />
+                  {lowStock.length > 0 && <QuickStatRow icon={AlertTriangle} label="Low stock items" value={String(lowStock.length)} warn />}
                 </div>
               </Panel>
             </div>
@@ -182,19 +286,39 @@ function Dashboard() {
       </PageContainer>
 
       <Dialog open={customerOpen} onOpenChange={setCustomerOpen}>
-        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
-          <DialogHeader><DialogTitle>Quick Add Customer</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center"><Users className="size-4 text-primary" /></div>
+              Quick Add Customer
+            </DialogTitle>
+          </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div><Label className="text-xs">Name *</Label><Input value={customerForm.name} onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })} className="h-8" /></div>
-            <div><Label className="text-xs">Mobile *</Label><Input value={customerForm.mobile} onChange={(e) => setCustomerForm({ ...customerForm, mobile: e.target.value })} className="h-8" /></div>
-            <div><Label className="text-xs">City</Label><Input value={customerForm.city} onChange={(e) => setCustomerForm({ ...customerForm, city: e.target.value })} className="h-8" /></div>
-            <div><Label className="text-xs">Email</Label><Input value={customerForm.email} onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })} className="h-8" /></div>
-            <div className="col-span-2"><Label className="text-xs">Address</Label><Input value={customerForm.address} onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })} className="h-8" /></div>
-            <div className="col-span-2"><Label className="text-xs">Notes</Label><Textarea value={customerForm.notes} onChange={(e) => setCustomerForm({ ...customerForm, notes: e.target.value })} rows={2} /></div>
+            <div><Label className="text-xs font-medium">Name *</Label><Input value={customerForm.name} onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })} className="h-9 rounded-lg" placeholder="Customer name" /></div>
+            <div><Label className="text-xs font-medium">Mobile *</Label><Input value={customerForm.mobile} onChange={(e) => setCustomerForm({ ...customerForm, mobile: e.target.value })} className="h-9 rounded-lg" placeholder="Phone number" /></div>
+            <div><Label className="text-xs font-medium">City</Label><Input value={customerForm.city} onChange={(e) => setCustomerForm({ ...customerForm, city: e.target.value })} className="h-9 rounded-lg" placeholder="City" /></div>
+            <div><Label className="text-xs font-medium">Email</Label><Input value={customerForm.email} onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })} className="h-9 rounded-lg" placeholder="Email address" /></div>
+            <div className="sm:col-span-2"><Label className="text-xs font-medium">Address</Label><Input value={customerForm.address} onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })} className="h-9 rounded-lg" placeholder="Full address" /></div>
+            <div className="sm:col-span-2"><Label className="text-xs font-medium">Notes</Label><Textarea value={customerForm.notes} onChange={(e) => setCustomerForm({ ...customerForm, notes: e.target.value })} rows={2} className="rounded-lg" placeholder="Optional notes" /></div>
           </div>
-          <DialogFooter><Button variant="outline" size="sm" onClick={() => setCustomerOpen(false)}>Cancel</Button><Button size="sm" onClick={saveCustomer}>Save</Button></DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" className="rounded-lg" onClick={() => setCustomerOpen(false)}>Cancel</Button>
+            <Button size="sm" className="rounded-lg" onClick={saveCustomer}>Save customer</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AppShell>
+  );
+}
+
+function QuickStatRow({ icon: Icon, label, value, warn }: { icon: LucideIcon; label: string; value: string; warn?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between py-2.5 px-2 rounded-lg ${warn ? "bg-amber-500/5" : "hover:bg-muted/40"} transition-colors`}>
+      <span className={`text-sm flex items-center gap-2.5 ${warn ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+        <Icon className="size-4" />
+        {label}
+      </span>
+      <span className={`text-sm font-bold tabular-nums ${warn ? "text-amber-600 dark:text-amber-400" : ""}`}>{value}</span>
+    </div>
   );
 }

@@ -16,5 +16,5 @@ export function SupplierTransactionHistory({
   company: CompanyProfile;
   outstandingBalance: number;
 }) {
-  return <LedgerTable rows={transactions} title="Transaction History" purchases={purchases} supplier={supplier} company={company} outstandingBalance={outstandingBalance} />;
+  return <LedgerTable rows={transactions} title="Financial Ledger" purchases={purchases} supplier={supplier} company={company} outstandingBalance={outstandingBalance} />;
 }
