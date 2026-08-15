@@ -13,7 +13,7 @@ export const Route = createFileRoute("/stock-report")({
 });
 
 type InventoryItem = {
-  id: number; name: string; category: string; unit: string; itemType: string;
+  id: number; name: string; category: string; unit: string; itemType: string; pricingMode?: string;
   currentStock: number; minStock: number; costPrice: number;
   supplier?: string; widthFt?: number; heightFt?: number; length?: number; stockQty?: number;
   createdAt: string;
@@ -58,7 +58,12 @@ function StockReportPage() {
   const totalStockValue = list.reduce((s, i) => s + i.currentStock * i.costPrice, 0);
   const lowStockCount = list.filter((i) => i.currentStock < i.minStock && i.currentStock > 0).length;
   const outOfStockCount = list.filter((i) => i.currentStock === 0).length;
-  const totalUnits = list.reduce((s, i) => s + i.currentStock, 0);
+  const totalUnits = list.reduce((s, i) => s + (i.stockQty ?? 0), 0);
+
+  const unitOf = (item: InventoryItem) => {
+    if ((item.pricingMode || "piece") === "size") return (item.itemType || "other") === "window" ? "ft" : "sqft";
+    return "pcs";
+  };
 
   return (
     <AppShell title="Stock Report">
@@ -148,9 +153,9 @@ function StockReportPage() {
                       <td>{item.unit}</td>
                       <td className="text-right tabular-nums text-muted-foreground">{dimension}</td>
                       <td className="text-right tabular-nums text-muted-foreground">{item.stockQty ?? 0}</td>
-                      <td className={`text-right tabular-nums font-semibold ${out ? "text-rose-600 dark:text-rose-400" : low ? "text-amber-600 dark:text-amber-400" : ""}`}>{item.currentStock}</td>
+                      <td className={`text-right tabular-nums font-semibold ${out ? "text-rose-600 dark:text-rose-400" : low ? "text-amber-600 dark:text-amber-400" : ""}`}>{item.currentStock} <span className="text-[10px] font-normal text-muted-foreground">{unitOf(item)}</span></td>
                       <td className="text-right tabular-nums text-muted-foreground">{item.minStock}</td>
-                      <td className="text-right tabular-nums">{currency(item.costPrice)}</td>
+                      <td className="text-right tabular-nums">{currency(item.costPrice)}<span className="text-[10px] text-muted-foreground">/{unitOf(item)}</span></td>
                       <td className="text-right tabular-nums font-medium">{currency(value)}</td>
                       <td>
                         {out ? (

@@ -23,7 +23,25 @@ async def _adjust_stock(db: AsyncSession, product_name: str, delta: float):
     item = result.scalar_one_or_none()
     if not item:
         return
-    item.current_stock = max(0, (item.current_stock or 0) + delta)
+    item.current_stock = max(0, float(item.current_stock or 0) + delta)
+
+
+async def _consumed_units(db: AsyncSession, product_name: str, item_type: str, width: float, height: float, length: float, quantity: float) -> float:
+    """Stock units an order item consumes, based on the inventory item's pricing mode."""
+    if not product_name:
+        return 0
+    result = await db.execute(select(InventoryItem).where(InventoryItem.name == product_name))
+    inv_item = result.scalar_one_or_none()
+    if inv_item and inv_item.pricing_mode == "size":
+        item_type = item_type or inv_item.item_type or "other"
+        if item_type == "window":
+            dim = length or inv_item.length or 0
+            return dim * quantity if dim else quantity
+        else:
+            w = width or inv_item.width_ft or 0
+            h = height or inv_item.height_ft or 0
+            return w * h * quantity if (w and h) else quantity
+    return quantity
 
 
 async def _check_stock(db: AsyncSession, items: list) -> list:
@@ -37,8 +55,15 @@ async def _check_stock(db: AsyncSession, items: list) -> list:
         inv_item = result.scalar_one_or_none()
         if not inv_item:
             continue
-        available = inv_item.current_stock or 0
-        requested = item.quantity
+        available = float(inv_item.current_stock or 0)
+        requested = await _consumed_units(
+            db, product_name,
+            getattr(item, "itemType", None),
+            float(getattr(item, "width", 0) or 0),
+            float(getattr(item, "height", 0) or 0),
+            float(getattr(item, "length", 0) or 0),
+            item.quantity,
+        )
         if requested > available:
             errors.append({
                 "product": product_name,
@@ -196,7 +221,8 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
 
     await _sync_invoice(db, order, order_items)
     for item in order_items:
-        await _adjust_stock(db, item.product_name, -item.quantity)
+        consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
+        await _adjust_stock(db, item.product_name, -consumed)
     await db.commit()
 
     result = await db.execute(
@@ -219,10 +245,12 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
     # Calculate net stock change per product
     stock_changes = {}
     for old in old_items:
-        stock_changes[old.product_name] = stock_changes.get(old.product_name, 0) + old.quantity
+        old_consumed = await _consumed_units(db, old.product_name, old.item_type, old.width, old.height, old.length, old.quantity)
+        stock_changes[old.product_name] = stock_changes.get(old.product_name, 0) + old_consumed
     for item in body.items:
         product_name = item.productName if hasattr(item, 'productName') else item.product_name
-        stock_changes[product_name] = stock_changes.get(product_name, 0) - item.quantity
+        new_consumed = await _consumed_units(db, product_name, getattr(item, "itemType", None), float(getattr(item, "width", 0) or 0), float(getattr(item, "height", 0) or 0), float(getattr(item, "length", 0) or 0), item.quantity)
+        stock_changes[product_name] = stock_changes.get(product_name, 0) - new_consumed
     
     # Check if stock is sufficient for the net changes
     errors = []
@@ -231,7 +259,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
             result = await db.execute(select(InventoryItem).where(InventoryItem.name == product_name))
             inv_item = result.scalar_one_or_none()
             if inv_item:
-                available = inv_item.current_stock or 0
+                available = float(inv_item.current_stock or 0)
                 needed = abs(delta)
                 if needed > available:
                     errors.append({
@@ -289,7 +317,8 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
 
     await _sync_invoice(db, order, order_items)
     for item in order_items:
-        await _adjust_stock(db, item.product_name, -item.quantity)
+        consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
+        await _adjust_stock(db, item.product_name, -consumed)
     await db.commit()
 
     result = await db.execute(
@@ -308,7 +337,8 @@ async def update_order_status(order_id: int, status: str, db: AsyncSession = Dep
     if status == "cancelled":
         items = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
         for item in items.scalars().all():
-            await _adjust_stock(db, item.product_name, item.quantity)
+            consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
+            await _adjust_stock(db, item.product_name, consumed)
 
     order.status = status
     await db.commit()
@@ -329,7 +359,8 @@ async def delete_order(order_id: int, db: AsyncSession = Depends(get_db), _user=
 
     items = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
     for item in items.scalars().all():
-        await _adjust_stock(db, item.product_name, item.quantity)
+        consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
+        await _adjust_stock(db, item.product_name, consumed)
 
     await db.delete(order)
     await db.commit()

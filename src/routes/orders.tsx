@@ -58,7 +58,7 @@ type Order = {
 
 type Customer = { id: number; name: string };
 type Product = { id: number; name: string; basePrice: number; active: boolean };
-type InventoryItem = { id: number; name: string; currentStock: number };
+type InventoryItem = { id: number; name: string; itemType?: string; pricingMode?: string; currentStock: number; widthFt?: number; heightFt?: number; length?: number };
 
 const emptyItem: OrderItem = { productName: "", itemType: "other", width: 1, height: 1, length: 1, quantity: 1, unitPrice: 0, amount: 0 };
 
@@ -119,6 +119,29 @@ function OrdersPage() {
     return item ? item.currentStock : null;
   };
 
+  const invOf = (productName: string) => inventory.find((i) => i.name.toLowerCase() === productName.toLowerCase());
+
+  const isSizeMode = (productName: string) => invOf(productName)?.pricingMode === "size";
+
+  const unitOf = (productName: string, itemType?: string): string => {
+    const inv = invOf(productName);
+    const type = inv?.itemType || itemType || "other";
+    return isSizeMode(productName) ? (type === "window" ? "ft" : "sqft") : "pcs";
+  };
+
+  const consumedOf = (item: OrderItem): number => {
+    if (!isSizeMode(item.productName)) return item.quantity;
+    const inv = invOf(item.productName);
+    const type = inv?.itemType || item.itemType || "other";
+    if (type === "window") {
+      const dim = item.length > 0 ? item.length : (inv?.length || 0);
+      return dim ? dim * item.quantity : item.quantity;
+    }
+    const w = item.width > 0 ? item.width : (inv?.widthFt || 0);
+    const h = item.height > 0 ? item.height : (inv?.heightFt || 0);
+    return w && h ? w * h * item.quantity : item.quantity;
+  };
+
   const changeStatus = async (id: number, status: string) => {
     try {
       await api.put(`/api/orders/${id}/status?status=${status}`);
@@ -139,10 +162,14 @@ function OrdersPage() {
   const updateItem = (index: number, patch: Partial<OrderItem>) => {
     const items = [...form.items];
     const next = { ...items[index], ...patch };
-    if (next.itemType === "window") {
-      next.amount = next.length * next.quantity * next.unitPrice;
+    if (isSizeMode(next.productName)) {
+      if (next.itemType === "window") {
+        next.amount = next.length * next.quantity * next.unitPrice;
+      } else {
+        next.amount = next.width * next.height * next.quantity * next.unitPrice;
+      }
     } else {
-      next.amount = next.width * next.height * next.quantity * next.unitPrice;
+      next.amount = next.quantity * next.unitPrice;
     }
     items[index] = next;
     const { subtotal, total } = recalc(items);
@@ -371,7 +398,8 @@ function OrdersPage() {
                         <Select value={item.productName || "__none__"} onValueChange={(v) => {
                           if (v === "__none__") return updateItem(index, { productName: "" });
                           const prod = products.find((p) => p.name === v);
-                          updateItem(index, { productName: v, unitPrice: prod?.basePrice || item.unitPrice });
+                          const inv = invOf(v);
+                          updateItem(index, { productName: v, itemType: inv ? (inv.itemType === "window" ? "window" : "other") : item.itemType, unitPrice: prod?.basePrice || item.unitPrice });
                         }}>
                           <SelectTrigger className="h-8"><SelectValue placeholder="Select product" /></SelectTrigger>
                           <SelectContent>
@@ -380,7 +408,7 @@ function OrdersPage() {
                               const stock = getAvailableStock(p.name);
                               return (
                                 <SelectItem key={p.id} value={p.name}>
-                                  {p.name} {stock !== null && <span className="text-muted-foreground ml-1">({stock} in stock)</span>}
+                                  {p.name} {stock !== null && <span className="text-muted-foreground ml-1">({stock} {unitOf(p.name)} in stock)</span>}
                                 </SelectItem>
                               );
                             })}
@@ -391,10 +419,11 @@ function OrdersPage() {
                             {(() => {
                               const stock = getAvailableStock(item.productName);
                               if (stock === null) return null;
-                              const isLow = stock < item.quantity;
+                              const need = consumedOf(item);
+                              const isLow = need > stock;
                               return (
                                 <span className={`text-[11px] ${isLow ? "text-rose-600 font-medium" : "text-muted-foreground"}`}>
-                                  Available: {stock} {isLow && `(need ${item.quantity})`}
+                                  Available: {stock} {unitOf(item.productName, item.itemType)} {isLow && `(need ${need})`}
                                 </span>
                               );
                             })()}
@@ -425,12 +454,12 @@ function OrdersPage() {
                           type="number"
                           value={item.quantity || ""}
                           onChange={(e) => updateItem(index, { quantity: Number(e.target.value) })}
-                          className={`h-8 ${item.productName && getAvailableStock(item.productName) !== null && item.quantity > (getAvailableStock(item.productName) || 0) ? "border-rose-500 focus:ring-rose-500" : ""}`}
+                          className={`h-8 ${item.productName && getAvailableStock(item.productName) !== null && consumedOf(item) > (getAvailableStock(item.productName) || 0) ? "border-rose-500 focus:ring-rose-500" : ""}`}
                         />
                       </div>
-                      <div><Label className="text-xs">Unit Price</Label><Input type="number" value={item.unitPrice || ""} onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })} className="h-8" /></div>
+                      <div><Label className="text-xs">Unit Price {isSizeMode(item.productName) ? (item.itemType === "window" ? "/ ft" : "/ sqft") : "/ pc"}</Label><Input type="number" value={item.unitPrice || ""} onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })} className="h-8" /></div>
                       <div><Label className="text-xs">Amount</Label><div className="h-8 px-2 rounded border bg-muted/40 flex items-center text-sm font-semibold">{currency(item.amount)}</div></div>
-                      <Button variant="ghost" size="sm" className="h-8 px-2 text-destructive" onClick={() => { const items = form.items.filter((_, i) => i !== index); setForm({ ...form, items, total: recalc(items) }); }} disabled={form.items.length === 1}><Trash2 className="size-3.5" /></Button>
+                      <Button variant="ghost" size="sm" className="h-8 px-2 text-destructive" onClick={() => { const items = form.items.filter((_, i) => i !== index); const { subtotal, total } = recalc(items); setForm({ ...form, items, subtotal, total }); }} disabled={form.items.length === 1}><Trash2 className="size-3.5" /></Button>
                     </div>
                     <div><Label className="text-xs">Description</Label><Input value={item.notes ?? ""} onChange={(e) => updateItem(index, { notes: e.target.value })} placeholder="Item description, specs, color, etc." className="h-8" /></div>
                   </div>

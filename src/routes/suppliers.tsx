@@ -27,12 +27,13 @@ export const Route = createFileRoute("/suppliers")({
 });
 
 type Supplier = { id: number; name: string; company?: string; contact: string; mobile?: string; city?: string; email?: string; address?: string; products?: string; notes?: string; createdAt: string };
-type Purchase = { id: number; invoiceNumber: string; supplierId: number; supplierName: string; items: { productName: string; itemType?: string; widthFt?: number; heightFt?: number; length?: number; quantity: number; purchasePrice: number; salePrice: number; amount: number }[]; paymentType: string; totalAmount: number; date: string; notes?: string; createdAt: string };
+type Purchase = { id: number; invoiceNumber: string; supplierId: number; supplierName: string;   items: { productName: string; itemType?: string; pricingMode?: string; widthFt?: number; heightFt?: number; length?: number; quantity: number; purchasePrice: number; salePrice: number; amount: number }[]; paymentType: string; totalAmount: number; date: string; notes?: string; createdAt: string };
+
 type PaymentRec = { id: number; invoiceId?: number; supplierId?: number; supplierName?: string; amount: number; method: string; date: string; notes?: string; createdAt: string };
 type Setting = { key: string; value: string };
 
 const emptySupplier = { name: "", company: "", contact: "", address: "", products: "", notes: "" };
-type PurchaseFormItem = { productName: string; itemType: "window" | "other"; widthFt?: number; heightFt?: number; length: number; quantity: number; purchasePrice: number; salePrice: number; amount: number };
+type PurchaseFormItem = { productName: string; itemType: "window" | "other"; pricingMode: "piece" | "size"; widthFt?: number; heightFt?: number; length: number; quantity: number; purchasePrice: number; salePrice: number; amount: number };
 
 function SuppliersPage() {
   const { can } = useAuth();
@@ -123,7 +124,7 @@ function SuppliersPage() {
 
   const openPurchase = (supplierId?: number) => {
     const supplier = supplierId ? list.find((s) => s.id === supplierId) : undefined;
-    setPurchaseForm({ invoiceNumber: `PUR-${String(purchases.length + 1).padStart(4, "0")}`, supplierId: supplier?.id ?? 0, supplierName: supplier?.name ?? "", items: [{ productName: "", itemType: "other", widthFt: undefined, heightFt: undefined, length: 0, quantity: 1, purchasePrice: 0, salePrice: 0, amount: 0 }] as PurchaseFormItem[], paymentType: "cash", totalAmount: 0, date: Date.now() });
+    setPurchaseForm({ invoiceNumber: `PUR-${String(purchases.length + 1).padStart(4, "0")}`, supplierId: supplier?.id ?? 0, supplierName: supplier?.name ?? "", items: [{ productName: "", itemType: "other", pricingMode: "piece", widthFt: undefined, heightFt: undefined, length: 0, quantity: 1, purchasePrice: 0, salePrice: 0, amount: 0 }] as PurchaseFormItem[], paymentType: "cash", totalAmount: 0, date: Date.now() });
     setPurchaseOpen(true);
   };
 
@@ -136,7 +137,13 @@ function SuppliersPage() {
   const updatePurchaseItem = (index: number, field: string, value: any) => {
     const items = [...purchaseForm.items];
     items[index] = { ...items[index], [field]: value };
-    if (field === "quantity" || field === "purchasePrice") items[index].amount = items[index].quantity * items[index].purchasePrice;
+    const calcAmount = (i: PurchaseFormItem) => {
+      const dim = i.itemType === "window" ? (i.length || 0) : (i.widthFt || 0) * (i.heightFt || 0);
+      return i.pricingMode === "size" && dim ? dim * i.quantity * i.purchasePrice : i.quantity * i.purchasePrice;
+    };
+    if (["quantity", "purchasePrice", "pricingMode", "length", "widthFt", "heightFt", "itemType"].includes(field)) {
+      items[index].amount = calcAmount(items[index]);
+    }
     setPurchaseForm({ ...purchaseForm, items, totalAmount: items.reduce((s, i) => s + i.amount, 0) });
   };
 
@@ -273,7 +280,7 @@ function SuppliersPage() {
                   const isWindow = item.itemType === "window";
                   return (
                     <div key={idx} className="p-3 space-y-2">
-                      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isWindow ? "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto]" : "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]"} gap-2 items-end`}>
+                      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isWindow ? "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]" : "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]"} gap-2 items-end`}>
                         <div><Label className="text-xs">Product</Label><Input value={item.productName} onChange={(e) => updatePurchaseItem(idx, "productName", e.target.value)} className="h-8" /></div>
                         <div>
                           <Label className="text-xs">Type</Label>
@@ -282,6 +289,16 @@ function SuppliersPage() {
                             <SelectContent>
                               <SelectItem value="other">Other</SelectItem>
                               <SelectItem value="window">Window</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Price Mode</Label>
+                          <Select value={item.pricingMode || "piece"} onValueChange={(v) => updatePurchaseItem(idx, "pricingMode", v)}>
+                            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="piece">Per Piece</SelectItem>
+                              <SelectItem value="size">Per Size</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -294,7 +311,7 @@ function SuppliersPage() {
                           </>
                         )}
                         <div><Label className="text-xs">Qty</Label><Input type="number" value={item.quantity || ""} onChange={(e) => updatePurchaseItem(idx, "quantity", Number(e.target.value))} className="h-8" min="1" /></div>
-                        <div><Label className="text-xs">Purchase Price</Label><Input type="number" value={item.purchasePrice || ""} onChange={(e) => updatePurchaseItem(idx, "purchasePrice", Number(e.target.value))} className="h-8" step="0.01" /></div>
+                        <div><Label className="text-xs">{item.pricingMode === "size" ? (isWindow ? "Price / ft" : "Price / sqft") : "Price / pc"}</Label><Input type="number" value={item.purchasePrice || ""} onChange={(e) => updatePurchaseItem(idx, "purchasePrice", Number(e.target.value))} className="h-8" step="0.01" /></div>
                         <div><Label className="text-xs">Sale Price</Label><Input type="number" value={item.salePrice || ""} onChange={(e) => updatePurchaseItem(idx, "salePrice", Number(e.target.value))} className="h-8" step="0.01" /></div>
                         <div><Label className="text-xs">Amount</Label><div className="h-8 px-2 rounded border bg-muted/50 flex items-center text-sm font-medium">{currency(item.amount)}</div>{purchaseForm.items.length > 1 && <Button variant="ghost" size="sm" onClick={() => { const items = purchaseForm.items.filter((_, i) => i !== idx); setPurchaseForm({ ...purchaseForm, items, totalAmount: items.reduce((s, i) => s + i.amount, 0) }); }} className="mt-2 h-6 w-full text-destructive">Remove</Button>}</div>
                       </div>
@@ -302,7 +319,7 @@ function SuppliersPage() {
                   );
                 })}
               </div>
-              <div className="p-3 border-t"><Button variant="outline" size="sm" onClick={() => setPurchaseForm({ ...purchaseForm, items: [...purchaseForm.items, { productName: "", itemType: "other", widthFt: undefined, heightFt: undefined, length: 0, quantity: 1, purchasePrice: 0, salePrice: 0, amount: 0 } as PurchaseFormItem] })} className="w-full"><Plus className="size-3.5 mr-1" />Add Product</Button></div>
+              <div className="p-3 border-t"><Button variant="outline" size="sm" onClick={() => setPurchaseForm({ ...purchaseForm, items: [...purchaseForm.items, { productName: "", itemType: "other", pricingMode: "piece", widthFt: undefined, heightFt: undefined, length: 0, quantity: 1, purchasePrice: 0, salePrice: 0, amount: 0 } as PurchaseFormItem] })} className="w-full"><Plus className="size-3.5 mr-1" />Add Product</Button></div>
             </div>
             <div className="flex justify-end pt-4 border-t"><div className="flex items-center justify-between w-64"><span className="font-semibold">Total:</span><span className="text-lg font-bold text-primary">{currency(purchaseForm.totalAmount)}</span></div></div>
           </div>

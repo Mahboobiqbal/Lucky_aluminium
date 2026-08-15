@@ -29,6 +29,7 @@ class PurchaseItem(Base):
     purchase_id: Mapped[int] = mapped_column(ForeignKey("purchases.id", ondelete="CASCADE"))
     product_name: Mapped[str] = mapped_column(String(200))
     item_type: Mapped[str] = mapped_column(String(20), default="other")
+    pricing_mode: Mapped[str] = mapped_column(String(10), default="piece")
     width_ft: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     height_ft: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     length: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
