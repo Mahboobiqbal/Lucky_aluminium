@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * UDYANA design system — dense Odoo/ERPNext inspired.
- * Compact spacing, business-app density, deep indigo primary.
+ * UDYANA design system — comfortable ERP density.
+ * Warm indigo primary, friendly for non-technical users.
  */
 
 @theme inline {
@@ -113,7 +113,6 @@
   --chart-1: oklch(0.7 0.18 268);
   --chart-2: oklch(0.72 0.16 195);
   --chart-3: oklch(0.75 0.17 145);
-  --chart-3: oklch(0.75 0.17 145);
   --chart-4: oklch(0.8 0.17 60);
   --chart-5: oklch(0.7 0.22 15);
   --sidebar: oklch(0.14 0.02 260);
@@ -146,7 +145,6 @@
 }
 
 /* Dense table utilities */
-/* Mobile responsive table wrapper - any div directly containing data-table gets horizontal scroll */
 div:has(> table.data-table) {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -180,6 +178,9 @@ div:has(> table.data-table) {
   }
   & tbody tr:last-child td {
     border-bottom: none;
+  }
+  & tbody tr:nth-child(even) td {
+    background: color-mix(in oklab, var(--color-muted) 25%, transparent);
   }
   & tbody tr {
     transition: background-color 0.15s;
@@ -239,4 +240,16 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
   appearance: textfield;
   -moz-appearance: textfield;
+}
+
+@utility skeleton {
+  background: linear-gradient(90deg, var(--color-muted) 25%, color-mix(in oklab, var(--color-muted) 60%, var(--color-card)) 50%, var(--color-muted) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }

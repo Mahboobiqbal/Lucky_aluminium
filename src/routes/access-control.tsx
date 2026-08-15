@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { api, type UserPermission } from "@/lib/api";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
+import { TableShell } from "@/components/layout/TableShell";
+import { EmptyState } from "@/components/layout/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,7 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
-import { Plus, Pencil, Trash2, Search, Shield, X, Eye, EyeOff, Check, Ban, CheckSquare, Square } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Shield, X, Eye, EyeOff, Check, Ban, CheckSquare, Square, Users } from "lucide-react";
 import { toast } from "sonner";
 import { dateShort } from "@/lib/format";
 import { useState, useEffect, useCallback } from "react";
@@ -356,7 +358,7 @@ function AccessControlPage() {
     >
       <PageContainer>
         {/* User list */}
-        <div className="bg-card border border-border rounded-md overflow-hidden">
+        <TableShell>
           <table className="data-table">
             <thead>
               <tr>
@@ -425,20 +427,14 @@ function AccessControlPage() {
                   </td>
                 </tr>
               ))}
-              {!filtered.length && (
-                <tr>
-                  <td colSpan={7} className="text-center py-12 text-muted-foreground">
-                    {loading ? "Loading users..." : "No users found"}
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
-        </div>
+          {!filtered.length && <EmptyState icon={Users} title={loading ? "Loading users..." : "No users found"} hint={loading ? "Please wait" : "Add your first user to get started"} />}
+        </TableShell>
 
         {/* Permissions panel */}
         {selectedUser && (
-          <div className="bg-card border border-border rounded-md overflow-hidden">
+          <TableShell>
             <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Shield className="size-4 text-muted-foreground" />
@@ -548,7 +544,7 @@ function AccessControlPage() {
                 </table>
               </div>
             )}
-          </div>
+          </TableShell>
         )}
 
         {/* New/Edit user dialog */}

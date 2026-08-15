@@ -120,7 +120,7 @@ function Dashboard() {
   });
 
   const pieData = Object.entries(byStatus).map(([k, v]) => ({ name: statusLabel(k), value: v }));
-  const pieColors = ["#8b5cf6", "#06b6d4", "#22c55e", "#eab308", "#ef4444", "#f97316", "#ec4899"];
+  const pieColors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
   const recent = useMemo(() => [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8), [orders]);
 
   const greeting = useMemo(() => {
@@ -189,8 +189,8 @@ function Dashboard() {
                           formatter={(v: number) => currency(v)}
                           contentStyle={{ borderRadius: "10px", border: "1px solid hsl(var(--border))", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
                         />
-                        <Bar dataKey="revenue" fill="#22c55e" radius={[6, 6, 0, 0]} name="Revenue" />
-                        <Bar dataKey="expenses" fill="#ef4444" radius={[6, 6, 0, 0]} name="Expenses" />
+                        <Bar dataKey="revenue" fill="var(--chart-3)" radius={[6, 6, 0, 0]} name="Revenue" />
+                        <Bar dataKey="expenses" fill="var(--chart-5)" radius={[6, 6, 0, 0]} name="Expenses" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

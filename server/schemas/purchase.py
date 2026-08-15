@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class PurchaseItemBase(BaseModel):
     productName: str
     itemType: str = "other"
+    pricingMode: str = "piece"
     widthFt: float = 0
     heightFt: float = 0
     length: float = 0

@@ -2,9 +2,11 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { CalendarDays, CalendarRange, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, CalendarRange, Plus, Receipt, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
+import { TableShell } from "@/components/layout/TableShell";
+import { EmptyState } from "@/components/layout/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -79,7 +81,7 @@ function ExpensesPage() {
   };
 
   const ExpenseTable = ({ rows }: { rows: Expense[] }) => (
-    <div className="bg-card border border-border rounded-md overflow-hidden">
+    <TableShell>
       <table className="data-table">
         <thead><tr><th>Date</th><th>Category</th><th>Description</th><th className="text-right">Amount</th><th className="w-16"></th></tr></thead>
         <tbody>
@@ -92,10 +94,10 @@ function ExpensesPage() {
               <td>{can("expenses", "delete") && <button onClick={() => setDeleteTarget(e.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-3.5" /></button>}</td>
             </tr>
           ))}
-          {!rows.length && <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">{loading ? "Loading..." : "No expenses recorded"}</td></tr>}
         </tbody>
       </table>
-    </div>
+      {!rows.length && <EmptyState icon={Receipt} title={loading ? "Loading..." : "No expenses recorded"} hint={loading ? "Please wait" : "Add your first expense to get started"} />}
+    </TableShell>
   );
 
   return (

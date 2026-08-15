@@ -17,6 +17,7 @@ def _to_response(i: InventoryItem) -> dict:
     return {
         "id": i.id, "name": i.name, "category": i.category, "unit": i.unit,
         "itemType": i.item_type,
+        "pricingMode": i.pricing_mode,
         "currentStock": float(i.current_stock), "minStock": float(i.min_stock),
         "costPrice": float(i.cost_price), "supplier": i.supplier,
         "widthFt": float(i.width_ft or 0), "heightFt": float(i.height_ft or 0),
@@ -44,7 +45,7 @@ async def get_inventory_item(item_id: int, db: AsyncSession = Depends(get_db), _
 async def create_inventory_item(body: InventoryItemCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("inventory", "create"))):
     item = InventoryItem(
         name=body.name, category=body.category, unit=body.unit,
-        item_type=body.itemType,
+        item_type=body.itemType, pricing_mode=body.pricingMode,
         current_stock=body.currentStock, min_stock=body.minStock,
         cost_price=body.costPrice, supplier=body.supplier,
         width_ft=body.widthFt, height_ft=body.heightFt, length=body.length,
@@ -68,6 +69,7 @@ async def update_inventory_item(item_id: int, body: InventoryItemUpdate, db: Asy
     item.category = body.category
     item.unit = body.unit
     item.item_type = body.itemType
+    item.pricing_mode = body.pricingMode
     item.current_stock = body.currentStock
     item.min_stock = body.minStock
     item.cost_price = body.costPrice

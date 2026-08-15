@@ -3,14 +3,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
+import { TableShell } from "@/components/layout/TableShell";
+import { EmptyState } from "@/components/layout/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Box, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { currency } from "@/lib/format";
 
@@ -120,10 +123,7 @@ function ProductsPage() {
       title="Products"
       actions={
         <>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products..." className="h-8 pl-8 w-64 text-sm" />
-          </div>
+          <SearchInput value={q} onChange={setQ} placeholder="Search products..." className="w-64 h-8" />
           {can("products", "create") && (
             <Button size="sm" className="ml-auto" onClick={openNew}><Plus className="size-3.5 mr-1" />New product</Button>
           )}
@@ -131,7 +131,7 @@ function ProductsPage() {
       }
     >
       <PageContainer>
-        <div className="bg-card border border-border rounded-md overflow-hidden">
+        <TableShell>
           <table className="data-table">
             <thead><tr><th>Code</th><th>Name</th><th>Unit</th><th className="text-right">Base price</th><th>Status</th><th className="w-24 text-right">Actions</th></tr></thead>
             <tbody>
@@ -151,10 +151,10 @@ function ProductsPage() {
                   </td>
                 </tr>
               ))}
-              {!filtered.length && <tr><td colSpan={6} className="text-center py-12 text-muted-foreground">{loading ? "Loading..." : "No products found"}</td></tr>}
             </tbody>
           </table>
-        </div>
+          {!filtered.length && <EmptyState icon={Box} title={loading ? "Loading..." : "No products found"} hint={loading ? "Please wait" : "Add your first product to get started"} />}
+        </TableShell>
       </PageContainer>
 
       <Dialog open={open} onOpenChange={setOpen}>
