@@ -133,14 +133,14 @@ function ProductsPage() {
       <PageContainer>
         <TableShell>
           <table className="data-table">
-            <thead><tr><th>Code</th><th>Name</th><th>Unit</th><th className="text-right">Base price</th><th>Status</th><th className="w-24 text-right">Actions</th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th className="text-center">Unit</th><th className="text-right whitespace-nowrap">Base price</th><th className="text-center">Status</th><th className="w-24 text-right">Actions</th></tr></thead>
             <tbody>
               {filtered.map((p) => (
                 <tr key={p.id}>
                   <td className="font-mono text-xs text-muted-foreground">{p.code}</td>
                   <td className="font-medium">{p.name}</td>
                   <td>{p.unit}</td>
-                  <td className="text-right tabular-nums font-medium">{currency(p.basePrice)}</td>
+                  <td className="text-right tabular-nums font-medium whitespace-nowrap">{currency(p.basePrice)}</td>
                   <td>{p.active
                     ? <span className="inline-flex rounded px-1.5 py-0.5 text-[11px] border bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">Active</span>
                     : <span className="inline-flex rounded px-1.5 py-0.5 text-[11px] border bg-muted text-muted-foreground border-border">Inactive</span>}
