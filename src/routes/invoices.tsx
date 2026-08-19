@@ -78,7 +78,7 @@ function InvoicesPage() {
       <PageContainer>
         <TableShell>
           <table className="data-table">
-            <thead><tr><th>Invoice #</th><th>Customer</th><th>Order</th><th>Date</th><th>Items</th><th className="text-center">Subtotal</th><th className="text-center">Discount</th><th className="text-center">Total</th><th className="text-center">Paid</th><th className="text-center">Balance</th><th className="w-28 text-right">Actions</th></tr></thead>
+            <thead><tr><th>Invoice #</th><th>Customer</th><th>Order</th><th>Date</th><th>Items</th><th className="text-right">Subtotal</th><th className="text-center">Discount</th><th className="text-right">Total</th><th className="text-right">Paid</th><th className="text-right">Balance</th><th className="w-28 text-right">Actions</th></tr></thead>
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
@@ -87,11 +87,11 @@ function InvoicesPage() {
                   <td className="text-muted-foreground">{o.number}</td>
                   <td className="text-muted-foreground">{dateShort(o.orderDate)}</td>
                   <td>{o.items.length}</td>
-                  <td className="text-center tabular-nums">{currency(o.subtotal ?? o.total)}</td>
+                  <td className="text-right tabular-nums">{currency(o.subtotal ?? o.total)}</td>
                   <td className="text-center tabular-nums">{o.discountPercent > 0 ? `${o.discountPercent}%` : "-"}</td>
-                  <td className="text-center tabular-nums">{currency(o.total)}</td>
-                  <td className="text-center tabular-nums text-emerald-600">{currency(o.paid)}</td>
-                  <td className="text-center tabular-nums text-rose-600">{currency(Math.max(0, o.total - o.paid))}</td>
+                  <td className="text-right tabular-nums">{currency(o.total)}</td>
+                  <td className="text-right tabular-nums text-emerald-600">{currency(o.paid)}</td>
+                  <td className="text-right tabular-nums text-rose-600">{currency(Math.max(0, o.total - o.paid))}</td>
                   <td className="text-right">
                     <button onClick={() => handleView(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="View"><Eye className="size-3.5" /></button>
                     {can("invoices", "export") && <button onClick={() => handleDownload(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Download"><Download className="size-3.5" /></button>}

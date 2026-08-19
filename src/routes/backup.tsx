@@ -262,14 +262,14 @@ function BackupPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="data-table">
-                <thead><tr><th>Date</th><th>Size</th><th>Type</th><th>Tables</th><th className="w-24 text-right">Actions</th></tr></thead>
+                <thead><tr><th>Date</th><th className="text-right">Size</th><th>Type</th><th className="text-right">Tables</th><th className="w-24 text-right">Actions</th></tr></thead>
                 <tbody>
                   {backups.map((b) => (
                     <tr key={b.id}>
                       <td className="font-medium">{dateShort(b.createdAt)}</td>
-                      <td className="tabular-nums text-muted-foreground">{formatSize(b.size)}</td>
+                      <td className="text-right tabular-nums text-muted-foreground">{formatSize(b.size)}</td>
                       <td>{b.type === "file" ? <span className="inline-flex items-center gap-1 text-xs bg-blue-500/10 text-blue-600 border border-blue-500/20 rounded px-2 py-0.5"><Download className="size-2.5" />File</span> : <span className="inline-flex items-center gap-1 text-xs bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded px-2 py-0.5"><Database className="size-2.5" />Snapshot</span>}</td>
-                      <td className="text-xs text-muted-foreground">{b.tables}</td>
+                      <td className="text-right text-xs text-muted-foreground">{b.tables}</td>
                       <td className="text-right">
                         {can("backup", "delete") && <button onClick={() => setDeleteTarget(b.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center" title="Delete"><Trash2 className="size-3.5" /></button>}
                       </td>

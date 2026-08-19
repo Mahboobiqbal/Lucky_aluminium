@@ -283,9 +283,9 @@ function OrdersPage() {
                 <th>Order date</th>
                 <th>Delivery</th>
                 <th>Items</th>
-                <th className="text-center whitespace-nowrap">Total</th>
-                <th className="text-center whitespace-nowrap">Paid</th>
-                <th className="text-center whitespace-nowrap">Remaining Balance</th>
+                <th className="text-right whitespace-nowrap">Total</th>
+                <th className="text-right whitespace-nowrap">Paid</th>
+                <th className="text-right whitespace-nowrap">Remaining Balance</th>
                 <th>Status</th>
                 <th className="w-10"></th>
               </tr>
@@ -298,9 +298,9 @@ function OrdersPage() {
                   <td className="text-muted-foreground">{dateShort(o.orderDate)}</td>
                   <td className="text-muted-foreground">{dateShort(o.deliveryDate)}</td>
                   <td>{o.items.length}</td>
-                  <td className="text-center tabular-nums whitespace-nowrap">{currency(o.total)}</td>
-                  <td className="text-center tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{currency(o.paid)}</td>
-                  <td className="text-center tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">{currency(o.total - o.paid)}</td>
+                  <td className="text-right tabular-nums whitespace-nowrap">{currency(o.total)}</td>
+                  <td className="text-right tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{currency(o.paid)}</td>
+                  <td className="text-right tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">{currency(o.total - o.paid)}</td>
                   <td>
                     {can("orders", "edit") ? (
                       <Select value={o.status} onValueChange={(v) => setStatusConfirm({ id: o.id, status: v })}>

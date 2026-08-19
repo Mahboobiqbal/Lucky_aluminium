@@ -163,7 +163,7 @@ function CustomersPage() {
       <PageContainer>
         <TableShell>
           <table className="data-table">
-            <thead><tr><th>Code</th><th>Name</th><th>Mobile</th><th>City</th><th>Email</th><th className="text-center whitespace-nowrap">Paid</th><th className="text-center whitespace-nowrap">Remaining Balance</th><th>Added</th><th className="w-24 text-right">Actions</th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>Mobile</th><th>City</th><th>Email</th><th className="text-right whitespace-nowrap">Paid</th><th className="text-right whitespace-nowrap">Remaining Balance</th><th>Added</th><th className="w-24 text-right">Actions</th></tr></thead>
             <tbody>
               {filtered.map((c) => {
                 const pmt = customerPayments[c.id];
@@ -176,8 +176,8 @@ function CustomersPage() {
                     <td className="tabular-nums">{c.mobile}</td>
                     <td>{c.city || "—"}</td>
                     <td className="text-muted-foreground">{c.email || "—"}</td>
-                    <td className="text-center tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{pmt ? currency(paid) : "—"}</td>
-                    <td className="text-center tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">{pmt ? currency(balance) : "—"}</td>
+                    <td className="text-right tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{pmt ? currency(paid) : "—"}</td>
+                    <td className="text-right tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">{pmt ? currency(balance) : "—"}</td>
                     <td className="text-muted-foreground">{dateShort(c.createdAt)}</td>
                     <td className="text-right">
                       <button onClick={() => openDetails(c)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Eye className="size-3.5" /></button>
