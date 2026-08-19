@@ -280,7 +280,8 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
 
     # Delete old items and restore stock
     for old in old_items:
-        await _adjust_stock(db, old.product_name, old.quantity)
+        old_consumed = await _consumed_units(db, old.product_name, old.item_type, old.width, old.height, old.length, old.quantity)
+        await _adjust_stock(db, old.product_name, old_consumed)
         await db.delete(old)
     
     order.number = body.number

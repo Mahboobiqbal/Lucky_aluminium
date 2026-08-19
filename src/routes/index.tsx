@@ -20,7 +20,7 @@ export const Route = createFileRoute("/")({
 
 type Order = { id: number; number: string; customerId: number; customerName: string; orderDate: string; items: any[]; total: number; paid: number; status: string; createdAt: string };
 type Expense = { id: number; category: string; amount: number; date: string };
-type InventoryItem = { id: number; name: string; currentStock: number; minStock: number };
+type InventoryItem = { id: number; name: string; currentStock: number; minStock: number; supplier?: string };
 type Setting = { key: string; value: string };
 
 function StatCard({ icon: Icon, label, value, tone, onClick, subtitle }: { icon: LucideIcon; label: string; value: string; tone: "primary" | "emerald" | "amber" | "violet" | "rose" | "blue"; onClick?: () => void; subtitle?: string }) {
@@ -109,7 +109,7 @@ function Dashboard() {
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
   const today = new Date().toDateString();
   const dailyExpenses = expenses.filter((e) => new Date(e.date).toDateString() === today).reduce((s, e) => s + e.amount, 0);
-  const lowStock = inventory.filter((i) => i.currentStock < i.minStock);
+  const lowStock = inventory.filter((i) => i.currentStock > 0 && i.currentStock < 10);
 
   const monthly = Array.from({ length: 6 }).map((_, i) => {
     const d = new Date(); d.setMonth(d.getMonth() - (5 - i));
@@ -240,6 +240,33 @@ function Dashboard() {
             </div>
 
             <div className="space-y-5">
+              {/* Low Stock Alert */}
+              {lowStock.length > 0 && (
+                <Panel title="Low Stock Alert" subtitle={`${lowStock.length} product${lowStock.length > 1 ? "s" : ""} running low`} action={<Button variant="ghost" size="sm" className="text-xs h-7 rounded-lg" onClick={() => navigate({ to: "/stock-report" })}>View all <ChevronRight className="size-3 ml-0.5" /></Button>}>
+                  <div className="divide-y divide-border max-h-[320px] overflow-y-auto">
+                    {lowStock.map((item) => (
+                      <div key={item.id} className="px-4 py-3 hover:bg-muted/40 transition-colors cursor-pointer" onClick={() => navigate({ to: "/stock-report" })}>
+                        <div className="flex items-center gap-3">
+                          <div className={`size-9 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${item.currentStock <= 3 ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"}`}>
+                            {item.currentStock <= 3 ? <AlertTriangle className="size-4" /> : item.currentStock}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">{item.name}</div>
+                            <div className="text-[11px] text-muted-foreground">{item.supplier || "No supplier"}</div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className={`text-sm font-bold tabular-nums ${item.currentStock <= 3 ? "text-rose-600 dark:text-rose-400" : "text-amber-600 dark:text-amber-400"}`}>
+                              {item.currentStock} left
+                            </div>
+                            {item.currentStock <= 3 && <div className="text-[10px] text-rose-500 dark:text-rose-400">Critical</div>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              )}
+
               {/* Recent Orders */}
               <Panel title="Recent Orders" subtitle="Latest activity" action={<Button variant="ghost" size="sm" className="text-xs h-7 rounded-lg" onClick={() => navigate({ to: "/orders" })}>View all <ChevronRight className="size-3 ml-0.5" /></Button>}>
                 <div className="divide-y divide-border max-h-[420px] overflow-y-auto">

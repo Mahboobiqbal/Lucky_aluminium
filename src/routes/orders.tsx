@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Check, ChevronsUpDown, ShoppingCart } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, ChevronsUpDown, ShoppingCart, Package, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
 import { TableShell } from "@/components/layout/TableShell";
@@ -63,7 +63,7 @@ type Customer = { id: number; name: string };
 type Product = { id: number; name: string; basePrice: number; active: boolean };
 type InventoryItem = { id: number; name: string; itemType?: string; pricingMode?: string; currentStock: number; widthFt?: number; heightFt?: number; length?: number };
 
-const emptyItem: OrderItem = { productName: "", itemType: "other", width: 1, height: 1, length: 1, quantity: 1, unitPrice: 0, amount: 0 };
+const emptyItem: OrderItem = { productName: "", itemType: "other", width: 0, height: 0, length: 0, quantity: 0, unitPrice: 0, amount: 0 };
 
 function OrdersPage() {
   const { can } = useAuth();
@@ -229,7 +229,7 @@ function OrdersPage() {
         height: i.height || 0,
         length: i.length || 0,
         sqft: i.sqft || 0,
-        quantity: i.quantity || 1,
+        quantity: i.quantity || 0,
         unitPrice: i.unitPrice || 0,
         amount: i.amount || 0,
       }));
@@ -400,29 +400,50 @@ function OrdersPage() {
                           updateItem(index, { productName: v, itemType: inv ? (inv.itemType === "window" ? "window" : "other") : item.itemType, unitPrice: prod?.basePrice || item.unitPrice });
                         }}>
                           <SelectTrigger className="h-8"><SelectValue placeholder="Select product" /></SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-[280px]">
                             <SelectItem value="__none__">-- Select product --</SelectItem>
                             {products.map((p) => {
                               const stock = getAvailableStock(p.name);
+                              const unit = unitOf(p.name);
+                              const isLow = stock !== null && stock < 10;
+                              const isOut = stock !== null && stock <= 0;
                               return (
-                                <SelectItem key={p.id} value={p.name}>
-                                  {p.name} {stock !== null && <span className="text-muted-foreground ml-1">({stock} {unitOf(p.name)} in stock)</span>}
+                                <SelectItem key={p.id} value={p.name} className="py-2.5">
+                                  <div className="flex items-center justify-between gap-3 w-full">
+                                    <span className="font-medium truncate">{p.name}</span>
+                                    {stock !== null && (
+                                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${isOut ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400" : isLow ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"}`}>
+                                        {isOut ? <AlertTriangle className="size-2.5" /> : <Package className="size-2.5" />}
+                                        {stock} {unit}
+                                      </span>
+                                    )}
+                                  </div>
                                 </SelectItem>
                               );
                             })}
                           </SelectContent>
                         </Select>
                         {item.productName && (
-                          <div className="mt-1">
+                          <div className="mt-1.5">
                             {(() => {
                               const stock = getAvailableStock(item.productName);
                               if (stock === null) return null;
                               const need = consumedOf(item);
                               const isLow = need > stock;
+                              const unit = unitOf(item.productName, item.itemType);
+                              if (isLow) {
+                                return (
+                                  <div className="flex items-center gap-1.5 text-[11px] text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 rounded-md px-2 py-1">
+                                    <AlertTriangle className="size-3 shrink-0" />
+                                    <span>Available: <span className="font-semibold">{stock} {unit}</span> — need <span className="font-semibold">{need}</span></span>
+                                  </div>
+                                );
+                              }
                               return (
-                                <span className={`text-[11px] ${isLow ? "text-rose-600 font-medium" : "text-muted-foreground"}`}>
-                                  Available: {stock} {unitOf(item.productName, item.itemType)} {isLow && `(need ${need})`}
-                                </span>
+                                <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-md px-2 py-1">
+                                  <Package className="size-3 shrink-0" />
+                                  <span>Available: <span className="font-semibold">{stock} {unit}</span></span>
+                                </div>
                               );
                             })()}
                           </div>

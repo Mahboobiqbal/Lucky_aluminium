@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import logoDataUrl from "@/assets/logo1.png?inline";
+import logoDataUrl from "@/assets/logo1.jpeg?inline";
 
 export const APP_LOGO_URL = logoDataUrl;
 

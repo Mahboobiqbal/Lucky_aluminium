@@ -49,7 +49,7 @@ function SuppliersPage() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [showStatement, setShowStatement] = useState(false);
   const [supplierForm, setSupplierForm] = useState(emptySupplier);
-  const [purchaseForm, setPurchaseForm] = useState({ invoiceNumber: "", supplierId: 0, supplierName: "", items: [{ productName: "", itemType: "other" as "window" | "other", widthFt: undefined, heightFt: undefined, length: 0, quantity: 1, purchasePrice: 0, salePrice: 0, amount: 0 }] as PurchaseFormItem[], paymentType: "cash", totalAmount: 0, date: Date.now() });
+  const [purchaseForm, setPurchaseForm] = useState({ invoiceNumber: "", supplierId: 0, supplierName: "", items: [{ productName: "", itemType: "other" as "window" | "other", widthFt: undefined, heightFt: undefined, length: 0, quantity: 0, purchasePrice: 0, salePrice: 0, amount: 0 }] as PurchaseFormItem[], paymentType: "cash", totalAmount: 0, date: Date.now() });
   const [paymentForm, setPaymentForm] = useState({ supplierId: 0, supplierName: "", amount: 0, method: "cash", date: Date.now(), notes: "" });
   const [purchaseInvoiceOpen, setPurchaseInvoiceOpen] = useState(false);
   const [paymentReceiptOpen, setPaymentReceiptOpen] = useState(false);
@@ -124,7 +124,7 @@ function SuppliersPage() {
 
   const openPurchase = (supplierId?: number) => {
     const supplier = supplierId ? list.find((s) => s.id === supplierId) : undefined;
-    setPurchaseForm({ invoiceNumber: `PUR-${String(purchases.length + 1).padStart(4, "0")}`, supplierId: supplier?.id ?? 0, supplierName: supplier?.name ?? "", items: [{ productName: "", itemType: "other", pricingMode: "piece", widthFt: undefined, heightFt: undefined, length: 0, quantity: 1, purchasePrice: 0, salePrice: 0, amount: 0 }] as PurchaseFormItem[], paymentType: "cash", totalAmount: 0, date: Date.now() });
+    setPurchaseForm({ invoiceNumber: `PUR-${String(purchases.length + 1).padStart(4, "0")}`, supplierId: supplier?.id ?? 0, supplierName: supplier?.name ?? "", items: [{ productName: "", itemType: "other", pricingMode: "piece", widthFt: undefined, heightFt: undefined, length: 0, quantity: 0, purchasePrice: 0, salePrice: 0, amount: 0 }] as PurchaseFormItem[], paymentType: "cash", totalAmount: 0, date: Date.now() });
     setPurchaseOpen(true);
   };
 
@@ -319,7 +319,7 @@ function SuppliersPage() {
                   );
                 })}
               </div>
-              <div className="p-3 border-t"><Button variant="outline" size="sm" onClick={() => setPurchaseForm({ ...purchaseForm, items: [...purchaseForm.items, { productName: "", itemType: "other", pricingMode: "piece", widthFt: undefined, heightFt: undefined, length: 0, quantity: 1, purchasePrice: 0, salePrice: 0, amount: 0 } as PurchaseFormItem] })} className="w-full"><Plus className="size-3.5 mr-1" />Add Product</Button></div>
+              <div className="p-3 border-t"><Button variant="outline" size="sm" onClick={() => setPurchaseForm({ ...purchaseForm, items: [...purchaseForm.items, { productName: "", itemType: "other", pricingMode: "piece", widthFt: undefined, heightFt: undefined, length: 0, quantity: 0, purchasePrice: 0, salePrice: 0, amount: 0 } as PurchaseFormItem] })} className="w-full"><Plus className="size-3.5 mr-1" />Add Product</Button></div>
             </div>
             <div className="flex justify-end pt-4 border-t"><div className="flex items-center justify-between w-64"><span className="font-semibold">Total:</span><span className="text-lg font-bold text-primary">{currency(purchaseForm.totalAmount)}</span></div></div>
           </div>

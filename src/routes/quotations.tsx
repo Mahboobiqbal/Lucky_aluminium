@@ -96,7 +96,7 @@ function QuotationsPage() {
   const discountAmount = subtotal * discount / 100;
   const total = Math.max(0, subtotal - discountAmount + extra);
 
-  const addItem = () => setItems([...items, { productName: "", itemType: "other", width: 0, height: 0, length: 0, sqft: 0, quantity: 1, unitPrice: 0, amount: 0, notes: "" }]);
+  const addItem = () => setItems([...items, { productName: "", itemType: "other", width: 0, height: 0, length: 0, sqft: 0, quantity: 0, unitPrice: 0, amount: 0, notes: "" }]);
   const updateItem = (i: number, patch: Partial<QuotationItem>) => {
     setItems((prev) => prev.map((it, idx) => {
       if (idx !== i) return it;

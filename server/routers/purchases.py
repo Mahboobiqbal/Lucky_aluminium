@@ -49,7 +49,7 @@ async def _sync_purchase_products(purchase: Purchase, items: list, db: AsyncSess
                 handle_type=None,
                 lock_type=None,
                 unit="pcs",
-                base_price=float(getattr(item, "purchasePrice", 0) or 0),
+                base_price=float(getattr(item, "salePrice", 0) or getattr(item, "purchasePrice", 0) or 0),
                 description=f"Added from purchase {purchase.invoice_number} ({purchase.supplier_name})",
                 active=True,
                 created_at=datetime.utcnow(),
@@ -62,8 +62,12 @@ async def _sync_purchase_products(purchase: Purchase, items: list, db: AsyncSess
                 product.name = product_name
             product.category = product.category or "Purchased"
             product.unit = product.unit or "pcs"
-            if float(getattr(item, "purchasePrice", 0) or 0) > 0:
-                product.base_price = float(getattr(item, "purchasePrice", 0) or 0)
+            sale_price = float(getattr(item, "salePrice", 0) or 0)
+            purchase_price = float(getattr(item, "purchasePrice", 0) or 0)
+            if sale_price > 0:
+                product.base_price = sale_price
+            elif purchase_price > 0:
+                product.base_price = purchase_price
             if not product.description:
                 product.description = f"Added from purchase {purchase.invoice_number} ({purchase.supplier_name})"
             elif purchase.invoice_number not in product.description:

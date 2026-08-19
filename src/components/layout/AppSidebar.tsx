@@ -41,8 +41,7 @@ const NAV: Array<{ section: string; items: NavItem[] }> = [
   { section: "Operations", items: [
     { to: "/products", label: "Products", icon: Package, moduleKey: "products" },
     { to: "/measurements", label: "Measurements", icon: Ruler, moduleKey: "measurements" },
-    { to: "/inventory", label: "Inventory", icon: Boxes, moduleKey: "inventory" },
-    { to: "/stock-report", label: "Stock Report", icon: BarChart3, moduleKey: "inventory" },
+    { to: "/stock-report", label: "Inventory", icon: Boxes, moduleKey: "inventory" },
     { to: "/suppliers", label: "Suppliers", icon: Truck, moduleKey: "suppliers" },
   ]},
   { section: "Finance", items: [
