@@ -132,20 +132,28 @@ function ProductsPage() {
     >
       <PageContainer>
         <TableShell>
-          <table className="data-table">
-            <thead><tr><th>Code</th><th>Name</th><th className="text-center">Unit</th><th className="text-right whitespace-nowrap">Base price</th><th className="text-center">Status</th><th className="w-24 text-right">Actions</th></tr></thead>
+          <table className="data-table" style={{ tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: "23%" }} />
+              <col style={{ width: "31%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "17%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "6%" }} />
+            </colgroup>
+            <thead><tr><th>Code</th><th>Name</th><th>Unit</th><th style={{ textAlign: "right" }} className="whitespace-nowrap">Base price</th><th>Status</th><th style={{ textAlign: "center" }}>Actions</th></tr></thead>
             <tbody>
               {filtered.map((p) => (
                 <tr key={p.id}>
                   <td className="font-mono text-xs text-muted-foreground">{p.code}</td>
                   <td className="font-medium">{p.name}</td>
                   <td>{p.unit}</td>
-                  <td className="text-right tabular-nums font-medium whitespace-nowrap">{currency(p.basePrice)}</td>
+                  <td style={{ textAlign: "right" }} className="tabular-nums font-medium whitespace-nowrap">{currency(p.basePrice)}</td>
                   <td>{p.active
                     ? <span className="inline-flex rounded px-1.5 py-0.5 text-[11px] border bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">Active</span>
                     : <span className="inline-flex rounded px-1.5 py-0.5 text-[11px] border bg-muted text-muted-foreground border-border">Inactive</span>}
                   </td>
-                  <td className="text-right">
+                  <td style={{ textAlign: "center" }}>
                     {can("products", "edit") && <button onClick={() => openEdit(p)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Pencil className="size-3.5" /></button>}
                     {can("products", "delete") && <button onClick={() => setDeleteTarget(p.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center"><Trash2 className="size-3.5" /></button>}
                   </td>

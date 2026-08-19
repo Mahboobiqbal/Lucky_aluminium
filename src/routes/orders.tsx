@@ -390,8 +390,8 @@ function OrdersPage() {
               <div className="divide-y divide-border">
                 {form.items.map((item, index) => (
                   <div key={index} className="p-3 space-y-2">
-                    <div className={`grid grid-cols-1 sm:grid-cols-2 ${item.itemType === "window" ? "lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto_auto]" : "lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto_auto]"} gap-2 items-end`}>
-                      <div>
+                    <div className="grid gap-2 items-end" style={{ gridTemplateColumns: item.itemType === "window" ? "minmax(0,1fr) 140px 70px 70px 90px 90px 36px" : "minmax(0,1fr) 140px 70px 70px 70px 90px 90px 36px" }}>
+                      <div className="min-w-0">
                         <Label className="text-xs">Product</Label>
                         <Select value={item.productName || "__none__"} onValueChange={(v) => {
                           if (v === "__none__") return updateItem(index, { productName: "" });
@@ -399,7 +399,7 @@ function OrdersPage() {
                           const inv = invOf(v);
                           updateItem(index, { productName: v, itemType: inv ? (inv.itemType === "window" ? "window" : "other") : item.itemType, unitPrice: prod?.basePrice || item.unitPrice });
                         }}>
-                          <SelectTrigger className="h-8"><SelectValue placeholder="Select product" /></SelectTrigger>
+                          <SelectTrigger className="h-8 overflow-hidden"><SelectValue placeholder="Select product" /></SelectTrigger>
                           <SelectContent className="max-h-[280px]">
                             <SelectItem value="__none__">-- Select product --</SelectItem>
                             {products.map((p) => {
@@ -476,9 +476,9 @@ function OrdersPage() {
                           className={`h-8 ${item.productName && getAvailableStock(item.productName) !== null && consumedOf(item) > (getAvailableStock(item.productName) || 0) ? "border-rose-500 focus:ring-rose-500" : ""}`}
                         />
                       </div>
-                      <div><Label className="text-xs">Unit Price {isSizeMode(item.productName) ? (item.itemType === "window" ? "/ ft" : "/ sqft") : "/ pc"}</Label><Input type="number" value={item.unitPrice || ""} onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })} className="h-8" /></div>
-                      <div><Label className="text-xs">Amount</Label><div className="h-8 px-2 rounded border bg-muted/40 flex items-center text-sm font-semibold">{currency(item.amount)}</div></div>
-                      <Button variant="ghost" size="sm" className="h-8 px-2 text-destructive" onClick={() => { const items = form.items.filter((_, i) => i !== index); const { subtotal, total } = recalc(items); setForm({ ...form, items, subtotal, total }); }} disabled={form.items.length === 1}><Trash2 className="size-3.5" /></Button>
+                      <div><Label className="text-xs">Unit Price{isSizeMode(item.productName) ? (item.itemType === "window" ? " /ft" : " /sqft") : " /pc"}</Label><Input type="number" value={item.unitPrice || ""} onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })} className="h-8" /></div>
+                      <div><Label className="text-xs">Amount</Label><div className="h-8 px-2 rounded border bg-muted/40 flex items-center text-sm font-semibold truncate">{currency(item.amount)}</div></div>
+                      <div className="flex items-end justify-center pb-0.5"><Button variant="ghost" size="sm" className="h-8 w-8 px-0 text-destructive" onClick={() => { const items = form.items.filter((_, i) => i !== index); const { subtotal, total } = recalc(items); setForm({ ...form, items, subtotal, total }); }} disabled={form.items.length === 1}><Trash2 className="size-3.5" /></Button></div>
                     </div>
                     <div><Label className="text-xs">Description</Label><Input value={item.notes ?? ""} onChange={(e) => updateItem(index, { notes: e.target.value })} placeholder="Item description, specs, color, etc." className="h-8" /></div>
                   </div>
