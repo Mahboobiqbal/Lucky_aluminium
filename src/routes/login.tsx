@@ -8,7 +8,7 @@ import { LogIn, Eye, EyeOff, Shield, Warehouse } from "lucide-react";
 import { APP_LOGO_URL } from "@/lib/brand";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "Login — UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Login — Lucky Aluminium" }] }),
   component: LoginPage,
 });
 
@@ -46,9 +46,9 @@ function LoginPage() {
         </div>
         <div className="relative z-10 text-center px-12">
           <div className="size-24 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center mx-auto mb-6 ring-1 ring-white/20 shadow-2xl">
-            <img src={APP_LOGO_URL} alt="UDYANA" className="size-14 object-contain" />
+            <img src={APP_LOGO_URL} alt="Lucky Aluminium" className="size-14 object-contain" />
           </div>
-          <h1 className="text-4xl font-bold text-white tracking-tight">UDYANA</h1>
+          <h1 className="text-4xl font-bold text-white tracking-tight">Lucky Aluminium</h1>
           <p className="text-lg text-white/60 mt-2 max-w-sm mx-auto leading-relaxed">
             uPVC Windows &amp; Doors ERP
           </p>
@@ -64,9 +64,9 @@ function LoginPage() {
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-8">
             <div className="size-16 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-4 ring-1 ring-primary/10">
-              <img src={APP_LOGO_URL} alt="UDYANA" className="size-10 object-contain" />
+              <img src={APP_LOGO_URL} alt="Lucky Aluminium" className="size-10 object-contain" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">UDYANA</h1>
+            <h1 className="text-2xl font-bold text-foreground">Lucky Aluminium</h1>
             <p className="text-sm text-muted-foreground mt-1">Sign in to your account</p>
           </div>
 
@@ -146,7 +146,7 @@ function LoginPage() {
 
           <div className="mt-8 pt-6 border-t border-border/50 text-center">
             <p className="text-[11px] text-muted-foreground/60">
-              UDYANA — uPVC Windows & Doors ERP
+              Lucky Aluminium — uPVC Windows & Doors ERP
             </p>
               <p className="text-[10px] text-muted-foreground/40 mt-1">
                 Data is securely stored on the server.

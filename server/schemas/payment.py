@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class PaymentBase(BaseModel):
@@ -14,6 +14,13 @@ class PaymentBase(BaseModel):
     method: str
     date: datetime
     notes: str | None = None
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def amount_positive(cls, v):
+        if float(v) <= 0:
+            raise ValueError("Amount must be greater than 0")
+        return float(v)
 
 
 class PaymentCreate(PaymentBase):

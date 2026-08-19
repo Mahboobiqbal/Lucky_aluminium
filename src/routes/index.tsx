@@ -14,7 +14,7 @@ import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Cell, Res
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
-  head: () => ({ meta: [{ title: "Dashboard — UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — Lucky Aluminium" }] }),
   component: Dashboard,
 });
 

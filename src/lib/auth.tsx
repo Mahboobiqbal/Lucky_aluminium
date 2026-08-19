@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { api, setToken, clearToken, getToken, type SessionUser, type UserPermission, type SignupPayload } from "@/lib/api";
+import { api, setToken, clearToken, getToken, type SessionUser, type UserPermission } from "@/lib/api";
 
 const SESSION_KEY = "udyana_session";
 
@@ -11,7 +11,6 @@ type AuthContextType = {
   isManager: boolean;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: SessionUser }>;
-  signup: (payload: SignupPayload) => Promise<{ success: boolean; error?: string; user?: SessionUser }>;
   logout: () => void;
   can: (moduleKey: string, action?: "view" | "create" | "edit" | "delete" | "print" | "export") => boolean;
   getPermissions: (userId: number) => Promise<UserPermission[]>;
@@ -26,7 +25,6 @@ const AuthContext = createContext<AuthContextType>({
   isManager: false,
   isLoading: true,
   login: async () => ({ success: false }),
-  signup: async () => ({ success: false }),
   logout: () => {},
   can: () => false,
   getPermissions: async () => [],
@@ -46,8 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const user = JSON.parse(stored) as SessionUser;
         setCurrentUser(user);
-        // Load permissions in background
-        api.get<UserPermission[]>(`/api/permissions/user/${user.id}`).then(setUserPermissions).catch(() => {});
+        // Validate token is still valid
+        api.get<UserPermission[]>(`/api/permissions/user/${user.id}`).then(setUserPermissions).catch(() => {
+          // Token invalid or expired — clear session
+          clearToken();
+          localStorage.removeItem(SESSION_KEY);
+          setCurrentUser(null);
+        });
       } catch {
         localStorage.removeItem(SESSION_KEY);
         clearToken();
@@ -72,23 +75,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true, user: res.user };
     } catch (err: any) {
       return { success: false, error: err.message || "Login failed" };
-    }
-  };
-
-  const signup = async (payload: SignupPayload): Promise<{ success: boolean; error?: string; user?: SessionUser }> => {
-    try {
-      const res = await api.post<{ token: string; user: SessionUser }>("/api/auth/signup", payload);
-      setToken(res.token);
-      localStorage.setItem(SESSION_KEY, JSON.stringify(res.user));
-      setCurrentUser(res.user);
-
-      // Load permissions
-      const perms = await api.get<UserPermission[]>(`/api/permissions/user/${res.user.id}`);
-      setUserPermissions(perms);
-
-      return { success: true, user: res.user };
-    } catch (err: any) {
-      return { success: false, error: err.message || "Signup failed" };
     }
   };
 
@@ -148,7 +134,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isManager: currentUser?.role === "manager",
           isLoading,
           login,
-          signup,
           logout,
           can,
           getPermissions,

@@ -5,6 +5,16 @@ from jose import JWTError, jwt
 
 from config import settings
 
+_revoked_tokens: set[str] = set()
+
+
+def revoke_token(token: str):
+    _revoked_tokens.add(token)
+
+
+def is_token_revoked(token: str) -> bool:
+    return token in _revoked_tokens
+
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()

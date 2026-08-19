@@ -80,6 +80,11 @@ async def delete_invoice(invoice_id: int, db: AsyncSession = Depends(get_db), _u
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
+    from models.payment import Payment
+    payments = await db.execute(select(Payment).where(Payment.invoice_id == invoice_id).limit(1))
+    if payments.scalars().first():
+        raise HTTPException(status_code=400, detail="Cannot delete invoice with existing payments. Remove payments first.")
+
     await db.delete(inv)
     await db.commit()
     return {"message": "Invoice deleted", "success": True}

@@ -1,110 +1,38 @@
-from datetime import datetime
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models.user import User, UserPermission
-from schemas.auth import ChangePasswordRequest, LoginRequest, LoginResponse, SignupRequest, UserResponse
+from models.user import User
+from schemas.auth import ChangePasswordRequest, LoginRequest, LoginResponse, UserResponse
 from utils.auth import create_access_token, hash_password, verify_password
-from utils.dates import naive
 from utils.deps import get_current_user
+from utils.rate_limit import check_rate_limit, record_failed_attempt, clear_failed_attempts
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-MODULES = [
-    "dashboard", "customers", "quotations", "orders", "invoices",
-    "payments", "paymentReceipts", "purchase", "suppliers", "products",
-    "measurements", "inventory", "expenses", "reports",
-    "dailyPaymentStatement", "settings", "backup",
-]
-
-
-@router.post("/signup", response_model=LoginResponse)
-async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
-    # Only admin and manager roles allowed
-    if body.role not in ("admin", "manager"):
-        raise HTTPException(status_code=400, detail="Only admin and manager roles are allowed")
-
-    # Check if any user exists — first user becomes admin
-    result = await db.execute(select(User))
-    first_user = result.scalars().first() is None
-
-    # Check unique username
-    existing = await db.execute(select(User).where(User.username == body.username))
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Username already exists")
-
-    # Check unique email
-    existing_email = await db.execute(select(User).where(User.email == body.email))
-    if existing_email.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    if len(body.password) < 4:
-        raise HTTPException(status_code=400, detail="Password must be at least 4 characters")
-
-    # First user is always admin, subsequent users get requested role
-    role = "admin" if first_user else body.role
-
-    user = User(
-        full_name=body.fullName,
-        username=body.username,
-        email=body.email,
-        phone=body.phone,
-        password_hash=hash_password(body.password),
-        status="active",
-        role=role,
-        created_at=datetime.utcnow(),
-    )
-    db.add(user)
-    await db.flush()
-
-    # Grant default permissions for all modules
-    for mod in MODULES:
-        db.add(UserPermission(
-            user_id=user.id,
-            module_key=mod,
-            can_view=True,
-            can_create=True,
-            can_edit=True,
-            can_delete=True,
-            can_print=True,
-            can_export=True,
-        ))
-
-    await db.commit()
-
-    token = create_access_token(data={"sub": str(user.id), "role": user.role})
-
-    return LoginResponse(
-        token=token,
-        user=UserResponse(
-            id=user.id,
-            fullName=user.full_name,
-            username=user.username,
-            email=user.email,
-            phone=user.phone,
-            status=user.status,
-            role=user.role,
-        ),
-    )
+bearer_scheme = HTTPBearer()
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    check_rate_limit(request)
+
     result = await db.execute(
         select(User).where((User.username == body.username) | (User.email == body.username))
     )
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(body.password, user.password_hash):
+        record_failed_attempt(request)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
 
     if user.status != "active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated")
 
     token = create_access_token(data={"sub": str(user.id), "role": user.role})
+
+    clear_failed_attempts(request)
 
     return LoginResponse(
         token=token,
@@ -138,6 +66,7 @@ async def change_password(
     body: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ):
     if not verify_password(body.currentPassword, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
@@ -146,5 +75,9 @@ async def change_password(
         raise HTTPException(status_code=400, detail="New password must be at least 4 characters")
 
     current_user.password_hash = hash_password(body.newPassword)
+
+    from utils.auth import revoke_token
+    revoke_token(credentials.credentials)
+
     await db.commit()
     return {"message": "Password updated", "success": True}

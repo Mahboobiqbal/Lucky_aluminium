@@ -23,7 +23,7 @@ from models.setting import Setting
 from models.user import User, UserPermission
 from schemas.backup import BackupResponse
 from utils.dates import naive
-from utils.deps import require_permission
+from utils.deps import require_permission, require_role
 
 router = APIRouter(prefix="/api/backup", tags=["backup"])
 
@@ -54,10 +54,14 @@ async def _export_all(db: AsyncSession) -> dict:
     for table_name, model in ALL_TABLES:
         result = await db.execute(select(model))
         rows = result.scalars().all()
-        data[table_name] = [
+        table_data = [
             {c.key: getattr(row, c.key) for c in model.__table__.columns}
             for row in rows
         ]
+        if table_name == "users":
+            for row_data in table_data:
+                row_data.pop("password_hash", None)
+        data[table_name] = table_data
     return data
 
 
@@ -113,7 +117,7 @@ def _coerce_row(model, row: dict) -> dict:
 
 
 @router.post("/import")
-async def import_backup(request: Request, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("backup", "create"))):
+async def import_backup(request: Request, db: AsyncSession = Depends(get_db), _user=Depends(require_role("admin"))):
     body = await request.json()
     if not isinstance(body, dict) or not body:
         raise HTTPException(status_code=400, detail="Backup file must be a JSON object with table data")
@@ -124,6 +128,11 @@ async def import_backup(request: Request, db: AsyncSession = Depends(get_db), _u
             raise HTTPException(status_code=400, detail=f"Unknown table in backup: {table_name}")
         if not isinstance(rows, list) or any(not isinstance(r, dict) for r in rows):
             raise HTTPException(status_code=400, detail=f"Table '{table_name}' must be an array of row objects")
+
+    for table_name, rows in body.items():
+        if table_name == "users":
+            for row_data in rows:
+                row_data.pop("password_hash", None)
 
     row_count = sum(len(rows) for rows in body.values())
     try:

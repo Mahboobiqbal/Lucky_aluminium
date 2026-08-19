@@ -12,7 +12,7 @@ import { BackupFolderDialog } from "@/components/backup/BackupFolderDialog";
 import { saveFileToDisk, isDesktop } from "@/lib/platform";
 
 export const Route = createFileRoute("/backup")({
-  head: () => ({ meta: [{ title: "Backup — UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Backup — Lucky Aluminium" }] }),
   component: BackupPage,
 });
 
@@ -176,7 +176,7 @@ function BackupPage() {
         if (!tables) throw new Error("empty backup");
         setImportTarget({ name: file.name, text: String(reader.result), tables });
       } catch {
-        toast.error("Invalid backup file: expected a JSON backup exported from UDYANA");
+        toast.error("Invalid backup file: expected a JSON backup exported from Lucky Aluminium");
       }
     };
     reader.readAsText(file);

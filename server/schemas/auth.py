@@ -6,15 +6,6 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class SignupRequest(BaseModel):
-    fullName: str
-    username: str
-    email: str
-    phone: str = ""
-    password: str
-    role: str = "admin"
-
-
 class LoginResponse(BaseModel):
     token: str
     user: "UserResponse"

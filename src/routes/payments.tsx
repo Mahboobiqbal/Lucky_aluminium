@@ -24,7 +24,7 @@ import { PDFExporter } from "@/components/payments/PDFExporter";
 import { PRESET_LABELS, rangeFromCustom, resolvePresetRange, type DateRange, type DateRangePreset } from "@/components/payments/paymentFilterUtils";
 
 export const Route = createFileRoute("/payments")({
-  head: () => ({ meta: [{ title: "Payments - UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Payments — Lucky Aluminium" }] }),
   component: PaymentsPage,
 });
 

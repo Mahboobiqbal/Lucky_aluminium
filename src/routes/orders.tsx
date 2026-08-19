@@ -21,7 +21,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/orders")({
-  head: () => ({ meta: [{ title: "Orders - UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Orders — Lucky Aluminium" }] }),
   component: OrdersPage,
 });
 

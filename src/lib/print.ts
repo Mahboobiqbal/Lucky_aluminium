@@ -22,10 +22,10 @@ export type CompanyProfile = {
 };
 
 const defaultCompany: Required<Omit<CompanyProfile, "phones" | "phoneEntries" | "bankName" | "accountTitle" | "accountNumber" | "iban" | "branchName">> = {
-  companyName: "UDYANA uPVC Works",
+  companyName: "Lucky Aluminium uPVC Works",
   address: "Industrial Area, Phase 2",
   phone: "+91 90000 00000",
-  email: "contact@udyana.example",
+  email: "contact@luckyaluminium.example",
 };
 
 export function companyFromSettings(settings: { key: string; value: string }[]): CompanyProfile {

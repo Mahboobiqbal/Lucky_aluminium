@@ -1,15 +1,16 @@
 import os
+import logging
 from contextlib import asynccontextmanager
 
-import bcrypt
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, select, text
 
-from config import settings
+from config import settings, validate_settings
 from database import async_session, engine
 from models import Base
 from models.user import User, UserPermission
+from utils.auth import hash_password
 
 from routers import (
     auth,
@@ -31,9 +32,20 @@ from routers import (
     users,
 )
 
+logger = logging.getLogger(__name__)
+
+MODULES = [
+    "dashboard", "customers", "quotations", "orders", "invoices",
+    "payments", "paymentReceipts", "purchase", "suppliers", "products",
+    "measurements", "inventory", "expenses", "reports",
+    "dailyPaymentStatement", "settings", "backup",
+]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_settings()
+
     # Create all tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -58,30 +70,25 @@ async def lifespan(app: FastAPI):
 
         await conn.run_sync(_ensure_columns)
 
-    # Seed default admin user
+    # Seed the single admin user from environment variables
     async with async_session() as db:
-        result = await db.execute(select(User).where(User.username == "admin"))
-        if not result.scalar_one_or_none():
+        admin_count = await db.execute(select(User).where(User.role == "admin"))
+        existing_admins = admin_count.scalars().all()
+
+        if len(existing_admins) == 0:
             admin = User(
-                full_name="System Administrator",
-                username="admin",
-                email="admin@udyana.example",
+                full_name="Lucky Aluminium",
+                username=settings.INITIAL_ADMIN_USERNAME,
+                email=f"{settings.INITIAL_ADMIN_USERNAME}@luckyaluminium.local",
                 phone="",
-                password_hash=bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode(),
+                password_hash=hash_password(settings.INITIAL_ADMIN_PASSWORD),
                 status="active",
                 role="admin",
             )
             db.add(admin)
             await db.flush()
 
-            # Grant all permissions to admin
-            modules = [
-                "dashboard", "customers", "quotations", "orders", "invoices",
-                "payments", "paymentReceipts", "purchase", "suppliers", "products",
-                "measurements", "inventory", "expenses", "reports",
-                "dailyPaymentStatement", "settings", "backup",
-            ]
-            for mod in modules:
+            for mod in MODULES:
                 db.add(UserPermission(
                     user_id=admin.id,
                     module_key=mod,
@@ -94,15 +101,20 @@ async def lifespan(app: FastAPI):
                 ))
 
             await db.commit()
+            logger.info("Admin user '%s' created from environment credentials", settings.INITIAL_ADMIN_USERNAME)
+        elif len(existing_admins) > 1:
+            logger.critical("CRITICAL: Multiple admin users detected (%d). Manual intervention required.", len(existing_admins))
 
     yield
 
 
 app = FastAPI(title="UDYANA ERP API", version="1.0.0", lifespan=lifespan)
 
+cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

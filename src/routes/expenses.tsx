@@ -17,7 +17,7 @@ import { currency, dateShort } from "@/lib/format";
 import { DateField } from "@/components/ui/DateField";
 
 export const Route = createFileRoute("/expenses")({
-  head: () => ({ meta: [{ title: "Expenses - UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Expenses — Lucky Aluminium" }] }),
   component: ExpensesPage,
 });
 

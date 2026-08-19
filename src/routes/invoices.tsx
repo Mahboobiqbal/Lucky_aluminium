@@ -16,7 +16,7 @@ import { createCustomerInvoicePdf, downloadPdf, printPdf, type CustomerInvoiceDa
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/invoices")({
-  head: () => ({ meta: [{ title: "Invoices — UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Invoices — Lucky Aluminium" }] }),
   component: InvoicesPage,
 });
 

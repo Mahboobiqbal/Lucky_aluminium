@@ -41,9 +41,9 @@ async def main():
             print("Password updated to: admin123")
         else:
             admin = User(
-                full_name="System Administrator",
+                full_name="Lucky Aluminium",
                 username="admin",
-                email="admin@udyana.example",
+                email="admin@luckyaluminium.example",
                 phone="",
                 password_hash=bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode(),
                 status="active",

@@ -14,6 +14,9 @@ from utils.deps import require_role
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
+ADMIN_ROLE = "admin"
+VALID_ROLES = ("admin", "manager")
+
 
 def _to_response(u: User) -> dict:
     return {
@@ -47,6 +50,16 @@ def _to_response_with_permissions(u: User) -> dict:
     return data
 
 
+async def _admin_count(db: AsyncSession) -> int:
+    result = await db.execute(select(User).where(User.role == ADMIN_ROLE))
+    return len(result.scalars().all())
+
+
+async def _is_target_admin(db: AsyncSession, user_id: int) -> bool:
+    result = await db.execute(select(User).where(User.id == user_id, User.role == ADMIN_ROLE))
+    return result.scalar_one_or_none() is not None
+
+
 @router.get("")
 async def list_users(db: AsyncSession = Depends(get_db), _user=Depends(require_role("admin"))):
     result = await db.execute(select(User).order_by(User.created_at.desc()))
@@ -66,22 +79,28 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db), _user=Depen
 
 @router.post("")
 async def create_user(body: UserCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_role("admin"))):
-    # Only admin and manager roles allowed
-    if body.role not in ("admin", "manager"):
-        raise HTTPException(status_code=400, detail="Only admin and manager roles are allowed")
+    # Only "manager" role allowed for new users — admin role is NEVER assignable via API
+    if body.role == ADMIN_ROLE:
+        raise HTTPException(status_code=403, detail="Cannot create admin users via API. Admin is seeded at startup.")
+    if body.role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role: {body.role}. Allowed: {', '.join(VALID_ROLES)}")
 
     existing = await db.execute(select(User).where(User.username == body.username))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Username already exists")
 
+    if len(body.password) < 4:
+        raise HTTPException(status_code=400, detail="Password must be at least 4 characters")
+
+    # Force role to "manager" — never trust frontend-supplied role for admin
     user = User(
         full_name=body.fullName,
         username=body.username,
         email=body.email,
         phone=body.phone,
         password_hash=hash_password(body.password),
-        status=body.status,
-        role=body.role,
+        status=body.status if body.status in ("active", "inactive") else "active",
+        role="manager",
         created_at=datetime.utcnow(),
     )
     db.add(user)
@@ -108,20 +127,30 @@ async def create_user(body: UserCreate, db: AsyncSession = Depends(get_db), _use
 
 @router.put("/{user_id}")
 async def update_user(user_id: int, body: UserUpdate, db: AsyncSession = Depends(get_db), _user=Depends(require_role("admin"))):
-    # Only admin and manager roles allowed
-    if body.role not in ("admin", "manager"):
-        raise HTTPException(status_code=400, detail="Only admin and manager roles are allowed")
-
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Protect the admin account from any modification by non-admin
+    if user.role == ADMIN_ROLE and user.id != _user.id:
+        raise HTTPException(status_code=403, detail="Cannot modify the admin account")
+
+    # Prevent anyone from changing their own role (or anyone else's role to admin)
+    if body.role == ADMIN_ROLE:
+        raise HTTPException(status_code=403, detail="Cannot assign admin role")
+    if body.role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role: {body.role}. Allowed: {', '.join(VALID_ROLES)}")
+
+    # If user is admin, do not allow role change away from admin
+    if user.role == ADMIN_ROLE:
+        body.role = ADMIN_ROLE
+
     user.full_name = body.fullName
     user.username = body.username
     user.email = body.email
     user.phone = body.phone
-    user.status = body.status
+    user.status = body.status if body.status in ("active", "inactive") else user.status
     user.role = body.role
 
     if body.password:
@@ -145,7 +174,7 @@ async def update_user(user_id: int, body: UserUpdate, db: AsyncSession = Depends
 
     await db.commit()
     result = await db.execute(
-        select(User).options(selectinload(User.permissions)).where(User.id == user_id)
+        select(User).options(selectinload(User.permissions)).where(User.id == user.id)
     )
     return _to_response_with_permissions(result.scalar_one())
 
@@ -160,6 +189,15 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db), _user=De
     # Prevent deleting yourself
     if user.id == _user.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    # Prevent deleting the admin account
+    if user.role == ADMIN_ROLE:
+        raise HTTPException(status_code=403, detail="Cannot delete the admin account")
+
+    # Safety: ensure at least one admin remains
+    admin_count = await _admin_count(db)
+    if admin_count <= 1 and user.role == ADMIN_ROLE:
+        raise HTTPException(status_code=403, detail="Cannot delete the last admin account")
 
     await db.delete(user)
     await db.commit()

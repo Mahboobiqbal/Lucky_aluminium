@@ -9,9 +9,12 @@ from database import get_db
 from models.inventory import InventoryItem
 from models.invoice import Invoice, InvoiceItem
 from models.order import Order, OrderItem
+from models.product import Product
 from schemas.order import OrderCreate, OrderResponse, OrderUpdate
 from utils.dates import naive
 from utils.deps import require_permission
+
+VALID_ORDER_STATUSES = ("pending", "confirmed", "processing", "delivered", "cancelled")
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -19,7 +22,11 @@ router = APIRouter(prefix="/api/orders", tags=["orders"])
 async def _adjust_stock(db: AsyncSession, product_name: str, delta: float):
     if not product_name:
         return
-    result = await db.execute(select(InventoryItem).where(InventoryItem.name == product_name))
+    result = await db.execute(
+        select(InventoryItem)
+        .where(InventoryItem.name == product_name)
+        .with_for_update()
+    )
     item = result.scalar_one_or_none()
     if not item:
         return
@@ -171,59 +178,109 @@ async def get_order(order_id: int, db: AsyncSession = Depends(get_db), _user=Dep
 
 @router.post("")
 async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("orders", "create"))):
-    # Check stock availability before creating order
-    stock_errors = await _check_stock(db, body.items)
-    if stock_errors:
-        error_messages = []
-        for err in stock_errors:
-            error_messages.append(f"{err['product']}: requested {err['requested']}, available {err['available']} (short by {err['shortage']})")
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient stock for: {'; '.join(error_messages)}"
+    try:
+        # Check stock availability before creating order
+        stock_errors = await _check_stock(db, body.items)
+        if stock_errors:
+            error_messages = []
+            for err in stock_errors:
+                error_messages.append(f"{err['product']}: requested {err['requested']}, available {err['available']} (short by {err['shortage']})")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient stock for: {'; '.join(error_messages)}"
+            )
+
+        # Server-side financial calculation — never trust client amounts
+        product_cache = {}
+        for item in body.items:
+            pname = item.productName
+            if pname and pname not in product_cache:
+                pres = await db.execute(select(Product).where(Product.id == item.productId) if item.productId else select(Product).where(Product.name == pname))
+                product_cache[pname] = pres.scalar_one_or_none()
+
+        calculated_items = []
+        for item in body.items:
+            product = product_cache.get(item.productName)
+            server_price = float(product.base_price) if product else float(item.unitPrice)
+            item_type = item.itemType or "other"
+            qty = item.quantity
+            w = float(item.width or 0)
+            h = float(item.height or 0)
+            l = float(item.length or 0)
+
+            if item_type == "window" and l > 0:
+                amount = l * qty * server_price
+            elif w > 0 and h > 0:
+                amount = w * h * qty * server_price
+            else:
+                amount = qty * server_price
+
+            calculated_items.append({
+                "productId": item.productId,
+                "productName": item.productName,
+                "itemType": item_type,
+                "width": w,
+                "height": h,
+                "length": l,
+                "sqft": item.sqft,
+                "quantity": qty,
+                "unitPrice": server_price,
+                "amount": round(amount, 2),
+                "notes": item.notes,
+            })
+
+        subtotal = round(sum(ci["amount"] for ci in calculated_items), 2)
+        discount_pct = max(0, min(float(body.discountPercent or 0), 100))
+        total = round(subtotal - (subtotal * discount_pct / 100), 2)
+
+        if body.status and body.status not in VALID_ORDER_STATUSES:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}. Allowed: {', '.join(VALID_ORDER_STATUSES)}")
+
+        order = Order(
+            number=body.number,
+            customer_id=body.customerId,
+            customer_name=body.customerName,
+            quotation_id=body.quotationId,
+            order_date=naive(body.orderDate),
+            delivery_date=naive(body.deliveryDate),
+            subtotal=subtotal,
+            discount_percent=discount_pct,
+            total=total,
+            paid=0,
+            status=body.status,
+            notes=body.notes,
+            created_at=datetime.utcnow(),
         )
+        db.add(order)
+        await db.flush()
 
-    order = Order(
-        number=body.number,
-        customer_id=body.customerId,
-        customer_name=body.customerName,
-        quotation_id=body.quotationId,
-        order_date=naive(body.orderDate),
-        delivery_date=naive(body.deliveryDate),
-        subtotal=body.subtotal,
-        discount_percent=body.discountPercent,
-        total=body.total,
-        paid=body.paid,
-        status=body.status,
-        notes=body.notes,
-        created_at=datetime.utcnow(),
-    )
-    db.add(order)
-    await db.flush()
+        order_items = []
+        for ci in calculated_items:
+            oi = OrderItem(
+                order_id=order.id,
+                product_id=ci["productId"],
+                product_name=ci["productName"],
+                item_type=ci["itemType"],
+                width=ci["width"],
+                height=ci["height"],
+                length=ci["length"],
+                sqft=ci["sqft"],
+                quantity=ci["quantity"],
+                unit_price=ci["unitPrice"],
+                amount=ci["amount"],
+                notes=ci["notes"],
+            )
+            db.add(oi)
+            order_items.append(oi)
 
-    order_items = []
-    for item in body.items:
-        oi = OrderItem(
-            order_id=order.id,
-            product_id=item.productId,
-            product_name=item.productName,
-            item_type=item.itemType,
-            width=item.width,
-            height=item.height,
-            length=item.length,
-            sqft=item.sqft,
-            quantity=item.quantity,
-            unit_price=item.unitPrice,
-            amount=item.amount,
-            notes=item.notes,
-        )
-        db.add(oi)
-        order_items.append(oi)
-
-    await _sync_invoice(db, order, order_items)
-    for item in order_items:
-        consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
-        await _adjust_stock(db, item.product_name, -consumed)
-    await db.commit()
+        await _sync_invoice(db, order, order_items)
+        for item in order_items:
+            consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
+            await _adjust_stock(db, item.product_name, -consumed)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
 
     result = await db.execute(
         select(Order).options(selectinload(Order.items)).where(Order.id == order.id)
@@ -238,89 +295,142 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Get old items to calculate net stock change
-    old_items_result = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
-    old_items = old_items_result.scalars().all()
-    
-    # Calculate net stock change per product
-    stock_changes = {}
-    for old in old_items:
-        old_consumed = await _consumed_units(db, old.product_name, old.item_type, old.width, old.height, old.length, old.quantity)
-        stock_changes[old.product_name] = stock_changes.get(old.product_name, 0) + old_consumed
-    for item in body.items:
-        product_name = item.productName if hasattr(item, 'productName') else item.product_name
-        new_consumed = await _consumed_units(db, product_name, getattr(item, "itemType", None), float(getattr(item, "width", 0) or 0), float(getattr(item, "height", 0) or 0), float(getattr(item, "length", 0) or 0), item.quantity)
-        stock_changes[product_name] = stock_changes.get(product_name, 0) - new_consumed
-    
-    # Check if stock is sufficient for the net changes
-    errors = []
-    for product_name, delta in stock_changes.items():
-        if delta < 0:  # Only check if we're deducting more than returning
-            result = await db.execute(select(InventoryItem).where(InventoryItem.name == product_name))
-            inv_item = result.scalar_one_or_none()
-            if inv_item:
-                available = float(inv_item.current_stock or 0)
-                needed = abs(delta)
-                if needed > available:
-                    errors.append({
-                        "product": product_name,
-                        "requested": needed,
-                        "available": available,
-                        "shortage": needed - available,
-                    })
-    
-    if errors:
-        error_messages = []
-        for err in errors:
-            error_messages.append(f"{err['product']}: requested {err['requested']}, available {err['available']} (short by {err['shortage']})")
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient stock for: {'; '.join(error_messages)}"
-        )
+    try:
+        # Get old items to calculate net stock change
+        old_items_result = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
+        old_items = old_items_result.scalars().all()
+        
+        # Calculate net stock change per product
+        stock_changes = {}
+        for old in old_items:
+            old_consumed = await _consumed_units(db, old.product_name, old.item_type, old.width, old.height, old.length, old.quantity)
+            stock_changes[old.product_name] = stock_changes.get(old.product_name, 0) + old_consumed
+        for item in body.items:
+            product_name = item.productName if hasattr(item, 'productName') else item.product_name
+            new_consumed = await _consumed_units(db, product_name, getattr(item, "itemType", None), float(getattr(item, "width", 0) or 0), float(getattr(item, "height", 0) or 0), float(getattr(item, "length", 0) or 0), item.quantity)
+            stock_changes[product_name] = stock_changes.get(product_name, 0) - new_consumed
+        
+        # Check if stock is sufficient for the net changes
+        errors = []
+        for product_name, delta in stock_changes.items():
+            if delta < 0:  # Only check if we're deducting more than returning
+                result = await db.execute(select(InventoryItem).where(InventoryItem.name == product_name))
+                inv_item = result.scalar_one_or_none()
+                if inv_item:
+                    available = float(inv_item.current_stock or 0)
+                    needed = abs(delta)
+                    if needed > available:
+                        errors.append({
+                            "product": product_name,
+                            "requested": needed,
+                            "available": available,
+                            "shortage": needed - available,
+                        })
+        
+        if errors:
+            error_messages = []
+            for err in errors:
+                error_messages.append(f"{err['product']}: requested {err['requested']}, available {err['available']} (short by {err['shortage']})")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient stock for: {'; '.join(error_messages)}"
+            )
 
-    # Delete old items and restore stock
-    for old in old_items:
-        old_consumed = await _consumed_units(db, old.product_name, old.item_type, old.width, old.height, old.length, old.quantity)
-        await _adjust_stock(db, old.product_name, old_consumed)
-        await db.delete(old)
-    
-    order.number = body.number
-    order.customer_id = body.customerId
-    order.customer_name = body.customerName
-    order.quotation_id = body.quotationId
-    order.order_date = naive(body.orderDate)
-    order.delivery_date = naive(body.deliveryDate)
-    order.subtotal = body.subtotal
-    order.discount_percent = body.discountPercent
-    order.total = body.total
-    order.paid = body.paid
-    order.status = body.status
-    order.notes = body.notes
+        # Preserve existing paid amount
+        existing_paid = float(order.paid or 0)
 
-    order_items = []
-    for item in body.items:
-        oi = OrderItem(
-            order_id=order.id,
-            product_id=item.productId,
-            product_name=item.productName,
-            item_type=item.itemType,
-            width=item.width,
-            height=item.height,
-            length=item.length,
-            sqft=item.sqft,
-            quantity=item.quantity,
-            unit_price=item.unitPrice,
-            amount=item.amount,
-            notes=item.notes,
-        )
-        db.add(oi)
-        order_items.append(oi)
+        # Delete old items and restore stock
+        for old in old_items:
+            old_consumed = await _consumed_units(db, old.product_name, old.item_type, old.width, old.height, old.length, old.quantity)
+            await _adjust_stock(db, old.product_name, old_consumed)
+            await db.delete(old)
+        
+        # Server-side financial calculation — never trust client amounts
+        product_cache = {}
+        for item in body.items:
+            pname = item.productName
+            if pname and pname not in product_cache:
+                pres = await db.execute(select(Product).where(Product.id == item.productId) if item.productId else select(Product).where(Product.name == pname))
+                product_cache[pname] = pres.scalar_one_or_none()
 
-    await _sync_invoice(db, order, order_items)
-    for item in order_items:
-        consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
-        await _adjust_stock(db, item.product_name, -consumed)
-    await db.commit()
+        calculated_items = []
+        for item in body.items:
+            product = product_cache.get(item.productName)
+            server_price = float(product.base_price) if product else float(item.unitPrice)
+            item_type = item.itemType or "other"
+            qty = item.quantity
+            w = float(item.width or 0)
+            h = float(item.height or 0)
+            l = float(item.length or 0)
+
+            if item_type == "window" and l > 0:
+                amount = l * qty * server_price
+            elif w > 0 and h > 0:
+                amount = w * h * qty * server_price
+            else:
+                amount = qty * server_price
+
+            calculated_items.append({
+                "productId": item.productId,
+                "productName": item.productName,
+                "itemType": item_type,
+                "width": w,
+                "height": h,
+                "length": l,
+                "sqft": item.sqft,
+                "quantity": qty,
+                "unitPrice": server_price,
+                "amount": round(amount, 2),
+                "notes": item.notes,
+            })
+
+        subtotal = round(sum(ci["amount"] for ci in calculated_items), 2)
+        discount_pct = max(0, min(float(body.discountPercent or 0), 100))
+        total = round(subtotal - (subtotal * discount_pct / 100), 2)
+
+        order.number = body.number
+        order.customer_id = body.customerId
+        order.customer_name = body.customerName
+        order.quotation_id = body.quotationId
+        order.order_date = naive(body.orderDate)
+        order.delivery_date = naive(body.deliveryDate)
+        order.subtotal = subtotal
+        order.discount_percent = discount_pct
+        order.total = total
+        order.paid = existing_paid
+        order.status = body.status
+        order.notes = body.notes
+
+        if body.status and body.status not in VALID_ORDER_STATUSES:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}. Allowed: {', '.join(VALID_ORDER_STATUSES)}")
+
+        order_items = []
+        for ci in calculated_items:
+            oi = OrderItem(
+                order_id=order.id,
+                product_id=ci["productId"],
+                product_name=ci["productName"],
+                item_type=ci["itemType"],
+                width=ci["width"],
+                height=ci["height"],
+                length=ci["length"],
+                sqft=ci["sqft"],
+                quantity=ci["quantity"],
+                unit_price=ci["unitPrice"],
+                amount=ci["amount"],
+                notes=ci["notes"],
+            )
+            db.add(oi)
+            order_items.append(oi)
+
+        await _sync_invoice(db, order, order_items)
+        for item in order_items:
+            consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
+            await _adjust_stock(db, item.product_name, -consumed)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
 
     result = await db.execute(
         select(Order).options(selectinload(Order.items)).where(Order.id == order.id)
@@ -335,14 +445,21 @@ async def update_order_status(order_id: int, status: str, db: AsyncSession = Dep
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if status == "cancelled":
-        items = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
-        for item in items.scalars().all():
-            consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
-            await _adjust_stock(db, item.product_name, consumed)
+    if status not in VALID_ORDER_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Invalid status: {status}. Allowed: {', '.join(VALID_ORDER_STATUSES)}")
 
-    order.status = status
-    await db.commit()
+    try:
+        if status == "cancelled":
+            items = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
+            for item in items.scalars().all():
+                consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
+                await _adjust_stock(db, item.product_name, consumed)
+
+        order.status = status
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
     return {"message": "Status updated", "success": True}
 
 
@@ -353,16 +470,20 @@ async def delete_order(order_id: int, db: AsyncSession = Depends(get_db), _user=
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    inv_result = await db.execute(select(Invoice).where(Invoice.order_id == order_id))
-    inv = inv_result.scalar_one_or_none()
-    if inv:
-        await db.delete(inv)
+    try:
+        inv_result = await db.execute(select(Invoice).where(Invoice.order_id == order_id))
+        inv = inv_result.scalar_one_or_none()
+        if inv:
+            await db.delete(inv)
 
-    items = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
-    for item in items.scalars().all():
-        consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
-        await _adjust_stock(db, item.product_name, consumed)
+        items = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
+        for item in items.scalars().all():
+            consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
+            await _adjust_stock(db, item.product_name, consumed)
 
-    await db.delete(order)
-    await db.commit()
+        await db.delete(order)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
     return {"message": "Order deleted", "success": True}

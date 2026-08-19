@@ -68,6 +68,17 @@ async def delete_supplier(supplier_id: int, db: AsyncSession = Depends(get_db), 
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
 
+    from models.purchase import Purchase
+    from models.payment import Payment
+
+    purchases = await db.execute(select(Purchase).where(Purchase.supplier_id == supplier_id).limit(1))
+    if purchases.scalars().first():
+        raise HTTPException(status_code=400, detail="Cannot delete supplier with existing purchases. Remove purchases first.")
+
+    payments = await db.execute(select(Payment).where(Payment.supplier_id == supplier_id).limit(1))
+    if payments.scalars().first():
+        raise HTTPException(status_code=400, detail="Cannot delete supplier with existing payments. Remove payments first.")
+
     await db.delete(supplier)
     await db.commit()
     return {"message": "Supplier deleted", "success": True}

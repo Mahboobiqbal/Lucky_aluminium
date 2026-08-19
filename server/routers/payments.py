@@ -56,6 +56,15 @@ async def get_payment(payment_id: int, db: AsyncSession = Depends(get_db), _user
 
 @router.post("")
 async def create_payment(body: PaymentCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("payments", "create"))):
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero")
+
+    if body.orderId:
+        result = await db.execute(select(Order).where(Order.id == body.orderId))
+        order = result.scalar_one_or_none()
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+
     payment = Payment(
         invoice_id=body.invoiceId,
         order_id=body.orderId,
@@ -70,12 +79,12 @@ async def create_payment(body: PaymentCreate, db: AsyncSession = Depends(get_db)
         created_at=datetime.utcnow(),
     )
     db.add(payment)
+    await db.flush()
 
     if body.orderId:
-        result = await db.execute(select(Order).where(Order.id == body.orderId))
-        order = result.scalar_one_or_none()
-        if order:
-            order.paid = float(order.paid) + body.amount
+        all_payments = await db.execute(select(Payment).where(Payment.order_id == body.orderId))
+        total_paid = sum(float(p.amount) for p in all_payments.scalars().all())
+        order.paid = total_paid
 
     await db.commit()
     await db.refresh(payment)
@@ -84,10 +93,15 @@ async def create_payment(body: PaymentCreate, db: AsyncSession = Depends(get_db)
 
 @router.put("/{payment_id}")
 async def update_payment(payment_id: int, body: PaymentCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("payments", "edit"))):
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero")
+
     result = await db.execute(select(Payment).where(Payment.id == payment_id))
     payment = result.scalar_one_or_none()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
+
+    old_order_id = payment.order_id
 
     payment.invoice_id = body.invoiceId
     payment.order_id = body.orderId
@@ -99,6 +113,23 @@ async def update_payment(payment_id: int, body: PaymentCreate, db: AsyncSession 
     payment.method = body.method
     payment.date = naive(body.date)
     payment.notes = body.notes
+    await db.flush()
+
+    if old_order_id:
+        all_payments = await db.execute(select(Payment).where(Payment.order_id == old_order_id))
+        total_paid = sum(float(p.amount) for p in all_payments.scalars().all())
+        order_result = await db.execute(select(Order).where(Order.id == old_order_id))
+        order = order_result.scalar_one_or_none()
+        if order:
+            order.paid = total_paid
+
+    if body.orderId and body.orderId != old_order_id:
+        all_payments = await db.execute(select(Payment).where(Payment.order_id == body.orderId))
+        total_paid = sum(float(p.amount) for p in all_payments.scalars().all())
+        order_result = await db.execute(select(Order).where(Order.id == body.orderId))
+        order = order_result.scalar_one_or_none()
+        if order:
+            order.paid = total_paid
 
     await db.commit()
     await db.refresh(payment)
@@ -112,12 +143,18 @@ async def delete_payment(payment_id: int, db: AsyncSession = Depends(get_db), _u
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
-    if payment.order_id:
-        order_result = await db.execute(select(Order).where(Order.id == payment.order_id))
-        order = order_result.scalar_one_or_none()
-        if order:
-            order.paid = max(0, float(order.paid) - float(payment.amount))
+    old_order_id = payment.order_id
 
     await db.delete(payment)
+    await db.flush()
+
+    if old_order_id:
+        all_payments = await db.execute(select(Payment).where(Payment.order_id == old_order_id))
+        total_paid = sum(float(p.amount) for p in all_payments.scalars().all())
+        order_result = await db.execute(select(Order).where(Order.id == old_order_id))
+        order = order_result.scalar_one_or_none()
+        if order:
+            order.paid = total_paid
+
     await db.commit()
     return {"message": "Payment deleted", "success": True}

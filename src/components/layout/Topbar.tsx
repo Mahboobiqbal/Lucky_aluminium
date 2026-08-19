@@ -100,7 +100,7 @@ export function Topbar({ title }: { title?: string }) {
       <div className="text-sm font-semibold tracking-tight">{title ?? "Dashboard"}</div>
       <div className="ml-4 flex-1 max-w-md relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submitSearch(); if (e.key === "Escape") setQ(""); }} placeholder="Search customers, orders, products..." className="h-8 pl-8 text-sm bg-muted/60 border-transparent focus-visible:bg-background" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submitSearch(); if (e.key === "Escape") setQ(""); }} placeholder="Search customers, orders, products..." className="h-8 pl-8 text-sm bg-muted/60 border-transparent focus-visible:bg-background" autoComplete="off" />
         {q && (
           <div className="absolute left-0 right-0 top-10 z-50 rounded-md border border-border bg-popover shadow-lg overflow-hidden">
             {searchResults.length ? searchResults.map((result, i) => (

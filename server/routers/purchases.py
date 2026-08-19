@@ -189,37 +189,42 @@ async def get_purchase(purchase_id: int, db: AsyncSession = Depends(get_db), _us
 
 @router.post("")
 async def create_purchase(body: PurchaseCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("purchase", "create"))):
-    purchase = Purchase(
-        invoice_number=body.invoiceNumber,
-        supplier_id=body.supplierId,
-        supplier_name=body.supplierName,
-        payment_type=body.paymentType,
-        total_amount=body.totalAmount,
-        date=naive(body.date),
-        notes=body.notes,
-        created_at=datetime.utcnow(),
-    )
-    db.add(purchase)
-    await db.flush()
+    try:
+        purchase = Purchase(
+            invoice_number=body.invoiceNumber,
+            supplier_id=body.supplierId,
+            supplier_name=body.supplierName,
+            payment_type=body.paymentType,
+            total_amount=body.totalAmount,
+            date=naive(body.date),
+            notes=body.notes,
+            created_at=datetime.utcnow(),
+        )
+        db.add(purchase)
+        await db.flush()
 
-    for item in body.items:
-        db.add(PurchaseItem(
-            purchase_id=purchase.id,
-            product_name=item.productName,
-            item_type=item.itemType,
-            pricing_mode=item.pricingMode,
-            width_ft=item.widthFt,
-            height_ft=item.heightFt,
-            length=item.length,
-            quantity=item.quantity,
-            purchase_price=item.purchasePrice,
-            sale_price=item.salePrice,
-            amount=item.amount,
-        ))
+        for item in body.items:
+            db.add(PurchaseItem(
+                purchase_id=purchase.id,
+                product_name=item.productName,
+                item_type=item.itemType,
+                pricing_mode=item.pricingMode,
+                width_ft=item.widthFt,
+                height_ft=item.heightFt,
+                length=item.length,
+                quantity=item.quantity,
+                purchase_price=item.purchasePrice,
+                sale_price=item.salePrice,
+                amount=item.amount,
+            ))
 
-    await _sync_purchase_products(purchase, body.items, db)
-    await _sync_purchase_inventory(purchase, body.items, db)
-    await db.commit()
+        await _sync_purchase_products(purchase, body.items, db)
+        await _sync_purchase_inventory(purchase, body.items, db)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
     result = await db.execute(
         select(Purchase).options(selectinload(Purchase.items)).where(Purchase.id == purchase.id)
     )
@@ -228,11 +233,43 @@ async def create_purchase(body: PurchaseCreate, db: AsyncSession = Depends(get_d
 
 @router.delete("/{purchase_id}")
 async def delete_purchase(purchase_id: int, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("purchase", "delete"))):
-    result = await db.execute(select(Purchase).where(Purchase.id == purchase_id))
+    result = await db.execute(
+        select(Purchase).options(selectinload(Purchase.items)).where(Purchase.id == purchase_id)
+    )
     purchase = result.scalar_one_or_none()
     if not purchase:
         raise HTTPException(status_code=404, detail="Purchase not found")
 
-    await db.delete(purchase)
-    await db.commit()
+    try:
+        for item in purchase.items:
+            product_name = (getattr(item, "product_name", "") or "").strip()
+            if not product_name:
+                continue
+
+            normalized_name = _normalize_product_name(product_name)
+            inv_result = await db.execute(select(InventoryItem).where(func.lower(InventoryItem.name) == normalized_name))
+            inventory = inv_result.scalar_one_or_none()
+            if not inventory:
+                continue
+
+            width_ft = float(getattr(item, "width_ft", 0) or 0)
+            height_ft = float(getattr(item, "height_ft", 0) or 0)
+            length = float(getattr(item, "length", 0) or 0)
+            quantity = float(getattr(item, "quantity", 0) or 0)
+            item_type = getattr(item, "item_type", "other") or "other"
+            pricing_mode = getattr(item, "pricing_mode", "piece") or "piece"
+
+            if pricing_mode == "size":
+                total_stock = length * quantity if item_type == "window" and length else (width_ft * height_ft * quantity if width_ft and height_ft else quantity)
+            else:
+                total_stock = quantity
+
+            inventory.current_stock = max(0, float(inventory.current_stock or 0) - total_stock)
+            inventory.stock_qty = max(0, float(inventory.stock_qty or 0) - quantity)
+
+        await db.delete(purchase)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
     return {"message": "Purchase deleted", "success": True}

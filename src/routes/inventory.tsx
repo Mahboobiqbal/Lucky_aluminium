@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { currency } from "@/lib/format";
 
 export const Route = createFileRoute("/inventory")({
-  head: () => ({ meta: [{ title: "Inventory - UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Inventory — Lucky Aluminium" }] }),
   component: InventoryPage,
 });
 

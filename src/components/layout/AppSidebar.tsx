@@ -64,11 +64,11 @@ export function AppSidebar() {
       <div className="h-12 flex items-center gap-2 px-4 border-b border-sidebar-border">
         <img
           src={APP_LOGO_URL}
-          alt="UDYANA logo"
+          alt="Lucky Aluminium logo"
           className="size-8 rounded-md border border-sidebar-border bg-white object-contain p-0.5"
         />
         <div className="flex flex-col leading-tight">
-          <span className="text-sm font-semibold tracking-tight">UDYANA</span>
+          <span className="text-sm font-semibold tracking-tight">Lucky Aluminium</span>
           <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/60">uPVC & Aluminum</span>
         </div>
       </div>

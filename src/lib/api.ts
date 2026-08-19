@@ -71,15 +71,6 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 
-export type SignupPayload = {
-  fullName: string;
-  username: string;
-  email: string;
-  phone: string;
-  password: string;
-  role: string;
-};
-
 export type SessionUser = {
   id: number;
   fullName: string;

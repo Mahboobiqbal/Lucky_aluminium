@@ -100,6 +100,17 @@ async def delete_product(product_id: int, db: AsyncSession = Depends(get_db), _u
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    from models.order import OrderItem
+    from models.quotation import QuotationItem
+
+    order_items = await db.execute(select(OrderItem).where(OrderItem.product_id == product_id).limit(1))
+    if order_items.scalars().first():
+        raise HTTPException(status_code=400, detail="Cannot delete product used in orders. Deactivate it instead.")
+
+    quotation_items = await db.execute(select(QuotationItem).where(QuotationItem.product_id == product_id).limit(1))
+    if quotation_items.scalars().first():
+        raise HTTPException(status_code=400, detail="Cannot delete product used in quotations. Deactivate it instead.")
+
     await db.delete(product)
     await db.commit()
     return {"message": "Product deleted", "success": True}

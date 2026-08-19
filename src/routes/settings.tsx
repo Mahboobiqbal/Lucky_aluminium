@@ -12,7 +12,7 @@ import { Plus, Trash2, Eye, EyeOff, Save, Building2, Banknote, UserCog, ShieldAl
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "Settings — UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Settings — Lucky Aluminium" }] }),
   component: SettingsPage,
 });
 
@@ -183,13 +183,21 @@ function SettingsPage() {
                     <div><Label className="text-xs">Role</Label><div className="h-8 px-2 rounded border bg-muted/30 flex items-center text-sm font-medium"><span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium border bg-violet-500/15 text-violet-600 border-violet-500/30">{currentUser?.role === "admin" ? "Admin" : "Manager"}</span></div></div>
                   </div>
                   <Separator />
-                  <div>
+                   <div>
                     <div className="flex items-center gap-2 mb-2"><ShieldAlert className="size-4 text-muted-foreground" /><span className="text-sm font-semibold">Change Password</span></div>
                     <div className="space-y-3">
-                      <div><Label className="text-xs">Current password</Label><Input type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} className="h-8" /></div>
+                      <div>
+                        <Label className="text-xs">Current password</Label>
+                        <div className="relative">
+                          <Input type={showPassword ? "text" : "password"} value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} className="h-8 pr-9" autoComplete="new-password" />
+                          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
+                            {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                          </button>
+                        </div>
+                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div><Label className="text-xs">New password</Label><Input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} className="h-8" /></div>
-                        <div><Label className="text-xs">Confirm</Label><Input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} className="h-8" /></div>
+                        <div><Label className="text-xs">New password</Label><Input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} className="h-8" autoComplete="one-time-code" name="new_password_field" /></div>
+                        <div><Label className="text-xs">Confirm</Label><Input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} className="h-8" autoComplete="one-time-code" name="confirm_password_field" /></div>
                       </div>
                       <div className="flex justify-end"><Button size="sm" onClick={handleChangePassword}><Save className="size-3.5 mr-1" />Change password</Button></div>
                     </div>

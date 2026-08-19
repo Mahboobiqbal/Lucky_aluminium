@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { currency } from "@/lib/format";
 
 export const Route = createFileRoute("/products")({
-  head: () => ({ meta: [{ title: "Products — UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Products — Lucky Aluminium" }] }),
   component: ProductsPage,
 });
 

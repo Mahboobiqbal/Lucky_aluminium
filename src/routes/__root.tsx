@@ -81,9 +81,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "UDYANA — uPVC Windows & Doors ERP" },
+      { title: "Lucky Aluminium — uPVC Windows & Doors ERP" },
       { name: "description", content: "ERP for uPVC windows & doors: customers, quotations, orders, inventory, invoicing and reports." },
-      { property: "og:title", content: "UDYANA — uPVC Windows & Doors ERP" },
+      { property: "og:title", content: "Lucky Aluminium — uPVC Windows & Doors ERP" },
       { property: "og:description", content: "ERP for uPVC windows & doors manufacturing and sales." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

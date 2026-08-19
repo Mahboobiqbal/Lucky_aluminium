@@ -22,7 +22,7 @@ import { createPaymentReceiptPdf, createPurchaseInvoicePdf, createSupplierStatem
 import { companyFromSettings } from "@/lib/print";
 
 export const Route = createFileRoute("/suppliers")({
-  head: () => ({ meta: [{ title: "Suppliers — UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Suppliers — Lucky Aluminium" }] }),
   component: SuppliersPage,
 });
 

@@ -18,7 +18,7 @@ import { Plus, Pencil, Trash2, Eye, AlertTriangle, Boxes, Package, TrendingDown,
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/stock-report")({
-  head: () => ({ meta: [{ title: "Stock Report — UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Stock Report — Lucky Aluminium" }] }),
   component: StockReportPage,
 });
 

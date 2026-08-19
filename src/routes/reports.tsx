@@ -14,7 +14,7 @@ import { currency, dateShort } from "@/lib/format";
 import { companyFromSettings, printReport, reportRowsForInventory } from "@/lib/print";
 
 export const Route = createFileRoute("/reports")({
-  head: () => ({ meta: [{ title: "Reports - UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Reports — Lucky Aluminium" }] }),
   component: ReportsPage,
 });
 

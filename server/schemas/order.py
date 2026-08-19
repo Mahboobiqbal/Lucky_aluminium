@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class OrderItemBase(BaseModel):
@@ -15,6 +15,27 @@ class OrderItemBase(BaseModel):
     unitPrice: float = 0
     amount: float = 0
     notes: str | None = None
+
+    @field_validator("quantity", mode="before")
+    @classmethod
+    def qty_positive(cls, v):
+        if int(v) < 1:
+            raise ValueError("Quantity must be at least 1")
+        return int(v)
+
+    @field_validator("unitPrice", mode="before")
+    @classmethod
+    def unitPrice_non_negative(cls, v):
+        if float(v) < 0:
+            raise ValueError("Unit price cannot be negative")
+        return float(v)
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def amount_non_negative(cls, v):
+        if float(v) < 0:
+            raise ValueError("Amount cannot be negative")
+        return float(v)
 
 
 class OrderItemCreate(OrderItemBase):
@@ -40,6 +61,34 @@ class OrderBase(BaseModel):
     paid: float = 0
     status: str = "pending"
     notes: str | None = None
+
+    @field_validator("subtotal", mode="before")
+    @classmethod
+    def subtotal_non_negative(cls, v):
+        if float(v) < 0:
+            raise ValueError("Subtotal cannot be negative")
+        return float(v)
+
+    @field_validator("discountPercent", mode="before")
+    @classmethod
+    def discount_valid(cls, v):
+        if float(v) < 0 or float(v) > 100:
+            raise ValueError("Discount must be between 0 and 100")
+        return float(v)
+
+    @field_validator("total", mode="before")
+    @classmethod
+    def total_non_negative(cls, v):
+        if float(v) < 0:
+            raise ValueError("Total cannot be negative")
+        return float(v)
+
+    @field_validator("paid", mode="before")
+    @classmethod
+    def paid_non_negative(cls, v):
+        if float(v) < 0:
+            raise ValueError("Paid amount cannot be negative")
+        return float(v)
 
 
 class OrderCreate(OrderBase):

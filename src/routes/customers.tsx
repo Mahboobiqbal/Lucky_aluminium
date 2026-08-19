@@ -19,7 +19,7 @@ import { currency, dateShort, statusColor, statusLabel } from "@/lib/format";
 import { companyFromSettings, printCustomer, printCustomers } from "@/lib/print";
 
 export const Route = createFileRoute("/customers")({
-  head: () => ({ meta: [{ title: "Customers — UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Customers — Lucky Aluminium" }] }),
   component: CustomersPage,
 });
 

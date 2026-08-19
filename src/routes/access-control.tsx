@@ -37,7 +37,7 @@ import { dateShort } from "@/lib/format";
 import { useState, useEffect, useCallback } from "react";
 
 export const Route = createFileRoute("/access-control")({
-  head: () => ({ meta: [{ title: "Access Control — UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Access Control — Lucky Aluminium" }] }),
   component: AccessControlPage,
 });
 
@@ -121,6 +121,9 @@ function AccessControlPage() {
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const isAdminUser = (u: ApiUser) => u.role === "admin";
+  const canModifyUser = (u: ApiUser) => !isAdminUser(u) || u.id === currentUser?.id;
+
   const fetchUsers = useCallback(async () => {
     try {
       const data = await api.safeGet<ApiUser[]>("/api/users");
@@ -200,6 +203,8 @@ function AccessControlPage() {
           })) || [],
         };
         if (form.password) body.password = form.password;
+        // Prevent role change to admin via frontend
+        if (body.role === "admin") body.role = "manager";
         await api.put(`/api/users/${editingId}`, body);
         toast.success("User updated");
       } else {
@@ -387,7 +392,7 @@ function AccessControlPage() {
                         ? "bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30"
                         : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
                     }`}>
-                      {u.role === "admin" ? "Admin" : "Manager"}
+                      {u.role === "admin" ? "Admin \u2022 Protected" : "Manager"}
                     </span>
                   </td>
                   <td>
@@ -408,14 +413,16 @@ function AccessControlPage() {
                     >
                       <Shield className="size-3.5" />
                     </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openEdit(u); }}
-                      className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"
-                      title="Edit user"
-                    >
-                      <Pencil className="size-3.5" />
-                    </button>
-                    {u.id !== currentUser?.id && (
+                    {canModifyUser(u) && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEdit(u); }}
+                        className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"
+                        title="Edit user"
+                      >
+                        <Pencil className="size-3.5" />
+                      </button>
+                    )}
+                    {u.id !== currentUser?.id && canModifyUser(u) && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setDeleteTarget(u.id); }}
                         className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center"
@@ -444,7 +451,7 @@ function AccessControlPage() {
                     ? "bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30"
                     : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
                 }`}>
-                  {selectedUser.role === "admin" ? "Admin" : "Manager"}
+                  {selectedUser.role === "admin" ? "Admin \u2022 Protected" : "Manager"}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -551,49 +558,56 @@ function AccessControlPage() {
         <Dialog open={userOpen} onOpenChange={setUserOpen}>
           <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>{editingId ? "Edit User" : "New Manager"}</DialogTitle>
+              <DialogTitle>{editingId ? (editingId === currentUser?.id ? "Edit My Profile" : "Edit User") : "New Manager"}</DialogTitle>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <Label className="text-xs">Full Name *</Label>
-                <Input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="h-8" placeholder="John Doe" />
+                <Input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="h-8" placeholder="John Doe" disabled={editingId === currentUser?.id && currentUser?.role === "admin"} />
               </div>
               <div>
                 <Label className="text-xs">Username *</Label>
-                <Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="h-8" placeholder="johndoe" />
+                <Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="h-8" placeholder="johndoe" disabled={editingId === currentUser?.id && currentUser?.role === "admin"} />
               </div>
               <div>
                 <Label className="text-xs">Role</Label>
-                <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
+                <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })} disabled={!!editingId}>
                   <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="admin">Admin (protected)</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
                   </SelectContent>
                 </Select>
+                {editingId && selectedUser?.role === "admin" && (
+                  <p className="text-[10px] text-muted-foreground mt-1">Admin role cannot be changed</p>
+                )}
               </div>
               <div className="col-span-2">
                 <Label className="text-xs">Email</Label>
-                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-8" placeholder="john@example.com" />
+                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-8" placeholder="john@example.com" disabled={editingId === currentUser?.id && currentUser?.role === "admin"} />
               </div>
               <div>
                 <Label className="text-xs">Phone</Label>
-                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="h-8" placeholder="+91 90000 00000" />
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="h-8" placeholder="+91 90000 00000" disabled={editingId === currentUser?.id && currentUser?.role === "admin"} />
               </div>
               <div>
                 <Label className="text-xs">Status</Label>
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })} disabled={!!editingId && selectedUser?.role === "admin"}>
                   <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="inactive">Inactive</SelectItem>
                   </SelectContent>
                 </Select>
+                {editingId && selectedUser?.role === "admin" && (
+                  <p className="text-[10px] text-muted-foreground mt-1">Admin status cannot be changed</p>
+                )}
               </div>
               <div className="col-span-2">
                 <Label className="text-xs">{editingId ? "New password (leave blank to keep)" : "Password *"}</Label>
                 <div className="relative">
-                  <Input type={showPw ? "text" : "password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="h-8 pr-9" placeholder={editingId ? "••••••••" : "Min 4 characters"} />
-                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
+                  <Input type={showPw ? "text" : "password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="h-8 pr-9" placeholder={editingId ? "••••••••" : "Min 4 characters"} disabled={editingId === currentUser?.id && currentUser?.role === "admin"} />
+                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1} disabled={editingId === currentUser?.id && currentUser?.role === "admin"}>
                     {showPw ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                   </button>
                 </div>

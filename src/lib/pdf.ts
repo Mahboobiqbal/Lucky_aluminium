@@ -118,7 +118,7 @@ if (!logoPlaced) {
   }
   doc.setTextColor("#1f2937");
   doc.setFontSize(16);
-  doc.text(company.companyName || "UDYANA uPVC Works", left + logoSize + 16, top + 16, { maxWidth: 300 });
+  doc.text(company.companyName || "Lucky Aluminium uPVC Works", left + logoSize + 16, top + 16, { maxWidth: 300 });
   doc.setFontSize(10);
   doc.setTextColor("#4b5563");
   const address = company.address || "";
@@ -255,7 +255,7 @@ export function createCustomerInvoicePdf(data: CustomerInvoiceData, company: Com
   const left = 40;
   const right = pageWidth - 40;
   const usableWidth = right - left;
-  const companyName = company.companyName || "UDYANA uPVC Works";
+  const companyName = company.companyName || "Lucky Aluminium uPVC Works";
 
   // No dark header background - transparent
 

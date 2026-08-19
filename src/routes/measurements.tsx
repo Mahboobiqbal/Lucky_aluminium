@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/layout/EmptyState";
 import { Ruler } from "lucide-react";
 
 export const Route = createFileRoute("/measurements")({
-  head: () => ({ meta: [{ title: "Measurements — UDYANA" }] }),
+  head: () => ({ meta: [{ title: "Measurements — Lucky Aluminium" }] }),
   component: MeasurementsPage,
 });
 
