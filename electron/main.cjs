@@ -34,16 +34,36 @@ function startBackend() {
     return;
   }
 
-  const userDataPath = app.getPath("userData");
-  const env = {
-    ...process.env,
-    UDYANA_DESKTOP: "1",
-    UDYANA_HOST: "127.0.0.1",
-    UDYANA_PORT: "8000",
-    UDYANA_DB_DIR: userDataPath,
-  };
+  // Read .env file and merge into process env for the backend
+  const envVars = { ...process.env };
+  const envPath = isDev
+    ? path.join(__dirname, "..", "server", ".env")
+    : path.join(process.resourcesPath, "server", ".env");
+  try {
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, "utf-8");
+      for (const line of content.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const eqIdx = trimmed.indexOf("=");
+        if (eqIdx > 0) {
+          const key = trimmed.slice(0, eqIdx).trim();
+          const val = trimmed.slice(eqIdx + 1).trim();
+          envVars[key] = val;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not read .env file:", err.message);
+  }
 
-  pythonProcess = spawn(exe, [], { env, stdio: ["ignore", "pipe", "pipe"] });
+  const userDataPath = app.getPath("userData");
+  envVars.UDYANA_DESKTOP = "1";
+  envVars.UDYANA_HOST = "127.0.0.1";
+  envVars.UDYANA_PORT = "8000";
+  envVars.UDYANA_DB_DIR = userDataPath;
+
+  pythonProcess = spawn(exe, [], { env: envVars, stdio: ["ignore", "pipe", "pipe"] });
   pythonProcess.stdout.on("data", (d) => process.stdout.write(`[backend] ${d}`));
   pythonProcess.stderr.on("data", (d) => process.stderr.write(`[backend] ${d}`));
   pythonProcess.on("exit", (code) => {

@@ -5,11 +5,14 @@ from pydantic_settings import BaseSettings
 
 def _env_path() -> str:
     if getattr(sys, "frozen", False):
+        # One-folder PyInstaller build: .env is in _MEIPASS (bundled)
+        if hasattr(sys, "_MEIPASS"):
+            bundled = os.path.join(sys._MEIPASS, ".env")
+            if os.path.isfile(bundled):
+                return bundled
+        # One-file build or Electron: .env is next to the .exe
         exe_dir = os.path.dirname(sys.executable)
-        env_path = os.path.join(exe_dir, ".env")
-        if os.path.isfile(env_path):
-            return env_path
-        return env_path
+        return os.path.join(exe_dir, ".env")
     else:
         base = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base, ".env")
