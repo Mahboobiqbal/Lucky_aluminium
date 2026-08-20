@@ -17,26 +17,29 @@ from models.user import User, UserPermission
 from utils.auth import hash_password
 
 
-def _get_frontend_dir() -> Path:
+def _get_frontend_dir():
+    import pathlib
     if getattr(sys, "frozen", False):
+        meipass = pathlib.Path(sys._MEIPASS)
+        exe_dir = pathlib.Path(sys.executable).parent
         candidates = [
-            Path(sys._MEIPASS) / "frontend",
-            Path(sys.executable).parent / "frontend",
-            Path(sys._MEIPASS),
+            meipass / "frontend",
+            exe_dir / "frontend",
+            exe_dir / "_internal" / "frontend",
+            meipass,
         ]
         for c in candidates:
-            if c.is_dir() and any(c.iterdir()):
+            if c.is_dir():
                 return c
+        print(f"[DEBUG] Frontend not found. MEIPASS={meipass}, exe_dir={exe_dir}")
+        print(f"[DEBUG] MEIPASS contents: {list(meipass.iterdir()) if meipass.is_dir() else 'NOT DIR'}")
+        return None
     else:
-        base = Path(__file__).resolve().parent.parent
-        candidates = [
-            base / ".output" / "public",
-            base / "dist",
-        ]
-        for c in candidates:
-            if c.is_dir() and any(c.iterdir()):
+        base = pathlib.Path(__file__).resolve().parent.parent
+        for c in [base / ".output" / "public", base / "dist"]:
+            if c.is_dir():
                 return c
-    return Path(".")
+    return None
 
 from routers import (
     auth,
@@ -173,15 +176,24 @@ async def health():
 
 
 frontend_dir = _get_frontend_dir()
-if frontend_dir.is_dir():
-    app.mount("/assets", StaticFiles(directory=str(frontend_dir / "assets")), name="static-assets")
+if frontend_dir and frontend_dir.is_dir():
+    assets_dir = frontend_dir / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="static-assets")
+
+    index_html = frontend_dir / "index.html"
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        file_path = frontend_dir / full_path
-        if file_path.is_file():
-            return FileResponse(str(file_path))
-        return FileResponse(str(frontend_dir / "index.html"))
+        if full_path:
+            file_path = frontend_dir / full_path
+            if file_path.is_file():
+                return FileResponse(str(file_path))
+        return FileResponse(str(index_html))
+
+    print(f"[Lucky Aluminium] Serving frontend from: {frontend_dir}")
+else:
+    print(f"[Lucky Aluminium] WARNING: Frontend directory not found. SPA will not work.")
 
 
 if __name__ == "__main__":
