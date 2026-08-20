@@ -5,7 +5,13 @@ from pydantic_settings import BaseSettings
 
 def _env_path() -> str:
     if getattr(sys, "frozen", False):
-        base = sys._MEIPASS
+        exe_dir = os.path.dirname(sys.executable)
+        # For one-folder builds, .env is next to the exe
+        env_path = os.path.join(exe_dir, ".env")
+        if os.path.isfile(env_path):
+            return env_path
+        # For one-file builds, .env is next to the exe
+        return env_path
     else:
         base = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base, ".env")

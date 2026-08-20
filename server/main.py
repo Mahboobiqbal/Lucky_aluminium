@@ -1,9 +1,13 @@
 import os
+import sys
 import logging
+from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy import inspect, select, text
 
 from config import settings, validate_settings
@@ -11,6 +15,29 @@ from database import async_session, engine
 from models import Base
 from models.user import User, UserPermission
 from utils.auth import hash_password
+
+
+def _get_frontend_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).parent
+        candidates = [
+            exe_dir / "_internal" / "frontend",
+            exe_dir / "frontend",
+            Path(sys._MEIPASS) / "frontend",
+        ]
+        for c in candidates:
+            if c.is_dir():
+                return c
+    else:
+        base = Path(__file__).resolve().parent.parent
+        candidates = [
+            base / ".output" / "public",
+            base / "dist",
+        ]
+        for c in candidates:
+            if c.is_dir() and any(c.iterdir()):
+                return c
+    return Path(".")
 
 from routers import (
     auth,
@@ -146,8 +173,20 @@ async def health():
     return {"status": "ok"}
 
 
+frontend_dir = _get_frontend_dir()
+if frontend_dir.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(frontend_dir / "assets")), name="static-assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        file_path = frontend_dir / full_path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse(str(frontend_dir / "index.html"))
+
+
 if __name__ == "__main__":
     import uvicorn
-    host = os.environ.get("UDYANA_HOST", "127.0.0.1" if os.environ.get("UDYANA_DESKTOP") else "0.0.0.0")
+    host = "127.0.0.1" if getattr(sys, "frozen", False) else os.environ.get("UDYANA_HOST", "0.0.0.0")
     port = int(os.environ.get("UDYANA_PORT", "8000"))
     uvicorn.run(app, host=host, port=port, reload=False, log_level="info")
