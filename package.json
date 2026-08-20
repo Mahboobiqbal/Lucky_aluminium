@@ -1,8 +1,8 @@
 {
-  "name": "udyana-erp",
+  "name": "lucky-aluminium",
   "version": "1.0.0",
-  "description": "UDYANA ERP — uPVC Windows & Doors Desktop Application",
-  "author": "UDYANA",
+  "description": "Lucky Aluminium uPVC Works — Desktop Application",
+  "author": "Lucky Aluminium",
   "private": true,
   "sideEffects": false,
   "type": "module",

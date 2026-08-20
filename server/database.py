@@ -6,11 +6,15 @@ from config import settings
 
 db_url = settings.DATABASE_URL
 if db_url.startswith("sqlite") and "./" in db_url:
+    db_dir = None
     if getattr(sys, "frozen", False):
-        db_dir = os.path.dirname(sys.executable)
+        db_dir = os.environ.get("UDYANA_DB_DIR")
+        if not db_dir:
+            db_dir = os.path.dirname(sys.executable)
     else:
         db_dir = os.path.dirname(os.path.abspath(__file__))
-    db_url = db_url.replace("sqlite+aiosqlite:///./", f"sqlite+aiosqlite:///{db_dir}/")
+    if db_dir:
+        db_url = db_url.replace("sqlite+aiosqlite:///./", f"sqlite+aiosqlite:///{db_dir}/")
 
 connect_args = {}
 if db_url.startswith("sqlite"):

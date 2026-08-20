@@ -6,11 +6,9 @@ from pydantic_settings import BaseSettings
 def _env_path() -> str:
     if getattr(sys, "frozen", False):
         exe_dir = os.path.dirname(sys.executable)
-        # For one-folder builds, .env is next to the exe
         env_path = os.path.join(exe_dir, ".env")
         if os.path.isfile(env_path):
             return env_path
-        # For one-file builds, .env is next to the exe
         return env_path
     else:
         base = os.path.dirname(os.path.abspath(__file__))
@@ -20,14 +18,13 @@ def _env_path() -> str:
 class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./udyana.db"
     SECRET_KEY: str = ""
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     ALGORITHM: str = "HS256"
 
-    # Initial admin credentials — MUST be set in .env
     INITIAL_ADMIN_USERNAME: str = ""
     INITIAL_ADMIN_PASSWORD: str = ""
 
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://localhost:8000"
 
     model_config = {"env_file": _env_path(), "env_file_encoding": "utf-8"}
 

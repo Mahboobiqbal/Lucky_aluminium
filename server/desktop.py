@@ -3,6 +3,8 @@ import os
 import time
 import shutil
 import threading
+import subprocess
+import webbrowser
 
 
 def _ensure_env():
@@ -14,7 +16,6 @@ def _ensure_env():
         bundled = os.path.join(sys._MEIPASS, ".env")
         if os.path.isfile(bundled):
             shutil.copy2(bundled, env_dst)
-            print(f"[Lucky Aluminium] Created .env at {env_dst}")
     os.chdir(exe_dir)
 
 
@@ -26,7 +27,7 @@ def _start_server():
 
     import uvicorn
     from main import app
-    config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="info")
+    config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning")
     server = uvicorn.Server(config)
     server.run()
 
@@ -46,30 +47,46 @@ def _wait_for_server(url="http://127.0.0.1:8000/api/health", timeout=30):
     return False
 
 
+def _open_browser():
+    url = "http://127.0.0.1:8000"
+    chrome = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        os.path.expanduser(r"~\AppData\Local\Google\Chrome\Application\chrome.exe"),
+    ]
+    for path in chrome:
+        if os.path.isfile(path):
+            subprocess.Popen([path, f"--app={url}", "--new-window"])
+            return
+    edge = [
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    ]
+    for path in edge:
+        if os.path.isfile(path):
+            subprocess.Popen([path, f"--app={url}", "--new-window"])
+            return
+    webbrowser.open(url)
+
+
 def main():
     _ensure_env()
 
     server_thread = threading.Thread(target=_start_server, daemon=True)
     server_thread.start()
 
-    print("[Lucky Aluminium] Starting server...")
     if not _wait_for_server():
-        print("[Lucky Aluminium] ERROR: Server failed to start")
+        print("[Lucky Aluminium] Server failed to start")
         input("Press Enter to exit...")
         sys.exit(1)
 
-    print("[Lucky Aluminium] Server ready. Opening window...")
+    _open_browser()
 
-    import webview
-    window = webview.create_window(
-        title="Lucky Aluminium uPVC Works",
-        url="http://127.0.0.1:8000",
-        width=1400,
-        height=900,
-        min_size=(1024, 600),
-        text_select=True,
-    )
-    webview.start(debug=False)
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":

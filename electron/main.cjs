@@ -114,7 +114,7 @@ ipcMain.handle("file:save", async (_event, filePath, data) => {
   try {
     let target = filePath;
     if (!path.isAbsolute(target)) {
-      target = path.join(app.getPath("userData"), ".udyana-backups", path.basename(target));
+      target = path.join(app.getPath("userData"), ".lucky-aluminium-backups", path.basename(target));
     }
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, Buffer.from(data));

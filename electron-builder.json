@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/electron-builder/scheme.json",
-  "appId": "com.udyana.erp",
-  "productName": "UDYANA ERP",
+  "appId": "com.luckyaluminium.erp",
+  "productName": "Lucky Aluminium",
   "directories": {
     "output": "dist-electron2"
   },
@@ -30,6 +30,6 @@
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "UDYANA ERP"
+    "shortcutName": "Lucky Aluminium"
   }
 }
