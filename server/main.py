@@ -19,14 +19,13 @@ from utils.auth import hash_password
 
 def _get_frontend_dir() -> Path:
     if getattr(sys, "frozen", False):
-        exe_dir = Path(sys.executable).parent
         candidates = [
-            exe_dir / "_internal" / "frontend",
-            exe_dir / "frontend",
             Path(sys._MEIPASS) / "frontend",
+            Path(sys.executable).parent / "frontend",
+            Path(sys._MEIPASS),
         ]
         for c in candidates:
-            if c.is_dir():
+            if c.is_dir() and any(c.iterdir()):
                 return c
     else:
         base = Path(__file__).resolve().parent.parent
