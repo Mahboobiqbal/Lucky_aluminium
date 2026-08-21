@@ -50,7 +50,7 @@ function LoginPage() {
           </div>
           <h1 className="text-4xl font-bold text-white tracking-tight">Lucky Aluminium</h1>
           <p className="text-lg text-white/60 mt-2 max-w-sm mx-auto leading-relaxed">
-            uPVC Windows &amp; Doors ERP
+            Aluminium Doors & Windows
           </p>
           <div className="mt-8 flex items-center justify-center gap-6 text-white/40 text-xs">
             
@@ -146,7 +146,7 @@ function LoginPage() {
 
           <div className="mt-8 pt-6 border-t border-border/50 text-center">
             <p className="text-[11px] text-muted-foreground/60">
-              Lucky Aluminium — uPVC Windows & Doors ERP
+              Lucky Aluminium — Aluminium Doors & Windows
             </p>
               <p className="text-[10px] text-muted-foreground/40 mt-1">
                 Data is securely stored on the server.

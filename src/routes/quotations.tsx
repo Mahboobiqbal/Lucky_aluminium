@@ -265,7 +265,7 @@ function QuotationsPage() {
             <div className="flex items-center gap-2.5">
               <img src={APP_LOGO_URL} alt="Logo" className="size-7 object-contain brightness-0 invert" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
               <div>
-                <div className="text-base font-bold tracking-tight">{company?.companyName || "Lucky Aluminium uPVC Works"}</div>
+                <div className="text-base font-bold tracking-tight">{company?.companyName || "Lucky Aluminium"}</div>
                 <div className="text-[10px] text-primary-foreground/60 leading-tight">
                   {company?.address && <div>{company.address}</div>}
                   <div>{[phoneDisplay(company), company?.email].filter(Boolean).join(" | ")}</div>

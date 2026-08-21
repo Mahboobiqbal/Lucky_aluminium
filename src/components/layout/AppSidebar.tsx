@@ -69,7 +69,7 @@ export function AppSidebar() {
         />
         <div className="flex flex-col leading-tight">
           <span className="text-sm font-semibold tracking-tight">Lucky Aluminium</span>
-          <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/60">uPVC & Aluminum</span>
+          <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/60">Aluminium</span>
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto py-2">

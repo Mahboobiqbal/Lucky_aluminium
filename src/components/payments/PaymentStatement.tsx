@@ -43,7 +43,7 @@ const HEAD_TEXT: [number, number, number] = [15, 23, 42];
 
 function withCompanyDefaults(company: CompanyProfile): Required<CompanyProfile> {
   return {
-    companyName: company.companyName || "Lucky Aluminium uPVC Works",
+    companyName: company.companyName || "Lucky Aluminium",
     address: company.address || "Industrial Area, Phase 2",
     phone: company.phone || "+91 90000 00000",
     email: company.email || "contact@luckyaluminium.example",

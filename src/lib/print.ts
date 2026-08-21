@@ -22,7 +22,7 @@ export type CompanyProfile = {
 };
 
 const defaultCompany: Required<Omit<CompanyProfile, "phones" | "phoneEntries" | "bankName" | "accountTitle" | "accountNumber" | "iban" | "branchName">> = {
-  companyName: "Lucky Aluminium uPVC Works",
+  companyName: "Lucky Aluminium",
   address: "Industrial Area, Phase 2",
   phone: "+91 90000 00000",
   email: "contact@luckyaluminium.example",

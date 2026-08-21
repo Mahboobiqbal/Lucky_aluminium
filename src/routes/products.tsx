@@ -23,9 +23,9 @@ export const Route = createFileRoute("/products")({
 });
 
 const CATEGORIES = [
-  "uPVC Sliding Window", "uPVC Casement Window", "uPVC Fixed Window",
-  "uPVC Awning Window", "uPVC Tilt & Turn Window", "uPVC Sliding Door",
-  "uPVC Casement Door", "uPVC French Door", "uPVC Folding Door", "Custom Product",
+  "Aluminium Sliding Window", "Aluminium Casement Window", "Aluminium Fixed Window",
+  "Aluminium Awning Window", "Aluminium Tilt & Turn Window", "Aluminium Sliding Door",
+  "Aluminium Casement Door", "Aluminium French Door", "Aluminium Folding Door", "Custom Product",
 ];
 
 type Product = {

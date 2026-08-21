@@ -27,7 +27,7 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
   doc.setTextColor("#111827");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
-  doc.text(safeCompany.companyName || "Lucky Aluminium uPVC Works", l + logoOffset, 16);
+  doc.text(safeCompany.companyName || "Lucky Aluminium", l + logoOffset, 16);
 
   // Company details - address
   doc.setFont("helvetica", "normal");
