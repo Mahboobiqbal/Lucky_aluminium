@@ -8,7 +8,8 @@
   "asar": false,
   "files": [
     "electron/**/*",
-    "package.json"
+    "package.json",
+    "!node_modules/**/*"
   ],
   "extraResources": [
     {
