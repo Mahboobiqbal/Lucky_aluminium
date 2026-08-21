@@ -5,6 +5,7 @@
   "directories": {
     "output": "dist-electron2"
   },
+  "asar": false,
   "files": [
     "electron/**/*",
     "package.json"
@@ -27,7 +28,8 @@
   ],
   "electronDist": "node_modules/electron/dist",
   "win": {
-    "target": ["nsis"]
+    "target": ["nsis"],
+    "signAndEditExecutable": false
   },
   "nsis": {
     "oneClick": false,
