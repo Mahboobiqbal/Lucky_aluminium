@@ -19,9 +19,11 @@ export type CompanyProfile = {
   accountNumber?: string;
   iban?: string;
   branchName?: string;
+  easypaisaAccountTitle?: string;
+  easypaisaAccountNumber?: string;
 };
 
-const defaultCompany: Required<Omit<CompanyProfile, "phones" | "phoneEntries" | "bankName" | "accountTitle" | "accountNumber" | "iban" | "branchName">> = {
+const defaultCompany: Required<Omit<CompanyProfile, "phones" | "phoneEntries" | "bankName" | "accountTitle" | "accountNumber" | "iban" | "branchName" | "easypaisaAccountTitle" | "easypaisaAccountNumber">> = {
   companyName: "Lucky Aluminium",
   address: "Industrial Area, Phase 2",
   phone: "+91 90000 00000",
@@ -42,6 +44,8 @@ export function companyFromSettings(settings: { key: string; value: string }[]):
     accountNumber: raw.accountNumber,
     iban: raw.iban,
     branchName: raw.branchName,
+    easypaisaAccountTitle: raw.easypaisaAccountTitle,
+    easypaisaAccountNumber: raw.easypaisaAccountNumber,
   };
 
   // Parse phones from JSON array (backward compatible with single phone string)
@@ -63,7 +67,7 @@ export function companyFromSettings(settings: { key: string; value: string }[]):
 }
 
 export function hasBankDetails(company: CompanyProfile): boolean {
-  return !!(company.bankName || company.accountTitle || company.accountNumber);
+  return !!(company.bankName || company.accountTitle || company.accountNumber || company.easypaisaAccountTitle || company.easypaisaAccountNumber);
 }
 
 export function phoneDisplay(company: CompanyProfile): string {

@@ -32,6 +32,11 @@ const BANK_KEYS = [
   { key: "branchName", label: "Branch Name (Optional)" },
 ];
 
+const EASYPAISA_KEYS = [
+  { key: "easypaisaAccountTitle", label: "Account Title" },
+  { key: "easypaisaAccountNumber", label: "Account Number (Mobile Number)" },
+];
+
 type Tab = "company" | "bank" | "account";
 
 function SettingsPage() {
@@ -160,16 +165,29 @@ function SettingsPage() {
           )}
 
           {tab === "bank" && (
-            <div className="bg-card border border-border rounded-md">
-              <div className="px-4 py-2.5 border-b border-border text-sm font-semibold flex items-center gap-2"><Banknote className="size-4 text-primary" />Bank Details</div>
-              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {BANK_KEYS.map((k) => (
-                  <div key={k.key} className={k.key === "iban" || k.key === "branchName" ? "col-span-1" : "col-span-2"}>
-                    <Label className="text-xs">{k.label}</Label><Input value={values[k.key] || ""} onChange={(e) => setValues({ ...values, [k.key]: e.target.value })} className="h-8" placeholder={k.label} />
-                  </div>
-                ))}
+            <div className="space-y-4">
+              <div className="bg-card border border-border rounded-md">
+                <div className="px-4 py-2.5 border-b border-border text-sm font-semibold flex items-center gap-2"><Banknote className="size-4 text-primary" />Bank Details</div>
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {BANK_KEYS.map((k) => (
+                    <div key={k.key} className={k.key === "iban" || k.key === "branchName" ? "col-span-1" : "col-span-2"}>
+                      <Label className="text-xs">{k.label}</Label><Input value={values[k.key] || ""} onChange={(e) => setValues({ ...values, [k.key]: e.target.value })} className="h-8" placeholder={k.label} />
+                    </div>
+                  ))}
+                </div>
+                <div className="px-4 py-3 border-t border-border flex justify-end"><Button size="sm" onClick={saveSettings}><Save className="size-3.5 mr-1" />Save</Button></div>
               </div>
-              <div className="px-4 py-3 border-t border-border flex justify-end"><Button size="sm" onClick={saveSettings}><Save className="size-3.5 mr-1" />Save</Button></div>
+              <div className="bg-card border border-border rounded-md">
+                <div className="px-4 py-2.5 border-b border-border text-sm font-semibold flex items-center gap-2"><Banknote className="size-4 text-primary" />Easypaisa Details</div>
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {EASYPAISA_KEYS.map((k) => (
+                    <div key={k.key} className="col-span-2">
+                      <Label className="text-xs">{k.label}</Label><Input value={values[k.key] || ""} onChange={(e) => setValues({ ...values, [k.key]: e.target.value })} className="h-8" placeholder={k.label} />
+                    </div>
+                  ))}
+                </div>
+                <div className="px-4 py-3 border-t border-border flex justify-end"><Button size="sm" onClick={saveSettings}><Save className="size-3.5 mr-1" />Save</Button></div>
+              </div>
             </div>
           )}
 

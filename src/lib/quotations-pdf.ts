@@ -229,6 +229,60 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
   fy = (doc as any).lastAutoTable?.finalY || fy + 8;
   fy += 6;
 
+  // --- BANK & EASYPAISA DETAILS (stacked vertically with cards) ---
+  const bankLines = [
+    safeCompany.bankName ? "Bank: " + safeCompany.bankName : undefined,
+    safeCompany.accountTitle ? "Title: " + safeCompany.accountTitle : undefined,
+    safeCompany.accountNumber ? "A/C: " + safeCompany.accountNumber : undefined,
+    safeCompany.iban ? "IBAN: " + safeCompany.iban : undefined,
+    safeCompany.branchName ? "Branch: " + safeCompany.branchName : undefined,
+  ].filter(Boolean) as string[];
+
+  const easyLines = [
+    safeCompany.easypaisaAccountTitle ? "Easypaisa Title: " + safeCompany.easypaisaAccountTitle : undefined,
+    safeCompany.easypaisaAccountNumber ? "Easypaisa A/C: " + safeCompany.easypaisaAccountNumber : undefined,
+  ].filter(Boolean) as string[];
+
+  if (bankLines.length > 0) {
+    const lineH = 5;
+    const padTop = 8;
+    const padBottom = 6;
+    const titleGap = 5;
+    const cardH = padTop + titleGap + bankLines.length * lineH + padBottom;
+    doc.setDrawColor(210, 215, 225);
+    doc.setFillColor(249, 250, 251);
+    doc.roundedRect(l, fy, 178, cardH, 1.5, 1.5, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor("#374151");
+    doc.text("Bank Details", l + 4, fy + padTop);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.2);
+    doc.setTextColor("#6b7280");
+    bankLines.forEach((line, i) => { doc.text(line, l + 4, fy + padTop + titleGap + 3 + i * lineH); });
+    fy += cardH + 4;
+  }
+
+  if (easyLines.length > 0) {
+    const lineH = 5;
+    const padTop = 8;
+    const padBottom = 8;
+    const titleGap = 5;
+    const cardH = padTop + titleGap + easyLines.length * lineH + padBottom;
+    doc.setDrawColor(210, 215, 225);
+    doc.setFillColor(249, 250, 251);
+    doc.roundedRect(l, fy, 178, cardH, 1.5, 1.5, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor("#374151");
+    doc.text("Easypaisa Details", l + 4, fy + padTop);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.2);
+    doc.setTextColor("#6b7280");
+    easyLines.forEach((line, i) => { doc.text(line, l + 4, fy + padTop + titleGap + 3 + i * lineH); });
+    fy += cardH + 4;
+  }
+
   // --- TERMS & CONDITIONS ---
   if (fy + 20 > ph - 22) {
     doc.addPage();

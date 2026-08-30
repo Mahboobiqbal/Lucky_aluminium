@@ -426,28 +426,64 @@ export function createCustomerInvoicePdf(data: CustomerInvoiceData, company: Com
     doc.text(value, right - 10, rowY + 17, { align: "right" });
   });
 
-  // --- BANK DETAILS (only if any bank info is filled) ---
+  // --- BANK & EASYPAISA DETAILS (stacked vertically with cards) ---
   let nextY = y + totals.length * 26 + 16;
-  let bankSectionHeight = 0;
-  if (hasBankDetails(company)) {
-    const bankLines = [
-      company.bankName ? "Bank: " + company.bankName : undefined,
-      company.accountTitle ? "Title: " + company.accountTitle : undefined,
-      company.accountNumber ? "A/C: " + company.accountNumber : undefined,
-      company.iban ? "IBAN: " + company.iban : undefined,
-      company.branchName ? "Branch: " + company.branchName : undefined,
-    ].filter(Boolean) as string[];
 
-    if (bankLines.length > 0) {
-      doc.setFontSize(10);
-      doc.setTextColor("#111827");
-      doc.text("Bank Details", left, nextY);
-      doc.setFontSize(8.5);
-      doc.setTextColor("#475569");
-      doc.text(bankLines, left, nextY + 14, { maxWidth: 310, lineHeightFactor: 1.35 });
-      bankSectionHeight = 14 + bankLines.length * 12 + 6;
-      nextY += bankSectionHeight;
-    }
+  const bankLines = [
+    company.bankName ? "Bank: " + company.bankName : undefined,
+    company.accountTitle ? "Title: " + company.accountTitle : undefined,
+    company.accountNumber ? "A/C: " + company.accountNumber : undefined,
+    company.iban ? "IBAN: " + company.iban : undefined,
+    company.branchName ? "Branch: " + company.branchName : undefined,
+  ].filter(Boolean) as string[];
+
+  const easyLines = [
+    company.easypaisaAccountTitle ? "Easypaisa Title: " + company.easypaisaAccountTitle : undefined,
+    company.easypaisaAccountNumber ? "Easypaisa A/C: " + company.easypaisaAccountNumber : undefined,
+  ].filter(Boolean) as string[];
+
+  if (bankLines.length > 0) {
+    const lineH = 8;
+    const padTop = 12;
+    const padBottom = 10;
+    const titleGap = 6;
+    const cardH = padTop + titleGap + bankLines.length * lineH + padBottom;
+    doc.setDrawColor(210, 215, 225);
+    doc.setFillColor(249, 250, 251);
+    doc.roundedRect(left, nextY, 180, cardH, 2, 2, "FD");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor("#111827");
+    doc.text("Bank Details", left + 5, nextY + padTop);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor("#475569");
+    bankLines.forEach((line, i) => {
+      doc.text(line, left + 5, nextY + padTop + titleGap + 4 + i * lineH);
+    });
+    nextY += cardH + 6;
+  }
+
+  if (easyLines.length > 0) {
+    const lineH = 8;
+    const padTop = 12;
+    const padBottom = 12;
+    const titleGap = 6;
+    const cardH = padTop + titleGap + easyLines.length * lineH + padBottom;
+    doc.setDrawColor(210, 215, 225);
+    doc.setFillColor(249, 250, 251);
+    doc.roundedRect(left, nextY, 180, cardH, 2, 2, "FD");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor("#111827");
+    doc.text("Easypaisa Details", left + 5, nextY + padTop);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor("#475569");
+    easyLines.forEach((line, i) => {
+      doc.text(line, left + 5, nextY + padTop + titleGap + 4 + i * lineH);
+    });
+    nextY += cardH + 6;
   }
 
   // --- TERMS & CONDITIONS ---
@@ -719,4 +755,211 @@ export function createAllPaymentsStatementPdf(data: PaymentStatementInput, compa
     },
     rows: data.rows,
   });
+}
+
+type PaymentReminderOrder = {
+  number: string;
+  orderDate: string;
+  total: number;
+  paid: number;
+  status: string;
+};
+
+type PaymentReminderCustomer = {
+  code: string;
+  name: string;
+  mobile: string;
+  whatsapp?: string;
+};
+
+export function createPaymentReminderPdf(
+  customer: PaymentReminderCustomer,
+  orders: PaymentReminderOrder[],
+  company: CompanyProfile,
+): jsPDF {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+  const m = 16;
+  const l = m;
+  const r = pw - m;
+
+  const totalBilled = orders.reduce((s, o) => s + o.total, 0);
+  const totalPaid = orders.reduce((s, o) => s + o.paid, 0);
+  const totalBalance = Math.max(0, totalBilled - totalPaid);
+
+  // --- COMPANY HEADER ---
+  const logoSize = 11;
+  const logoAdded = addAppLogoToPdf(doc, l, 9, logoSize, logoSize);
+  const logoOffset = logoAdded ? logoSize + 4 : 0;
+
+  doc.setTextColor("#111827");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.text(company.companyName || "Lucky Aluminium", l + logoOffset, 16);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor("#6b7280");
+  const phoneStr = phoneDisplay(company);
+  const headerLines = [company.address, phoneStr, company.email].filter(Boolean);
+  headerLines.forEach((line, i) => {
+    doc.text(String(line), l + logoOffset, 22 + i * 4);
+  });
+
+  let fy = 22 + headerLines.length * 4 + 8;
+
+  // --- TITLE ---
+  doc.setDrawColor(220, 38, 38);
+  doc.setFillColor(254, 226, 226);
+  doc.roundedRect(l, fy, r - l, 14, 2, 2, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor("#991b1b");
+  doc.text("Payment Reminder", pw / 2, fy + 9, { align: "center" });
+  fy += 20;
+
+  // --- CUSTOMER INFO ---
+  doc.setDrawColor(210, 215, 225);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor("#111827");
+  doc.text("Bill To:", l, fy);
+  fy += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor("#374151");
+  doc.text(customer.name, l, fy); fy += 4.5;
+  doc.setFontSize(8);
+  doc.setTextColor("#6b7280");
+  doc.text(`Code: ${customer.code}  |  Mobile: ${customer.mobile}`, l, fy);
+  fy += 8;
+
+  // --- OUTSTANDING BALANCE BOX ---
+  doc.setFillColor(254, 243, 199);
+  doc.setDrawColor(245, 158, 11);
+  doc.roundedRect(l, fy, r - l, 16, 2, 2, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor("#92400e");
+  doc.text("Outstanding Balance", l + 4, fy + 6);
+  doc.setFontSize(14);
+  doc.setTextColor("#b45309");
+  doc.text(currency(totalBalance), r - 4, fy + 11, { align: "right" });
+  fy += 22;
+
+  // --- ORDER BREAKDOWN TABLE ---
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor("#111827");
+  doc.text("Order Details", l, fy);
+  fy += 2;
+
+  const outstandingOrders = orders.filter((o) => o.total - o.paid > 0);
+  const ordersToShow = outstandingOrders.length > 0 ? outstandingOrders : orders;
+
+  const tableRows = ordersToShow.map((o) => [
+    o.number,
+    dateShort(o.orderDate),
+    currency(o.total),
+    currency(o.paid),
+    currency(Math.max(0, o.total - o.paid)),
+    o.status.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+  ]);
+
+  autoTable(doc, {
+    startY: fy,
+    head: [["Order #", "Date", "Total", "Paid", "Balance", "Status"]],
+    body: tableRows,
+    theme: "grid",
+    styles: { fontSize: 7.5, cellPadding: 2.5, textColor: "#374151" },
+    headStyles: { fillColor: [55, 65, 81], textColor: "#fff", fontStyle: "bold", fontSize: 7 },
+    columnStyles: {
+      0: { cellWidth: 28 },
+      1: { cellWidth: 24 },
+      2: { halign: "right", cellWidth: 28 },
+      3: { halign: "right", cellWidth: 28 },
+      4: { halign: "right", cellWidth: 28, textColor: "#b45309", fontStyle: "bold" },
+      5: { cellWidth: 28 },
+    },
+    margin: { left: l, right: m },
+  });
+
+  let nextY = lastTableY(doc, fy) + 8;
+
+  // --- PAYMENT DETAILS (Bank + Easypaisa — stacked vertically with cards) ---
+  const bankLines = [
+    company.bankName ? "Bank: " + company.bankName : undefined,
+    company.accountTitle ? "Title: " + company.accountTitle : undefined,
+    company.accountNumber ? "A/C: " + company.accountNumber : undefined,
+    company.iban ? "IBAN: " + company.iban : undefined,
+    company.branchName ? "Branch: " + company.branchName : undefined,
+  ].filter(Boolean) as string[];
+
+  const easyLines = [
+    company.easypaisaAccountTitle ? "Easypaisa Title: " + company.easypaisaAccountTitle : undefined,
+    company.easypaisaAccountNumber ? "Easypaisa A/C: " + company.easypaisaAccountNumber : undefined,
+  ].filter(Boolean) as string[];
+
+  if (bankLines.length > 0) {
+    const lineH = 7.5;
+    const padTop = 10;
+    const padBottom = 8;
+    const titleGap = 6;
+    const cardH = padTop + titleGap + bankLines.length * lineH + padBottom;
+    doc.setDrawColor(210, 215, 225);
+    doc.setFillColor(249, 250, 251);
+    doc.roundedRect(l, nextY, r - l, cardH, 2, 2, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor("#111827");
+    doc.text("Bank Details", l + 5, nextY + padTop);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor("#475569");
+    bankLines.forEach((line, i) => { doc.text(line, l + 5, nextY + padTop + titleGap + 4 + i * lineH); });
+    nextY += cardH + 6;
+  }
+
+  if (easyLines.length > 0) {
+    const lineH = 7.5;
+    const padTop = 10;
+    const padBottom = 10;
+    const titleGap = 6;
+    const cardH = padTop + titleGap + easyLines.length * lineH + padBottom;
+    doc.setDrawColor(210, 215, 225);
+    doc.setFillColor(249, 250, 251);
+    doc.roundedRect(l, nextY, r - l, cardH, 2, 2, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor("#111827");
+    doc.text("Easypaisa Details", l + 5, nextY + padTop);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor("#475569");
+    easyLines.forEach((line, i) => { doc.text(line, l + 5, nextY + padTop + titleGap + 4 + i * lineH); });
+    nextY += cardH + 5;
+  }
+
+  // --- MESSAGE ---
+  doc.setDrawColor(220, 38, 38);
+  doc.setFillColor(254, 226, 226);
+  doc.roundedRect(l, nextY, r - l, 10, 2, 2, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor("#991b1b");
+  doc.text("Please clear your outstanding balance at the earliest. Thank you for your business!", pw / 2, nextY + 6, { align: "center" });
+  nextY += 16;
+
+  // --- FOOTER ---
+  doc.setDrawColor(210, 215, 225);
+  doc.line(l, ph - 16, r, ph - 16);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  doc.setTextColor("#9ca3af");
+  const gen = new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  doc.text("Generated: " + gen, l, ph - 10);
+  doc.text("Thank you for your business!", r, ph - 10, { align: "right" });
+
+  return doc;
 }

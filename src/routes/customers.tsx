@@ -13,9 +13,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Eye, FileText, ShoppingBag, Banknote, WalletCards, CalendarDays, Download, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, ShoppingBag, Banknote, WalletCards, CalendarDays, Download, Users, Send } from "lucide-react";
 import { toast } from "sonner";
 import { currency, dateShort, statusColor, statusLabel } from "@/lib/format";
+import { createPaymentReminderPdf, sharePdf } from "@/lib/pdf";
 import { companyFromSettings, printCustomer, printCustomers } from "@/lib/print";
 
 export const Route = createFileRoute("/customers")({
@@ -265,6 +266,14 @@ function CustomersPage() {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" size="sm" onClick={() => setDetailOpen(false)}>Close</Button>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const doc = createPaymentReminderPdf(
+                      { code: selected.code, name: selected.name, mobile: selected.mobile, whatsapp: selected.whatsapp },
+                      customerOrders.map((o: any) => ({ number: o.number, orderDate: o.orderDate, total: o.total, paid: o.paid, status: o.status })),
+                      company,
+                    );
+                    sharePdf(doc, `Payment-Reminder-${selected.code}.pdf`);
+                  }} disabled={totalBalance <= 0}><Send className="size-3.5 mr-1" />Send Bill</Button>
                   <Button size="sm" onClick={() => printCustomer(selected as any, company, customerOrders as any, pmt)}><FileText className="size-3.5 mr-1" />Save as PDF</Button>
                 </DialogFooter>
               </div>
