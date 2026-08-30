@@ -14,7 +14,7 @@ from schemas.order import OrderCreate, OrderResponse, OrderUpdate
 from utils.dates import naive
 from utils.deps import require_permission
 
-VALID_ORDER_STATUSES = ("pending", "confirmed", "processing", "delivered", "cancelled")
+VALID_ORDER_STATUSES = ("pending", "confirmed", "in_production", "ready", "delivered", "finished", "cancelled")
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
