@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import String, Text, func
+from sqlalchemy import Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
@@ -19,3 +19,4 @@ class Customer(Base):
     city: Mapped[str | None] = mapped_column(String(100), default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    previous_balance: Mapped[float] = mapped_column(Numeric(12, 2), default=0)

@@ -21,17 +21,18 @@ export const Route = createFileRoute("/reports")({
 const REPORTS = ["Daily sale report", "Monthly sale report", "Stock report", "Profit loss report", "Top selling product", "Customer credit report", "Roznamcha"] as const;
 type ReportName = (typeof REPORTS)[number];
 
-type Order = { id: number; number: string; customerName: string; orderDate: string; items: { productName: string; quantity: number; amount: number }[]; total: number; paid: number; status: string };
+type Order = { id: number; number: string; customerName: string; orderDate: string; items: { productName: string; quantity: number; amount: number }[]; total: number; paid: number; status: string; previousBalance?: number };
+type Customer = { id: number; previousBalance?: number };
 type Expense = { id: number; category: string; amount: number; date: string; description?: string };
 type Setting = { key: string; value: string };
 type InventoryItem = { id: number; name: string; category: string; unit: string; currentStock: number; minStock: number; costPrice: number };
-
 function ReportsPage() {
   const { can } = useAuth();
   const [report, setReport] = useState<ReportName>("Daily sale report");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [orders, setOrders] = useState<Order[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settings, setSettings] = useState<Setting[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -41,11 +42,12 @@ function ReportsPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [o, e, s, inv] = await Promise.all([
-        api.safeGet<Order[]>("/api/orders"), api.safeGet<Expense[]>("/api/expenses"),
-        api.safeGet<Setting[]>("/api/settings"), api.safeGet<InventoryItem[]>("/api/inventory"),
+      const [o, cs, e, s, inv] = await Promise.all([
+        api.safeGet<Order[]>("/api/orders"), api.safeGet<Customer[]>("/api/customers"),
+        api.safeGet<Expense[]>("/api/expenses"), api.safeGet<Setting[]>("/api/settings"),
+        api.safeGet<InventoryItem[]>("/api/inventory"),
       ]);
-      setOrders(o || []); setExpenses(e || []); setSettings(s || []); setInventory(inv || []);
+      setOrders(o || []); setCustomers(cs || []); setExpenses(e || []); setSettings(s || []); setInventory(inv || []);
     } catch {} finally { setLoading(false); }
   }, []);
 
@@ -55,8 +57,8 @@ function ReportsPage() {
   const monthlyOrders = useMemo(() => orders.filter((o) => new Date(o.orderDate).toISOString().slice(0, 7) === month), [orders, month]);
 
   const orderRows = (list: Order[]) => [
-    ["Order #", "Customer", "Date", "Total", "Paid", "Balance"],
-    ...list.map((o) => [o.number, o.customerName, dateShort(o.orderDate), currency(o.total), currency(o.paid), currency(o.total - o.paid)]),
+    ["Order #", "Customer", "Date", "Total", "Paid", "Prev. Balance", "Balance"],
+    ...list.map((o) => [o.number, o.customerName, dateShort(o.orderDate), currency(o.total), currency(o.paid), Number(o.previousBalance ?? 0) > 0 ? currency(Number(o.previousBalance ?? 0)) : "—", currency(Math.max(0, o.total - o.paid))]),
   ];
 
   const profitLossRows = () => {
@@ -80,7 +82,15 @@ function ReportsPage() {
       case "Stock report": return reportRowsForInventory(inventory as any);
       case "Profit loss report": return profitLossRows();
       case "Top selling product": return topProductRows();
-      case "Customer credit report": return orderRows(orders.filter((o) => o.total > o.paid));
+      case "Customer credit report": {
+        const list = orders.filter((o) => o.total > o.paid);
+        const rows = orderRows(list);
+        const customerPrevTotal = customers.reduce((s, c) => s + Number(c.previousBalance ?? 0), 0);
+        if (customerPrevTotal > 0) {
+          rows.push(["", "", "Customer-level previous balance (carry)", "", "", "", currency(customerPrevTotal)]);
+        }
+        return rows;
+      }
       case "Roznamcha": return orderRows(orders);
       default: return [];
     }

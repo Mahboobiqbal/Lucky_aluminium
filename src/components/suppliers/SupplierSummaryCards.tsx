@@ -12,39 +12,39 @@ export function SupplierSummaryCards({
   outstandingBalance: number;
   lastPurchaseDate?: number;
 }) {
-  const cards = [
-    {
-      icon: ShoppingCart,
-      label: "Total Purchases",
-      value: currency(totalPurchases),
-      tone: "blue" as const,
-    },
-    {
-      icon: CreditCard,
-      label: "Total Payments",
-      value: currency(totalPayments),
-      tone: "emerald" as const,
-    },
-    {
-      icon: AlertTriangle,
-      label: "Outstanding Balance",
-      value: currency(outstandingBalance),
-      tone: outstandingBalance > 0 ? "rose" : "emerald" as const,
-    },
-    {
-      icon: Calendar,
-      label: "Last Purchase",
-      value: lastPurchaseDate ? new Date(lastPurchaseDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—",
-      tone: "violet" as const,
-    },
-  ];
-
-  const tones = {
+  const tones: Record<string, { bg: string; text: string; border: string }> = {
     blue: { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", border: "border-l-blue-500" },
     emerald: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", border: "border-l-emerald-500" },
     rose: { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", border: "border-l-rose-500" },
     violet: { bg: "bg-violet-500/10", text: "text-violet-600 dark:text-violet-400", border: "border-l-violet-500" },
   };
+
+  const cards: Array<{ icon: typeof ShoppingCart; label: string; value: string; tone: keyof typeof tones }> = [
+    {
+      icon: ShoppingCart,
+      label: "Total Purchases",
+      value: currency(totalPurchases),
+      tone: "blue",
+    },
+    {
+      icon: CreditCard,
+      label: "Total Payments",
+      value: currency(totalPayments),
+      tone: "emerald",
+    },
+    {
+      icon: AlertTriangle,
+      label: "Outstanding Balance",
+      value: currency(outstandingBalance),
+      tone: outstandingBalance > 0 ? "rose" : "emerald",
+    },
+    {
+      icon: Calendar,
+      label: "Last Purchase",
+      value: lastPurchaseDate ? new Date(lastPurchaseDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—",
+      tone: "violet",
+    },
+  ];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">

@@ -34,6 +34,7 @@ type Customer = {
   address?: string;
   city?: string;
   notes?: string;
+  previousBalance?: number;
   createdAt: string;
 };
 
@@ -51,7 +52,7 @@ type Order = {
 
 type Setting = { key: string; value: string };
 
-const empty: Omit<Customer, "id" | "createdAt"> = { code: "", name: "", mobile: "", whatsapp: "", email: "", address: "", city: "", notes: "" };
+const empty: Omit<Customer, "id" | "createdAt"> = { code: "", name: "", mobile: "", whatsapp: "", email: "", address: "", city: "", notes: "", previousBalance: 0 };
 
 function CustomersPage() {
   const { can } = useAuth();
@@ -111,7 +112,7 @@ function CustomersPage() {
 
   const openEdit = (c: Customer) => {
     setEditingId(c.id);
-    setForm({ code: c.code, name: c.name, mobile: c.mobile, whatsapp: c.whatsapp || "", email: c.email || "", address: c.address || "", city: c.city || "", notes: c.notes || "" });
+    setForm({ code: c.code, name: c.name, mobile: c.mobile, whatsapp: c.whatsapp || "", email: c.email || "", address: c.address || "", city: c.city || "", notes: c.notes || "", previousBalance: c.previousBalance ?? 0 });
     setOpen(true);
   };
 
@@ -169,7 +170,9 @@ function CustomersPage() {
               {filtered.map((c) => {
                 const pmt = customerPayments[c.id];
                 const paid = pmt?.paid ?? 0;
-                const balance = pmt ? pmt.total - pmt.paid : 0;
+                const orderBalance = pmt ? Math.max(0, pmt.total - pmt.paid) : 0;
+                const opening = Number(c.previousBalance ?? 0);
+                const balance = orderBalance + opening;
                 return (
                   <tr key={c.id}>
                     <td className="font-mono text-xs text-muted-foreground">{c.code}</td>
@@ -178,8 +181,7 @@ function CustomersPage() {
                     <td>{c.city || "—"}</td>
                     <td className="text-muted-foreground">{c.email || "—"}</td>
                     <td className="text-right tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{pmt ? currency(paid) : "—"}</td>
-                    <td className="text-right tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">{pmt ? currency(balance) : "—"}</td>
-                    <td className="text-muted-foreground">{dateShort(c.createdAt)}</td>
+                    <td className="text-right tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">{balance > 0 ? currency(balance) : "—"}</td>
                     <td className="text-right">
                       <button onClick={() => openDetails(c)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Eye className="size-3.5" /></button>
                       {can("customers", "edit") && (
@@ -210,6 +212,7 @@ function CustomersPage() {
             <div><Label className="text-xs">City</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="h-8" /></div>
             <div className="col-span-2"><Label className="text-xs">Address</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="h-8" /></div>
             <div className="col-span-2"><Label className="text-xs">Notes</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} /></div>
+            <div><Label className="text-xs">Previous Balance (opening carry)</Label><Input type="number" value={form.previousBalance || ""} onChange={(e) => setForm({ ...form, previousBalance: Number(e.target.value) })} className="h-8" placeholder="0" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
@@ -224,9 +227,9 @@ function CustomersPage() {
           {selected && (() => {
             const customerOrders = orders.filter((o) => o.customerId === selected.id);
             const pmt = customerPayments[selected.id];
-            const totalBilled = pmt?.total ?? 0;
-            const totalPaid = pmt?.paid ?? 0;
-            const totalBalance = Math.max(0, totalBilled - totalPaid);
+            const orderBalance = pmt ? Math.max(0, pmt.total - pmt.paid) : 0;
+            const openingBalance = Number(selected.previousBalance ?? 0);
+            const totalBalance = orderBalance + openingBalance;
             return (
               <div className="space-y-5">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
@@ -236,10 +239,11 @@ function CustomersPage() {
                   <div className="col-span-2 rounded-md border border-border p-3"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Address</div><div className="font-medium mt-1">{selected.address || "-"}</div></div>
                   <div className="col-span-2 rounded-md border border-border p-3"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Notes</div><div className="font-medium mt-1 whitespace-pre-wrap">{selected.notes || "-"}</div></div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-md border border-border bg-muted/20 p-3"><div className="flex items-center gap-2 text-sm font-semibold"><ShoppingBag className="size-4 text-primary" />Total billed</div><div className="mt-1 text-xl font-bold tabular-nums">{currency(totalBilled)}</div><div className="text-[11px] text-muted-foreground">{customerOrders.length} order(s)</div></div>
-                  <div className="rounded-md border border-border bg-muted/20 p-3"><div className="flex items-center gap-2 text-sm font-semibold"><Banknote className="size-4 text-emerald-500" />Total paid</div><div className="mt-1 text-xl font-bold tabular-nums text-emerald-600">{currency(totalPaid)}</div></div>
-                  <div className="rounded-md border border-border bg-muted/20 p-3"><div className="flex items-center gap-2 text-sm font-semibold"><WalletCards className="size-4 text-rose-500" />Remaining Balance</div><div className="mt-1 text-xl font-bold tabular-nums text-rose-600">{currency(totalBalance)}</div></div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="rounded-md border border-border bg-muted/20 p-3"><div className="flex items-center gap-2 text-sm font-semibold"><ShoppingBag className="size-4 text-primary" />Order balance</div><div className="mt-1 text-xl font-bold tabular-nums">{currency(orderBalance)}</div><div className="text-[11px] text-muted-foreground">{customerOrders.length} order(s)</div></div>
+                  <div className="rounded-md border border-border bg-muted/20 p-3"><div className="flex items-center gap-2 text-sm font-semibold"><WalletCards className="size-4 text-blue-500" />Previous Balance</div><div className="mt-1 text-xl font-bold tabular-nums text-blue-600 dark:text-blue-400">{currency(openingBalance)}</div><div className="text-[11px] text-muted-foreground">carried forward</div></div>
+                  <div className="rounded-md border border-border bg-muted/20 p-3"><div className="flex items-center gap-2 text-sm font-semibold"><Banknote className="size-4 text-emerald-500" />Total paid</div><div className="mt-1 text-xl font-bold tabular-nums text-emerald-600">{currency(pmt?.paid ?? 0)}</div></div>
+                  <div className="rounded-md border border-border bg-muted/20 p-3"><div className="flex items-center gap-2 text-sm font-semibold"><WalletCards className="size-4 text-rose-500" />Total Outstanding</div><div className="mt-1 text-xl font-bold tabular-nums text-rose-600">{currency(totalBalance)}</div></div>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 text-sm font-semibold mb-2"><CalendarDays className="size-4 text-primary" />Order history</div>
@@ -268,7 +272,7 @@ function CustomersPage() {
                   <Button variant="outline" size="sm" onClick={() => setDetailOpen(false)}>Close</Button>
                   <Button variant="outline" size="sm" onClick={() => {
                     const doc = createPaymentReminderPdf(
-                      { code: selected.code, name: selected.name, mobile: selected.mobile, whatsapp: selected.whatsapp },
+                      { code: selected.code, name: selected.name, mobile: selected.mobile, whatsapp: selected.whatsapp, previousBalance: Number(selected.previousBalance ?? 0) },
                       customerOrders.map((o: any) => ({ number: o.number, orderDate: o.orderDate, total: o.total, paid: o.paid, status: o.status })),
                       company,
                     );

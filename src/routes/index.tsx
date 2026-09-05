@@ -18,19 +18,20 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-type Order = { id: number; number: string; customerId: number; customerName: string; orderDate: string; items: any[]; total: number; paid: number; status: string; createdAt: string };
+type Order = { id: number; number: string; customerId: number; customerName: string; orderDate: string; items: any[]; total: number; paid: number; status: string; createdAt: string; previousBalance?: number };
+type Customer = { id: number; name: string; previousBalance?: number };
 type Expense = { id: number; category: string; amount: number; date: string };
 type InventoryItem = { id: number; name: string; currentStock: number; minStock: number; supplier?: string };
 type Setting = { key: string; value: string };
 
 function StatCard({ icon: Icon, label, value, tone, onClick, subtitle }: { icon: LucideIcon; label: string; value: string; tone: "primary" | "emerald" | "amber" | "violet" | "rose" | "blue"; onClick?: () => void; subtitle?: string }) {
   const tones = {
-    primary: { bg: "bg-primary/10", text: "text-primary", border: "border-l-primary" },
-    emerald: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", border: "border-l-emerald-500" },
-    amber: { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", border: "border-l-amber-500" },
-    violet: { bg: "bg-violet-500/10", text: "text-violet-600 dark:text-violet-400", border: "border-l-violet-500" },
-    rose: { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", border: "border-l-rose-500" },
-    blue: { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", border: "border-l-blue-500" },
+    primary: "bg-primary/10 text-primary",
+    emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    violet: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+    rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+    blue: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
   };
   const t = tones[tone];
   const interactive = Boolean(onClick);
@@ -39,24 +40,17 @@ function StatCard({ icon: Icon, label, value, tone, onClick, subtitle }: { icon:
       type="button"
       onClick={onClick}
       disabled={!interactive}
-      className={`bg-card border border-border border-l-[3px] ${t.border} rounded-xl p-4 shadow-sm text-left transition-all ${interactive ? "hover:shadow-md hover:bg-muted/30 cursor-pointer" : "cursor-default"}`}
+      className={`group rounded-xl border border-border bg-card p-4 shadow-sm text-left transition-all ${interactive ? "hover:shadow-md hover:border-primary/30 cursor-pointer" : "cursor-default"} w-full`}
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${t}`}><Icon className="size-5" /></div>
         <div className="min-w-0 flex-1">
           <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
-          <div className="mt-1.5 text-2xl font-bold tracking-tight tabular-nums truncate">{value}</div>
-          {subtitle && <div className="text-[11px] text-muted-foreground mt-1">{subtitle}</div>}
+          <div className="text-xl font-bold tabular-nums mt-0.5 truncate">{value}</div>
+          {subtitle && <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{subtitle}</div>}
         </div>
-        <div className={`size-11 rounded-xl flex items-center justify-center shrink-0 ${t.bg} ${t.text}`}>
-          <Icon className="size-5" />
-        </div>
+        {interactive && <ArrowUpRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
       </div>
-      {interactive && (
-        <div className="mt-3 flex items-center gap-1 text-[11px] font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className={t.text}>View all</span>
-          <ChevronRight className="size-3" />
-        </div>
-      )}
     </button>
   );
 }
@@ -64,14 +58,14 @@ function StatCard({ icon: Icon, label, value, tone, onClick, subtitle }: { icon:
 function Panel({ title, subtitle, action, children, className }: { title: string; subtitle?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <div className={`bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col ${className ?? ""}`}>
-      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold tracking-tight">{title}</div>
-          {subtitle && <div className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</div>}
+      <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3">
+        <div>
+          <div className="text-base font-semibold tracking-tight">{title}</div>
+          {subtitle && <div className="text-xs text-muted-foreground mt-0.5">{subtitle}</div>}
         </div>
         {action}
       </div>
-      <div className="flex-1 min-h-0">{children}</div>
+      <div className="flex-1">{children}</div>
     </div>
   );
 }
@@ -83,11 +77,11 @@ function Dashboard() {
   const [customerForm, setCustomerForm] = useState({ code: "", name: "", mobile: "", whatsapp: "", email: "", address: "", city: "", notes: "" });
 
   const [customerCount, setCustomerCount] = useState(0);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-
   const fetchData = useCallback(async () => {
     try {
       const [custs, ords, exps, inv] = await Promise.all([
@@ -95,6 +89,7 @@ function Dashboard() {
         api.safeGet<Expense[]>("/api/expenses"), api.safeGet<InventoryItem[]>("/api/inventory"),
       ]);
       setCustomerCount(custs?.length || 0);
+      setCustomers((custs as Customer[]) || []);
       setOrders(ords || []);
       setExpenses(exps || []);
       setInventory(inv || []);
@@ -104,7 +99,9 @@ function Dashboard() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const totalSales = orders.reduce((s, o) => s + o.total, 0);
-  const pendingPayments = orders.reduce((s, o) => s + Math.max(0, o.total - o.paid), 0);
+  // Pending payments = sum of per-order balance + sum of customer-level previous balance.
+  const customerPrevTotal = customers.reduce((s, c) => s + Number(c.previousBalance ?? 0), 0);
+  const pendingPayments = orders.reduce((s, o) => s + Math.max(0, o.total - o.paid), 0) + customerPrevTotal;
   const byStatus = orders.reduce<Record<string, number>>((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {});
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
   const today = new Date().toDateString();
@@ -173,7 +170,7 @@ function Dashboard() {
             <StatCard icon={CreditCard} label="Pending Payments" value={currency(pendingPayments)} tone="rose" onClick={() => navigate({ to: "/payments" })} subtitle={`${orders.filter((o) => o.paid < o.total && o.total > 0).length} orders`} />
           </div>
 
-          {/* Main content grid */}
+            <StatCard icon={CreditCard} label="Pending Payments" value={currency(pendingPayments)} tone="rose" onClick={() => navigate({ to: "/payments" })} subtitle={`${orders.filter((o) => o.paid < o.total && o.total > 0).length} orders · prev. balance ${currency(customerPrevTotal)}`} />
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
             <div className="space-y-5">
               {/* Revenue vs Expenses chart */}

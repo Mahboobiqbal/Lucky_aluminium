@@ -146,7 +146,9 @@ export function printCustomer(
 ) {
   const totalBilled = totals?.total ?? 0;
   const totalPaid = totals?.paid ?? 0;
-  const totalBalance = Math.max(0, totalBilled - totalPaid);
+  const orderBalance = Math.max(0, totalBilled - totalPaid);
+  const openingBalance = Number(customer.previousBalance ?? 0);
+  const totalBalance = orderBalance + openingBalance;
   const customerOrders = orders ?? [];
 
   openPrintDocument(
@@ -157,7 +159,7 @@ export function printCustomer(
         <div><div class="label">Code</div><div class="value">${esc(customer.code)}</div></div>
         <div><div class="label">Name</div><div class="value">${esc(customer.name)}</div></div>
         <div><div class="label">Mobile</div><div class="value">${esc(customer.mobile)}</div></div>
-        
+
         <div><div class="label">Email</div><div class="value">${esc(customer.email || "-")}</div></div>
         <div><div class="label">City</div><div class="value">${esc(customer.city || "-")}</div></div>
         <div><div class="label">Added</div><div class="value">${esc(dateShort(customer.createdAt))}</div></div>
@@ -168,18 +170,22 @@ export function printCustomer(
       <p>${esc(customer.notes || "-")}</p>
 
       <h2>Payment Summary</h2>
-      <div class="grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="grid" style="grid-template-columns:repeat(4,1fr)">
         <div style="border:1px solid #d1d5db;border-radius:6px;padding:10px">
-          <div class="label">Total Billed</div>
-          <div class="value">${esc(currency(totalBilled))}</div>
+          <div class="label">Order Balance</div>
+          <div class="value">${esc(currency(orderBalance))}</div>
           <div style="font-size:11px;color:#6b7280">${customerOrders.length} order(s)</div>
+        </div>
+        <div style="border:1px solid #d1d5db;border-radius:6px;padding:10px">
+          <div class="label">Previous Balance</div>
+          <div class="value" style="color:#1d4ed8">${esc(currency(openingBalance))}</div>
         </div>
         <div style="border:1px solid #d1d5db;border-radius:6px;padding:10px">
           <div class="label">Total Paid</div>
           <div class="value" style="color:#059669">${esc(currency(totalPaid))}</div>
         </div>
         <div style="border:1px solid #d1d5db;border-radius:6px;padding:10px">
-          <div class="label">Remaining Balance</div>
+          <div class="label">Total Outstanding</div>
           <div class="value" style="color:#dc2626">${esc(currency(totalBalance))}</div>
         </div>
       </div>
@@ -219,15 +225,13 @@ export function printCustomers(
   openPrintDocument(
     "Customers",
     `
-      <h1>Customer List</h1>
-      <table>
-        <thead><tr><th>Code</th><th>Name</th><th>Mobile</th><th>City</th><th>Email</th><th class="right">Paid</th><th class="right">Remaining Balance</th></tr></thead>
-        <tbody>
           ${customers
             .map((c) => {
               const pmt = c.id && paymentMap ? paymentMap[c.id] : undefined;
               const paid = pmt?.paid ?? 0;
-              const balance = pmt ? pmt.total - pmt.paid : 0;
+              const orderBalance = pmt ? Math.max(0, pmt.total - pmt.paid) : 0;
+              const opening = Number(c.previousBalance ?? 0);
+              const balance = orderBalance + opening;
               return `<tr>
                 <td>${esc(c.code)}</td>
                 <td>${esc(c.name)}</td>

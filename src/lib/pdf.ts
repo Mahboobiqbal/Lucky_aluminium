@@ -834,6 +834,7 @@ type PaymentReminderCustomer = {
   name: string;
   mobile: string;
   whatsapp?: string;
+  previousBalance?: number;
 };
 
 export function createPaymentReminderPdf(
@@ -850,7 +851,9 @@ export function createPaymentReminderPdf(
 
   const totalBilled = orders.reduce((s, o) => s + o.total, 0);
   const totalPaid = orders.reduce((s, o) => s + o.paid, 0);
-  const totalBalance = Math.max(0, totalBilled - totalPaid);
+  const orderBalance = Math.max(0, totalBilled - totalPaid);
+  const openingBalance = Number(customer.previousBalance ?? 0);
+  const totalBalance = orderBalance + openingBalance;
 
   // --- COMPANY HEADER ---
   const logoSize = 11;
@@ -902,7 +905,8 @@ export function createPaymentReminderPdf(
   // --- OUTSTANDING BALANCE BOX ---
   doc.setFillColor(254, 243, 199);
   doc.setDrawColor(245, 158, 11);
-  doc.roundedRect(l, fy, r - l, 16, 2, 2, "FD");
+  const boxH = openingBalance > 0 ? 24 : 16;
+  doc.roundedRect(l, fy, r - l, boxH, 2, 2, "FD");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor("#92400e");
@@ -910,7 +914,13 @@ export function createPaymentReminderPdf(
   doc.setFontSize(14);
   doc.setTextColor("#b45309");
   doc.text(currency(totalBalance), r - 4, fy + 11, { align: "right" });
-  fy += 22;
+  if (openingBalance > 0) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor("#1d4ed8");
+    doc.text(`Includes Previous Balance: ${currency(openingBalance)}`, l + 4, fy + 19);
+  }
+  fy += boxH + 6;
 
   // --- ORDER BREAKDOWN TABLE ---
   doc.setFont("helvetica", "bold");
