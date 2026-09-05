@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Eye, FileText, ShoppingBag, Banknote, WalletCards, CalendarDays, Download, Users, Send } from "lucide-react";
+import { TableActions } from "@/components/layout/TableActions";
 import { toast } from "sonner";
 import { currency, dateShort, statusColor, statusLabel } from "@/lib/format";
 import { createPaymentReminderPdf, sharePdf } from "@/lib/pdf";
@@ -166,7 +167,7 @@ function CustomersPage() {
       <PageContainer>
         <TableShell>
           <table className="data-table">
-            <thead><tr><th>Code</th><th>Name</th><th>Mobile</th><th>City</th><th>Email</th><th className="text-right whitespace-nowrap">Paid</th><th className="text-right whitespace-nowrap">Remaining Balance</th><th>Added</th><th className="w-24 text-right">Actions</th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>Mobile</th><th>City</th><th>Email</th><th className="whitespace-nowrap">Paid</th><th className="whitespace-nowrap">Remaining Balance</th><th>Added</th><th className="text-center whitespace-nowrap">Actions</th></tr></thead>
             <tbody>
               {filtered.map((c) => {
                 const pmt = customerPayments[c.id];
@@ -181,16 +182,19 @@ function CustomersPage() {
                     <td className="tabular-nums">{c.mobile}</td>
                     <td>{c.city || "—"}</td>
                     <td className="text-muted-foreground">{c.email || "—"}</td>
-                    <td className="text-right tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{pmt ? currency(paid) : "—"}</td>
-                    <td className="text-right tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">{balance > 0 ? currency(balance) : "—"}</td>
-                    <td className="text-right">
-                      <button onClick={() => openDetails(c)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Eye className="size-3.5" /></button>
-                      {can("customers", "edit") && (
-                        <button onClick={() => openEdit(c)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Pencil className="size-3.5" /></button>
-                      )}
-                      {can("customers", "delete") && (
-                        <button onClick={() => setDeleteTarget(c.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center"><Trash2 className="size-3.5" /></button>
-                      )}
+                    <td className="tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{pmt ? currency(paid) : "—"}</td>
+                    <td className="tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">{balance > 0 ? currency(balance) : "—"}</td>
+                    <td className="text-muted-foreground whitespace-nowrap">{dateShort(c.createdAt)}</td>
+                    <td>
+                      <TableActions>
+                        <button onClick={() => openDetails(c)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Eye className="size-3.5" /></button>
+                        {can("customers", "edit") && (
+                          <button onClick={() => openEdit(c)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Pencil className="size-3.5" /></button>
+                        )}
+                        {can("customers", "delete") && (
+                          <button onClick={() => setDeleteTarget(c.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center"><Trash2 className="size-3.5" /></button>
+                        )}
+                      </TableActions>
                     </td>
                   </tr>
                 );
@@ -251,16 +255,16 @@ function CustomersPage() {
                   {customerOrders.length > 0 ? (
                     <div className="border border-border rounded-md overflow-hidden">
                       <table className="data-table text-sm">
-                        <thead><tr><th>Order #</th><th>Date</th><th>Items</th><th className="text-right whitespace-nowrap">Total</th><th className="text-right whitespace-nowrap">Paid</th><th className="text-right whitespace-nowrap">Remaining Balance</th><th>Status</th></tr></thead>
+                        <thead><tr><th>Order #</th><th>Date</th><th>Items</th><th className="whitespace-nowrap">Total</th><th className="whitespace-nowrap">Paid</th><th className="whitespace-nowrap">Remaining Balance</th><th>Status</th></tr></thead>
                         <tbody>
                           {customerOrders.map((o) => (
                             <tr key={o.id}>
                               <td className="font-medium">{o.number}</td>
                               <td className="text-muted-foreground">{dateShort(o.orderDate)}</td>
                               <td>{o.items.length}</td>
-                              <td className="text-right tabular-nums whitespace-nowrap">{currency(o.total)}</td>
-                              <td className="text-right tabular-nums text-emerald-600 whitespace-nowrap">{currency(o.paid)}</td>
-                              <td className="text-right tabular-nums text-rose-600 whitespace-nowrap">{currency((o as any).balance ?? Math.max(0, o.total - o.paid))}</td>
+                              <td className="tabular-nums whitespace-nowrap">{currency(o.total)}</td>
+                              <td className="tabular-nums text-emerald-600 whitespace-nowrap">{currency(o.paid)}</td>
+                              <td className="tabular-nums text-rose-600 whitespace-nowrap">{currency((o as any).balance ?? Math.max(0, o.total - o.paid))}</td>
                               <td><Badge variant="outline" className={`text-[11px] ${statusColor[o.status]}`}>{statusLabel(o.status)}</Badge></td>
                             </tr>
                           ))}

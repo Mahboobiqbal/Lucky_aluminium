@@ -3,6 +3,7 @@ import { api, type UserPermission } from "@/lib/api";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
 import { TableShell } from "@/components/layout/TableShell";
 import { EmptyState } from "@/components/layout/EmptyState";
+import { TableActions } from "@/components/layout/TableActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -373,7 +374,7 @@ function AccessControlPage() {
                 <th>Role</th>
                 <th>Status</th>
                 <th>Created</th>
-                <th className="w-36 text-right">Actions</th>
+                <th className="text-center whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -405,32 +406,34 @@ function AccessControlPage() {
                     </span>
                   </td>
                   <td className="text-muted-foreground">{dateShort(u.createdAt)}</td>
-                  <td className="text-right">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); selectUser(u); }}
-                      className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"
-                      title="Manage permissions"
-                    >
-                      <Shield className="size-3.5" />
-                    </button>
-                    {canModifyUser(u) && (
+                  <td>
+                    <TableActions>
                       <button
-                        onClick={(e) => { e.stopPropagation(); openEdit(u); }}
+                        onClick={(e) => { e.stopPropagation(); selectUser(u); }}
                         className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"
-                        title="Edit user"
+                        title="Manage permissions"
                       >
-                        <Pencil className="size-3.5" />
+                        <Shield className="size-3.5" />
                       </button>
-                    )}
-                    {u.id !== currentUser?.id && canModifyUser(u) && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(u.id); }}
-                        className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center"
-                        title="Delete user"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    )}
+                      {canModifyUser(u) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEdit(u); }}
+                          className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"
+                          title="Edit user"
+                        >
+                          <Pencil className="size-3.5" />
+                        </button>
+                      )}
+                      {u.id !== currentUser?.id && canModifyUser(u) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(u.id); }}
+                          className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center"
+                          title="Delete user"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
+                    </TableActions>
                   </td>
                 </tr>
               ))}

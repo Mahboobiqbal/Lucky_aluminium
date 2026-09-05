@@ -14,6 +14,7 @@ import { Download, Eye, FileText, Printer, Trash2 } from "lucide-react";
 import { companyFromSettings } from "@/lib/print";
 import { createCustomerInvoicePdf, downloadPdf, printPdf, type CustomerInvoiceData } from "@/lib/pdf";
 import { toast } from "sonner";
+import { TableActions } from "@/components/layout/TableActions";
 
 export const Route = createFileRoute("/invoices")({
   head: () => ({ meta: [{ title: "Invoices — Lucky Aluminium" }] }),
@@ -81,7 +82,7 @@ function InvoicesPage() {
       <PageContainer>
         <TableShell>
           <table className="data-table min-w-[1100px]">
-            <thead><tr><th>Invoice #</th><th>Customer</th><th>Order</th><th>Date</th><th className="text-center">Items</th><th className="text-right">Subtotal</th><th className="text-center">Discount</th><th className="text-right">Total</th><th className="text-right">Paid</th><th className="text-right">Balance</th><th className="text-right">Prev. Balance</th><th className="w-36 text-center">Actions</th></tr></thead>
+            <thead><tr><th>Invoice #</th><th>Customer</th><th>Order</th><th>Date</th><th className="text-center">Items</th><th>Subtotal</th><th className="text-center">Discount</th><th>Total</th><th>Paid</th><th>Balance</th><th>Prev. Balance</th><th className="text-center whitespace-nowrap">Actions</th></tr></thead>
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
@@ -90,19 +91,19 @@ function InvoicesPage() {
                   <td className="text-muted-foreground">{o.number}</td>
                   <td className="text-muted-foreground">{dateShort(o.orderDate)}</td>
                   <td className="text-center">{o.items.length}</td>
-                  <td className="text-right tabular-nums">{currency(o.subtotal ?? o.total)}</td>
+                  <td className="tabular-nums">{currency(o.subtotal ?? o.total)}</td>
                   <td className="text-center tabular-nums">{o.discountPercent > 0 ? `${o.discountPercent}%` : "\u2014"}</td>
-                  <td className="text-right tabular-nums">{currency(o.total)}</td>
-                  <td className="text-right tabular-nums text-emerald-600">{currency(o.paid)}</td>
-                  <td className="text-right tabular-nums text-rose-600">{currency((o as any).balance ?? Math.max(0, o.total - o.paid))}</td>
-                  <td className="text-right tabular-nums text-blue-600">{Number((o as any).previousBalance ?? 0) > 0 ? currency((o as any).previousBalance) : "\u2014"}</td>
+                  <td className="tabular-nums">{currency(o.total)}</td>
+                  <td className="tabular-nums text-emerald-600">{currency(o.paid)}</td>
+                  <td className="tabular-nums text-rose-600">{currency((o as any).balance ?? Math.max(0, o.total - o.paid))}</td>
+                  <td className="tabular-nums text-blue-600">{Number((o as any).previousBalance ?? 0) > 0 ? currency((o as any).previousBalance) : "\u2014"}</td>
                   <td>
-                    <div className="flex items-center justify-center gap-1 flex-nowrap whitespace-nowrap">
+                    <TableActions>
                       <button onClick={() => handleView(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="View"><Eye className="size-3.5" /></button>
                       {can("invoices", "export") && <button onClick={() => handleDownload(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Download"><Download className="size-3.5" /></button>}
                       {can("invoices", "print") && <button onClick={() => handlePrint(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Print"><Printer className="size-3.5" /></button>}
                       {can("invoices", "delete") && <button onClick={() => setDeleteTarget(o.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center" title="Delete"><Trash2 className="size-3.5" /></button>}
-                    </div>
+                    </TableActions>
                   </td>
                 </tr>
               ))}
@@ -134,8 +135,8 @@ function InvoicesPage() {
                         <th className="w-20 text-center">Type</th>
                         <th className="w-40 text-center">Dimensions</th>
                         <th className="w-16 text-center">Qty</th>
-                        <th className="w-28 text-right">Rate</th>
-                        <th className="w-28 text-right">Amount</th>
+                        <th>Rate</th>
+                        <th>Amount</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -148,8 +149,8 @@ function InvoicesPage() {
                             <td className="text-center">{isWindow ? "Window" : "Other"}</td>
                             <td className="text-center tabular-nums">{isWindow ? `${it.length} ft` : `${it.width} × ${it.height} = ${((it.width || 0) * (it.height || 0)).toFixed(2)} sq ft`}</td>
                             <td className="text-center">{it.quantity}</td>
-                            <td className="text-right tabular-nums">{currency(it.unitPrice)}</td>
-                            <td className="text-right font-medium tabular-nums">{currency(it.amount)}</td>
+                            <td className="tabular-nums">{currency(it.unitPrice)}</td>
+                            <td className="font-medium tabular-nums">{currency(it.amount)}</td>
                           </tr>
                         );
                       })}

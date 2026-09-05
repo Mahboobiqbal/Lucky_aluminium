@@ -30,8 +30,8 @@ export function PaymentTable({
             <th>Reference</th>
             <th>Customer</th>
             <th>Method</th>
-            <th className="text-right">Paid</th>
-            <th className="text-right">Remaining Balance</th>
+            <th>Paid</th>
+            <th>Remaining Balance</th>
             {withNotes && <th>Notes</th>}
           </tr>
         </thead>
@@ -45,10 +45,10 @@ export function PaymentTable({
               </td>
               <td className="font-medium">{row.customerName}</td>
               <td>{row.method || "-"}</td>
-              <td className="text-right tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">
+              <td className="tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">
                 {currency(row.paid)}
               </td>
-              <td className="text-right tabular-nums text-rose-600 dark:text-rose-400">{currency(row.balance)}</td>
+              <td className="tabular-nums text-rose-600 dark:text-rose-400">{currency(row.balance)}</td>
               {withNotes && <td className="text-muted-foreground max-w-48 truncate">{row.notes || "-"}</td>}
             </tr>
           ))}

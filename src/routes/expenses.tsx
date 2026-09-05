@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
 import { TableShell } from "@/components/layout/TableShell";
 import { EmptyState } from "@/components/layout/EmptyState";
+import { TableActions } from "@/components/layout/TableActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,15 +84,15 @@ function ExpensesPage() {
   const ExpenseTable = ({ rows }: { rows: Expense[] }) => (
     <TableShell>
       <table className="data-table">
-        <thead><tr><th>Date</th><th>Category</th><th>Description</th><th className="text-right">Amount</th><th className="w-16"></th></tr></thead>
+        <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th><th className="text-center whitespace-nowrap">Actions</th></tr></thead>
         <tbody>
           {rows.map((e) => (
             <tr key={e.id}>
               <td className="text-muted-foreground">{dateShort(e.date)}</td>
               <td>{e.category}</td>
               <td className="text-muted-foreground">{e.description || "-"}</td>
-              <td className="text-right tabular-nums">{currency(e.amount)}</td>
-              <td>{can("expenses", "delete") && <button onClick={() => setDeleteTarget(e.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-3.5" /></button>}</td>
+              <td className="tabular-nums">{currency(e.amount)}</td>
+              <td>{can("expenses", "delete") && <TableActions><button onClick={() => setDeleteTarget(e.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center"><Trash2 className="size-3.5" /></button></TableActions>}</td>
             </tr>
           ))}
         </tbody>

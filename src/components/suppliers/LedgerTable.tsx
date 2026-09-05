@@ -9,6 +9,7 @@ import type { LedgerEntry } from "@/lib/ledger";
 import { Download, Printer, ShoppingCart, CreditCard, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { PurchaseInvoice } from "@/components/suppliers/PurchaseInvoice";
+import { TableActions } from "@/components/layout/TableActions";
 
 export function LedgerTable({
   rows,
@@ -86,10 +87,10 @@ export function LedgerTable({
               <th>Reference</th>
               <th>Type</th>
               <th>Description</th>
-              <th className="text-right">Debit (Purchase)</th>
-              <th className="text-right">Credit (Payment)</th>
-              <th className="text-right">Running Balance</th>
-              <th className="w-52 text-right">Actions</th>
+              <th>Debit (Purchase)</th>
+              <th>Credit (Payment)</th>
+              <th>Running Balance</th>
+              <th className="text-center whitespace-nowrap">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -107,12 +108,12 @@ export function LedgerTable({
                     </span>
                   </td>
                   <td className="text-muted-foreground">{row.description}</td>
-                  <td className="text-right tabular-nums">{row.debit ? currency(row.debit) : ""}</td>
-                  <td className="text-right tabular-nums">{row.credit ? currency(row.credit) : ""}</td>
-                  <td className="text-right tabular-nums font-semibold">{currency(row.balance)}</td>
-                  <td className="text-right">
+                  <td className="tabular-nums">{row.debit ? currency(row.debit) : ""}</td>
+                  <td className="tabular-nums">{row.credit ? currency(row.credit) : ""}</td>
+                  <td className="tabular-nums font-semibold">{currency(row.balance)}</td>
+                  <td>
                     {purchase ? (
-                      <div className="flex justify-end gap-1.5">
+                      <TableActions justify="end">
                         <Button type="button" size="sm" variant="ghost" onClick={() => handleView(purchase)} className="h-7 px-2">
                           <Eye className="size-3.5 mr-1" />View
                         </Button>
@@ -122,7 +123,7 @@ export function LedgerTable({
                         <Button type="button" size="sm" variant="ghost" onClick={() => void handleInvoiceAction(purchase, "print")} className="h-7 px-2">
                           <Printer className="size-3.5" />
                         </Button>
-                      </div>
+                      </TableActions>
                     ) : (
                       <span className="text-muted-foreground text-xs">—</span>
                     )}

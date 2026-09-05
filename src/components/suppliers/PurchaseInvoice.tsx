@@ -73,18 +73,18 @@ export function PurchaseInvoice({
           <thead>
             <tr>
               <th>Product Name</th>
-              <th className="text-right">Quantity</th>
-              <th className="text-right">Purchase Price</th>
-              <th className="text-right">Amount</th>
+              <th>Quantity</th>
+              <th>Purchase Price</th>
+              <th>Amount</th>
             </tr>
           </thead>
           <tbody>
             {invoice.items.map((item, index) => (
               <tr key={index}>
                 <td>{item.productName}</td>
-                <td className="text-right">{item.quantity}</td>
-                <td className="text-right tabular-nums">{currency(item.purchasePrice)}</td>
-                <td className="text-right tabular-nums">{currency(item.amount)}</td>
+                <td>{item.quantity}</td>
+                <td className="tabular-nums">{currency(item.purchasePrice)}</td>
+                <td className="tabular-nums">{currency(item.amount)}</td>
               </tr>
             ))}
           </tbody>

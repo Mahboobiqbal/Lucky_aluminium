@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
 import { TableShell } from "@/components/layout/TableShell";
 import { EmptyState } from "@/components/layout/EmptyState";
+import { TableActions } from "@/components/layout/TableActions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -64,7 +65,7 @@ function InventoryPage() {
         </div>
         <TableShell>
           <table className="data-table">
-            <thead><tr><th>Item</th><th>Type</th><th>Category</th><th>Supplier</th><th>Unit</th><th className="text-right">Dimension</th><th className="text-right">Qty</th><th className="text-right">Total stock</th><th className="text-right">Min</th><th className="text-right">Cost</th><th>Status</th><th className="w-20 text-right">Actions</th></tr></thead>
+            <thead><tr><th>Item</th><th>Type</th><th>Category</th><th>Supplier</th><th>Unit</th><th>Dimension</th><th>Qty</th><th>Total stock</th><th>Min</th><th>Cost</th><th>Status</th><th className="text-center whitespace-nowrap">Actions</th></tr></thead>
             <tbody>
               {list.map((i) => {
                 const low = i.currentStock < i.minStock;
@@ -78,14 +79,16 @@ function InventoryPage() {
                     <td className="font-medium">{i.name}</td>
                     <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${isWindow ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30" : "bg-muted/50 text-muted-foreground border-border"}`}>{isWindow ? "Window" : "Other"}</span></td>
                     <td>{i.category}</td><td className="text-muted-foreground">{i.supplier || "-"}</td><td>{i.unit}</td>
-                    <td className="text-right tabular-nums text-muted-foreground">{dimension}</td>
-                    <td className="text-right tabular-nums text-muted-foreground">{i.stockQty ?? 0}</td>
-                    <td className={`text-right tabular-nums ${low ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}`}>{i.currentStock} <span className="text-[10px] text-muted-foreground">{unitOf}</span></td>
-                    <td className="text-right tabular-nums text-muted-foreground">{i.minStock}</td><td className="text-right tabular-nums">{currency(i.costPrice)}<span className="text-[10px] text-muted-foreground">/{unitOf}</span></td>
+                    <td className="tabular-nums text-muted-foreground">{dimension}</td>
+                    <td className="tabular-nums text-muted-foreground">{i.stockQty ?? 0}</td>
+                    <td className={`tabular-nums ${low ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}`}>{i.currentStock} <span className="text-[10px] text-muted-foreground">{unitOf}</span></td>
+                    <td className="tabular-nums text-muted-foreground">{i.minStock}</td><td className="tabular-nums">{currency(i.costPrice)}<span className="text-[10px] text-muted-foreground">/{unitOf}</span></td>
                     <td>{low ? <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] border bg-amber-500/15 text-amber-600 border-amber-500/30"><AlertTriangle className="size-3" />Low</span> : <span className="inline-flex rounded px-1.5 py-0.5 text-[11px] border bg-emerald-500/15 text-emerald-600 border-emerald-500/30">OK</span>}</td>
-                    <td className="text-right">
-                      {can("inventory", "edit") && <button onClick={() => { setEditingId(i.id); setForm({ name: i.name, category: i.category, unit: i.unit, itemType: (i.itemType || "other") as "window" | "other", pricingMode: (i.pricingMode || "piece") as "piece" | "size", currentStock: i.currentStock, minStock: i.minStock, costPrice: i.costPrice, supplier: i.supplier || "", widthFt: i.widthFt ?? 0, heightFt: i.heightFt ?? 0, length: i.length ?? 0, stockQty: i.stockQty ?? 0 }); setOpen(true); }} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Pencil className="size-3.5" /></button>}
-                      {can("inventory", "delete") && <button onClick={() => setDeleteTarget(i.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center"><Trash2 className="size-3.5" /></button>}
+                    <td>
+                      <TableActions>
+                        {can("inventory", "edit") && <button onClick={() => { setEditingId(i.id); setForm({ name: i.name, category: i.category, unit: i.unit, itemType: (i.itemType || "other") as "window" | "other", pricingMode: (i.pricingMode || "piece") as "piece" | "size", currentStock: i.currentStock, minStock: i.minStock, costPrice: i.costPrice, supplier: i.supplier || "", widthFt: i.widthFt ?? 0, heightFt: i.heightFt ?? 0, length: i.length ?? 0, stockQty: i.stockQty ?? 0 }); setOpen(true); }} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Pencil className="size-3.5" /></button>}
+                        {can("inventory", "delete") && <button onClick={() => setDeleteTarget(i.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center"><Trash2 className="size-3.5" /></button>}
+                      </TableActions>
                     </td>
                   </tr>
                 );

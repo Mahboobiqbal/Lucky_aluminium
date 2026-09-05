@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
 import { TableShell } from "@/components/layout/TableShell";
 import { EmptyState } from "@/components/layout/EmptyState";
+import { TableActions } from "@/components/layout/TableActions";
 import { currency, dateShort, statusColor, statusLabel } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -284,12 +285,12 @@ function OrdersPage() {
                 <th>Customer</th>
                 <th>Order date</th>
                 <th>Delivery</th>
-                <th className="text-right whitespace-nowrap">Total</th>
-                <th className="text-right whitespace-nowrap">Paid</th>
-                <th className="text-right whitespace-nowrap">Remaining Balance</th>
-                <th className="text-right whitespace-nowrap">Prev. Balance</th>
+                <th>Total</th>
+                <th>Paid</th>
+                <th>Remaining Balance</th>
+                <th>Prev. Balance</th>
                 <th>Status</th>
-                <th className="w-10"></th>
+                <th className="text-center whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -299,10 +300,10 @@ function OrdersPage() {
                   <td>{o.customerName}</td>
                   <td className="text-muted-foreground">{dateShort(o.orderDate)}</td>
                   <td className="text-muted-foreground">{dateShort(o.deliveryDate)}</td>
-                  <td className="text-right tabular-nums whitespace-nowrap">{currency(o.total)}</td>
-                  <td className="text-right tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{currency(o.paid)}</td>
-                  <td className="text-right tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">{currency(o.balance ?? Math.max(0, o.total - o.paid))}</td>
-                  <td className="text-right tabular-nums text-blue-600 dark:text-blue-400 whitespace-nowrap">{Number(o.previousBalance ?? 0) > 0 ? currency(Number(o.previousBalance ?? 0)) : "—"}</td>
+                  <td className="tabular-nums whitespace-nowrap">{currency(o.total)}</td>
+                  <td className="tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{currency(o.paid)}</td>
+                  <td className="tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">{currency(o.balance ?? Math.max(0, o.total - o.paid))}</td>
+                  <td className="tabular-nums text-blue-600 dark:text-blue-400 whitespace-nowrap">{Number(o.previousBalance ?? 0) > 0 ? currency(Number(o.previousBalance ?? 0)) : "—"}</td>
                   <td>
                     {can("orders", "edit") ? (
                       <Select value={o.status} onValueChange={(v) => setStatusConfirm({ id: o.id, status: v })}>
@@ -315,17 +316,19 @@ function OrdersPage() {
                       <span className={`inline-flex rounded px-1.5 py-0.5 text-[11px] border ${statusColor[o.status]}`}>{statusLabel(o.status)}</span>
                     )}
                   </td>
-                  <td className="text-right">
-                    {can("orders", "edit") && (
-                      <button onClick={() => openEdit(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Edit">
-                        <Pencil className="size-3.5" />
-                      </button>
-                    )}
-                    {can("orders", "delete") && (
-                      <button onClick={() => setDeleteTarget(o.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center" title="Delete">
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    )}
+                  <td>
+                    <TableActions>
+                      {can("orders", "edit") && (
+                        <button onClick={() => openEdit(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Edit">
+                          <Pencil className="size-3.5" />
+                        </button>
+                      )}
+                      {can("orders", "delete") && (
+                        <button onClick={() => setDeleteTarget(o.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center" title="Delete">
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
+                    </TableActions>
                   </td>
                 </tr>
               ))}

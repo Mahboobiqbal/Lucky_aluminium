@@ -26,8 +26,8 @@ export function RecentTransactions({ transactions }: { transactions: SupplierTra
               <th>Reference</th>
               <th>Type</th>
               <th>Description</th>
-              <th className="text-right">Amount</th>
-              <th className="text-right">Balance</th>
+              <th>Amount</th>
+              <th>Balance</th>
             </tr>
           </thead>
           <tbody>
@@ -47,7 +47,7 @@ export function RecentTransactions({ transactions }: { transactions: SupplierTra
                   <td className={`text-right tabular-nums font-medium ${isPurchase ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
                     {isPurchase ? "+" : "−"}{currency(transaction.amount)}
                   </td>
-                  <td className="text-right tabular-nums font-semibold">{currency(transaction.balance)}</td>
+                  <td className="tabular-nums font-semibold">{currency(transaction.balance)}</td>
                 </tr>
               );
             })}

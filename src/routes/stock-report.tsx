@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Eye, AlertTriangle, Boxes, Package, TrendingDown, Warehouse, X } from "lucide-react";
 import { toast } from "sonner";
+import { TableActions } from "@/components/layout/TableActions";
 
 export const Route = createFileRoute("/stock-report")({
   head: () => ({ meta: [{ title: "Stock Report — Lucky Aluminium" }] }),
@@ -183,14 +184,14 @@ function StockReportPage() {
                   <th>Type</th>
                   <th>Category</th>
                   <th>Supplier</th>
-                  <th className="text-right">Dimension</th>
-                  <th className="text-right">Qty</th>
-                  <th className="text-right">Current Stock</th>
-                  <th className="text-right">Min Stock</th>
-                  <th className="text-right">Cost Price</th>
-                  <th className="text-right">Stock Value</th>
+                  <th>Dimension</th>
+                  <th>Qty</th>
+                  <th>Current Stock</th>
+                  <th>Min Stock</th>
+                  <th>Cost Price</th>
+                  <th>Stock Value</th>
                   <th>Status</th>
-                  <th className="w-28 text-right">Actions</th>
+                  <th className="text-center whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -209,12 +210,12 @@ function StockReportPage() {
                       <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${isWindow ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30" : "bg-muted/50 text-muted-foreground border-border"}`}>{isWindow ? "Window" : "Other"}</span></td>
                       <td>{item.category || "-"}</td>
                       <td className="text-muted-foreground">{item.supplier || "-"}</td>
-                      <td className="text-right tabular-nums text-muted-foreground">{dimension}</td>
-                      <td className="text-right tabular-nums text-muted-foreground">{item.stockQty ?? 0}</td>
-                      <td className={`text-right tabular-nums font-semibold ${out ? "text-rose-600 dark:text-rose-400" : low ? "text-amber-600 dark:text-amber-400" : ""}`}>{item.currentStock} <span className="text-[10px] font-normal text-muted-foreground">{unitOf(item)}</span></td>
-                      <td className="text-right tabular-nums text-muted-foreground">{item.minStock}</td>
-                      <td className="text-right tabular-nums">{currency(item.costPrice)}<span className="text-[10px] text-muted-foreground">/{unitOf(item)}</span></td>
-                      <td className="text-right tabular-nums font-medium">{currency(value)}</td>
+                      <td className="tabular-nums text-muted-foreground">{dimension}</td>
+                      <td className="tabular-nums text-muted-foreground">{item.stockQty ?? 0}</td>
+                      <td className={`tabular-nums ${low ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}`}>{currentStock} <span className="text-[10px] text-muted-foreground">{unitOf(item)}</span></td>
+                      <td className="tabular-nums text-muted-foreground">{item.minStock}</td>
+                      <td className="tabular-nums">{currency(item.costPrice)}<span className="text-[10px] text-muted-foreground">/{unitOf(item)}</span></td>
+                      <td className="tabular-nums font-medium">{currency(value)}</td>
                       <td>
                         {out ? (
                           <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] border bg-rose-500/15 text-rose-600 border-rose-500/30"><TrendingDown className="size-3" />Out</span>
@@ -224,8 +225,8 @@ function StockReportPage() {
                           <span className="inline-flex rounded px-1.5 py-0.5 text-[11px] border bg-emerald-500/15 text-emerald-600 border-emerald-500/30">OK</span>
                         )}
                       </td>
-                      <td className="text-right">
-                        <div className="flex justify-end gap-1">
+                      <td>
+                        <TableActions justify="end">
                           <button onClick={() => setViewItem(item)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="View">
                             <Eye className="size-3.5" />
                           </button>
@@ -239,7 +240,7 @@ function StockReportPage() {
                               <Trash2 className="size-3.5" />
                             </button>
                           )}
-                        </div>
+                        </TableActions>
                       </td>
                     </tr>
                   );

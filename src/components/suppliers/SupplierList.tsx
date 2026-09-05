@@ -1,6 +1,7 @@
 import { type Supplier } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Trash2, Building2, Phone, Package } from "lucide-react";
+import { TableActions } from "@/components/layout/TableActions";
 
 export function SupplierList({
   suppliers,
@@ -26,7 +27,7 @@ export function SupplierList({
               <th>Supplier</th>
               <th>Contact</th>
               <th>Products</th>
-              <th className="w-16"></th>
+              <th className="text-center whitespace-nowrap">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -58,16 +59,18 @@ export function SupplierList({
                   <td className="tabular-nums">{supplier.contact || "—"}</td>
                   <td className="text-muted-foreground truncate max-w-[200px]">{supplier.products || "—"}</td>
                   <td>
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        if (supplier.id) onRemove(supplier.id);
-                      }}
-                      className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded-md hover:bg-destructive/10"
-                      title="Delete supplier"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
+                    <TableActions>
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (supplier.id) onRemove(supplier.id);
+                        }}
+                        className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded-md hover:bg-destructive/10"
+                        title="Delete supplier"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </TableActions>
                   </td>
                 </tr>
               );

@@ -3,6 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
+import { TableShell } from "@/components/layout/TableShell";
+import { TableActions } from "@/components/layout/TableActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -191,7 +193,7 @@ function QuotationsPage() {
       }
     >
       <PageContainer>
-        <div className="bg-card border border-border rounded-md overflow-hidden">
+        <TableShell>
           <table className="data-table">
             <thead>
               <tr>
@@ -199,11 +201,11 @@ function QuotationsPage() {
                 <th>Customer</th>
                 <th>Date</th>
                 <th>Items</th>
-                <th className="text-right whitespace-nowrap">Subtotal</th>
+                <th className="whitespace-nowrap">Subtotal</th>
                 <th className="text-center whitespace-nowrap">Discount</th>
-                <th className="text-right whitespace-nowrap">Total</th>
+                <th className="whitespace-nowrap">Total</th>
                 <th>Status</th>
-                <th className="w-28 text-right">Actions</th>
+                <th className="text-center whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -217,31 +219,33 @@ function QuotationsPage() {
                   <td>{qt.customerName}</td>
                   <td className="text-muted-foreground">{dateShort(qt.date)}</td>
                   <td>{qt.items.length}</td>
-                  <td className="text-right tabular-nums whitespace-nowrap">{currency(qt.subtotal)}</td>
+                  <td className="tabular-nums whitespace-nowrap">{currency(qt.subtotal)}</td>
                   <td className="text-center tabular-nums whitespace-nowrap">{qt.discount > 0 ? `${qt.discount}%` : "-"}</td>
-                  <td className="text-right tabular-nums font-semibold whitespace-nowrap">{currency(qt.total)}</td>
+                  <td className="tabular-nums font-semibold whitespace-nowrap">{currency(qt.total)}</td>
                   <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[11px] border ${statusColor[qt.status]}`}>{statusLabel(qt.status)}</span></td>
-                  <td className="text-right">
-                    {can("quotations", "edit") && (
-                      <button onClick={() => openEdit(qt)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Edit">
-                        <Pencil className="size-3.5" />
-                      </button>
-                    )}
-                    {can("quotations", "export") && (
-                      <button onClick={() => handlePdfAction(qt, "download")} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Download PDF">
-                        <Download className="size-3.5" />
-                      </button>
-                    )}
-                    {can("quotations", "print") && (
-                      <button onClick={() => handlePdfAction(qt, "print")} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Print">
-                        <Printer className="size-3.5" />
-                      </button>
-                    )}
-                    {can("quotations", "delete") && (
-                      <button onClick={() => setDeleteTarget(qt.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center" title="Delete">
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    )}
+                  <td>
+                    <TableActions>
+                      {can("quotations", "edit") && (
+                        <button onClick={() => openEdit(qt)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Edit">
+                          <Pencil className="size-3.5" />
+                        </button>
+                      )}
+                      {can("quotations", "export") && (
+                        <button onClick={() => handlePdfAction(qt, "download")} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Download PDF">
+                          <Download className="size-3.5" />
+                        </button>
+                      )}
+                      {can("quotations", "print") && (
+                        <button onClick={() => handlePdfAction(qt, "print")} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Print">
+                          <Printer className="size-3.5" />
+                        </button>
+                      )}
+                      {can("quotations", "delete") && (
+                        <button onClick={() => setDeleteTarget(qt.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center" title="Delete">
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
+                    </TableActions>
                   </td>
                 </tr>
               ))}
@@ -250,7 +254,7 @@ function QuotationsPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </TableShell>
       </PageContainer>
 
       <Dialog open={open} onOpenChange={setOpen}>
