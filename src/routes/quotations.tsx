@@ -64,6 +64,7 @@ function QuotationsPage() {
   const [customerName, setCustomerName] = useState("");
   const [discount, setDiscount] = useState(0);
   const [extra, setExtra] = useState(0);
+  const [previousBalance, setPreviousBalance] = useState(0);
   const [items, setItems] = useState<QuotationItem[]>([]);
 
   const [list, setList] = useState<Quotation[]>([]);
@@ -115,13 +116,14 @@ function QuotationsPage() {
   };
   const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i));
 
-  const reset = () => { setEditingId(null); setCustomerName(""); setDiscount(0); setExtra(0); setItems([]); };
+  const reset = () => { setEditingId(null); setCustomerName(""); setDiscount(0); setExtra(0); setPreviousBalance(0); setItems([]); };
   const openNew = () => { reset(); setOpen(true); };
   const openEdit = (qt: Quotation) => {
     setEditingId(qt.id);
     setCustomerName(qt.customerName);
     setDiscount(qt.discount);
     setExtra(qt.extraCharges);
+    setPreviousBalance((qt as any).previousBalance ?? 0);
     setItems(qt.items.map((it) => ({ ...it })));
     setOpen(true);
   };
@@ -144,7 +146,7 @@ function QuotationsPage() {
           customerId: 0,
           customerName: customerName.trim(),
           date: list.find((x) => x.id === editingId)?.date || new Date().toISOString(),
-          items, subtotal, discount, extraCharges: extra, total, status: "draft", notes: "",
+          items, subtotal, discount, extraCharges: extra, total, previousBalance, status: "draft", notes: "",
         });
         toast.success("Quotation updated");
       } else {
@@ -153,7 +155,7 @@ function QuotationsPage() {
           customerId: 0,
           customerName: customerName.trim(),
           date: new Date().toISOString(),
-          items, subtotal, discount, extraCharges: extra, total, status: "draft", notes: "",
+          items, subtotal, discount, extraCharges: extra, total, previousBalance, status: "draft", notes: "",
         });
         toast.success("Quotation created");
       }
@@ -344,12 +346,18 @@ function QuotationsPage() {
             <div className="w-72 space-y-1">
               <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums font-medium">{currency(subtotal)}</span></div>
               {discount > 0 && <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Discount ({discount}%)</span><span className="tabular-nums text-destructive">− {currency(discountAmount)}</span></div>}
-              <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Extra Charges</span><span className="tabular-nums font-medium">{currency(extra)}</span></div>
+              <div className="flex justify-between items-center py-1.5 text-sm font-bold border-t border-border pt-1.5"><span>Order Total</span><span className="tabular-nums">{currency(total)}</span></div>
+              {extra > 0 && <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Extra Charges</span><span className="tabular-nums font-medium">{currency(extra)}</span></div>}
+              {previousBalance > 0 && <>
+                <div className="flex justify-between items-center py-1.5 text-sm border-t border-dashed border-border pt-1.5"><span className="text-muted-foreground">Remaining Balance</span><span className="tabular-nums font-semibold">{currency(total + extra)}</span></div>
+                <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-blue-600">Previous Balance</span><span className="tabular-nums text-blue-600">{currency(previousBalance)}</span></div>
+              </>}
               <Separator />
-              <div className="flex justify-between items-center py-2"><span className="text-base font-bold">Grand Total</span><span className="text-lg font-bold tabular-nums text-destructive">{currency(total)}</span></div>
+              <div className="flex justify-between items-center py-2"><span className="text-base font-bold text-rose-600">Grand Total</span><span className="text-lg font-bold tabular-nums text-rose-600">{currency(total + extra + previousBalance)}</span></div>
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
                 <div><Label className="text-[10px] text-muted-foreground">Discount %</Label><Input type="number" min="0" max="100" value={discount || ""} onChange={(e) => setDiscount(Number(e.target.value))} className="h-7 text-xs" /></div>
                 <div><Label className="text-[10px] text-muted-foreground">Extra charges</Label><Input type="number" value={extra || ""} onChange={(e) => setExtra(Number(e.target.value))} className="h-7 text-xs" /></div>
+                <div className="col-span-2"><Label className="text-[10px] text-muted-foreground">Previous Balance</Label><Input type="number" value={previousBalance || ""} onChange={(e) => setPreviousBalance(Number(e.target.value))} className="h-7 text-xs" placeholder="0" /></div>
               </div>
             </div>
           </div>

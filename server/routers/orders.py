@@ -94,6 +94,7 @@ def _to_response(o: Order) -> dict:
         "discountPercent": float(o.discount_percent),
         "total": float(o.total),
         "paid": float(o.paid),
+        "previousBalance": float(o.previous_balance),
         "status": o.status,
         "notes": o.notes,
         "createdAt": o.created_at,
@@ -247,6 +248,7 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
             discount_percent=discount_pct,
             total=total,
             paid=float(body.paid or 0),
+            previous_balance=float(getattr(body, 'previousBalance', 0) or 0),
             status=body.status,
             notes=body.notes,
             created_at=datetime.utcnow(),
@@ -398,6 +400,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         order.discount_percent = discount_pct
         order.total = total
         order.paid = existing_paid
+        order.previous_balance = float(getattr(body, 'previousBalance', 0) or 0)
         order.status = body.status
         order.notes = body.notes
 

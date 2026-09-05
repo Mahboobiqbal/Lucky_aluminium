@@ -59,6 +59,7 @@ class OrderBase(BaseModel):
     discountPercent: float = 0
     total: float = 0
     paid: float = 0
+    previousBalance: float = 0
     status: str = "pending"
     notes: str | None = None
 

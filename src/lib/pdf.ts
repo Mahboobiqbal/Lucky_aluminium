@@ -98,6 +98,7 @@ export type CustomerInvoiceData = {
   total: number;
   paid: number;
   balance: number;
+  previousBalance?: number;
   notes?: string;
 };
 
@@ -404,30 +405,93 @@ export function createCustomerInvoicePdf(data: CustomerInvoiceData, company: Com
 
   const totalWidth = 205;
   const totalLeft = right - totalWidth;
-  const totals: Array<[string, string, boolean]> = [
-    ["Subtotal", currency(data.subtotal), false],
-    ...(data.discountPercent > 0 ? [["Discount (" + data.discountPercent + "%)", "-" + currency(data.subtotal * data.discountPercent / 100), false] as [string, string, boolean]] : []),
-    ["Grand Total", currency(data.total), true],
-    ["Paid / Advance", currency(data.paid), false],
-    ["Remaining Balance", currency(data.balance), false],
+  const rowH = 24;
+  const hasPrevious = data.previousBalance && data.previousBalance > 0;
+  const grandTotal = data.balance + (data.previousBalance || 0);
+
+  // --- ORDER TOTALS ---
+  const orderTotals: Array<[string, string, string]> = [
+    ["Subtotal", currency(data.subtotal), "normal"],
+    ...(data.discountPercent > 0 ? [["Discount (" + data.discountPercent + "%)", "-" + currency(data.subtotal * data.discountPercent / 100), "normal"] as [string, string, string]] : []),
+    ["Order Total", currency(data.total), "bold"],
+    ["Paid / Advance", currency(data.paid), "normal"],
+    ["Remaining Balance", currency(data.balance), "normal"],
   ];
-  totals.forEach(([label, value, isGrand], index) => {
-    const rowY = y + index * 26;
-    doc.setFillColor(isGrand ? 239 : 248, isGrand ? 246 : 250, isGrand ? 255 : 252);
-    doc.rect(totalLeft, rowY, totalWidth, 26, "F");
+
+  orderTotals.forEach(([label, value, style], index) => {
+    const rowY = y + index * rowH;
+    const isBold = style === "bold";
+    doc.setFillColor(isBold ? 239 : 248, isBold ? 246 : 250, isBold ? 255 : 252);
+    doc.rect(totalLeft, rowY, totalWidth, rowH, "F");
     doc.setDrawColor(203, 213, 225);
-    doc.rect(totalLeft, rowY, totalWidth, 26);
-    doc.setFontSize(isGrand ? 12 : 9);
-    doc.setFont("helvetica", isGrand ? "bold" : "normal");
+    doc.rect(totalLeft, rowY, totalWidth, rowH);
+    doc.setFontSize(isBold ? 11 : 9);
+    doc.setFont("helvetica", isBold ? "bold" : "normal");
     doc.setTextColor("#111827");
-    doc.text(label, totalLeft + 10, rowY + 17);
-    doc.setFontSize(isGrand ? 13 : 10);
-    doc.setTextColor(isGrand ? "#2563eb" : "#111827");
-    doc.text(value, right - 10, rowY + 17, { align: "right" });
+    doc.text(label, totalLeft + 10, rowY + 16);
+    doc.setFontSize(isBold ? 12 : 10);
+    doc.setTextColor(isBold ? "#2563eb" : "#111827");
+    doc.text(value, right - 10, rowY + 16, { align: "right" });
   });
 
-  // --- BANK & EASYPAISA DETAILS (stacked vertically with cards) ---
-  let nextY = y + totals.length * 26 + 16;
+  let nextY = y + orderTotals.length * rowH;
+
+  // --- PREVIOUS BALANCE + GRAND TOTAL (only if previous balance exists) ---
+  if (hasPrevious) {
+    // Blue divider line
+    nextY += 8;
+    doc.setDrawColor(37, 99, 235);
+    doc.setLineWidth(1.5);
+    doc.line(totalLeft, nextY, right, nextY);
+    nextY += 6;
+
+    // Previous Balance row (blue)
+    doc.setFillColor(239, 246, 255);
+    doc.rect(totalLeft, nextY, totalWidth, rowH, "F");
+    doc.setDrawColor(191, 219, 254);
+    doc.rect(totalLeft, nextY, totalWidth, rowH);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor("#1e40af");
+    doc.text("Previous Balance", totalLeft + 10, nextY + 16);
+    doc.setFontSize(10);
+    doc.setTextColor("#1e40af");
+    doc.text(currency(data.previousBalance!), right - 10, nextY + 16, { align: "right" });
+    nextY += rowH;
+
+    // Grand Total row (red highlight)
+    doc.setFillColor(254, 242, 242);
+    doc.rect(totalLeft, nextY, totalWidth, rowH + 4, "F");
+    doc.setDrawColor(220, 38, 38);
+    doc.setLineWidth(1);
+    doc.rect(totalLeft, nextY, totalWidth, rowH + 4);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor("#991b1b");
+    doc.text("Grand Total", totalLeft + 10, nextY + 17);
+    doc.setFontSize(14);
+    doc.setTextColor("#dc2626");
+    doc.text(currency(grandTotal), right - 10, nextY + 17, { align: "right" });
+    nextY += rowH + 4;
+  } else {
+    // No previous balance — Remaining Balance is the final amount, highlight it
+    doc.setFillColor(254, 242, 242);
+    doc.rect(totalLeft, nextY, totalWidth, rowH, "F");
+    doc.setDrawColor(220, 38, 38);
+    doc.setLineWidth(0.6);
+    doc.rect(totalLeft, nextY, totalWidth, rowH);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor("#991b1b");
+    doc.text("Grand Total", totalLeft + 10, nextY + 16);
+    doc.setFontSize(12);
+    doc.setTextColor("#dc2626");
+    doc.text(currency(grandTotal), right - 10, nextY + 16, { align: "right" });
+    nextY += rowH;
+  }
+
+  // --- BANK & EASYPAISA DETAILS ---
+  nextY += 16;
 
   const bankLines = [
     company.bankName ? "Bank: " + company.bankName : undefined,

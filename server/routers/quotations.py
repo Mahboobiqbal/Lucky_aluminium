@@ -26,6 +26,7 @@ def _to_response(q: Quotation) -> dict:
         "discount": float(q.discount),
         "extraCharges": float(q.extra_charges),
         "total": float(q.total),
+        "previousBalance": float(q.previous_balance),
         "status": q.status,
         "notes": q.notes,
         "createdAt": q.created_at,
@@ -123,6 +124,7 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
         discount=discount,
         extra_charges=extra,
         total=total,
+        previous_balance=float(getattr(body, 'previousBalance', 0) or 0),
         status=body.status,
         notes=body.notes,
         created_at=datetime.utcnow(),
@@ -219,6 +221,7 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
     quotation.discount = discount
     quotation.extra_charges = extra
     quotation.total = total
+    quotation.previous_balance = float(getattr(body, 'previousBalance', 0) or 0)
 
     for ci in calculated_items:
         db.add(QuotationItem(

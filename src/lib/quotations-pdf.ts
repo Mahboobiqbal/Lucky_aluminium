@@ -181,12 +181,18 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
 
   const discountAmount = data.subtotal * data.discount / 100;
 
+  const hasPrevious = (data as any).previousBalance > 0;
   const totalsRows: Array<[string, string]> = [
     ["Total Measurement", totalMeasurement.toFixed(2)],
     ...(data.discount > 0 || data.extraCharges > 0 ? [["Subtotal", currency(data.subtotal)]] as [string, string][] : []),
     ...(data.discount > 0 ? [["Discount (" + data.discount + "%)", "- " + currency(discountAmount)]] as [string, string][] : []),
+    ["Order Total", currency(data.total)],
     ...(data.extraCharges > 0 ? [["Extra Charges", currency(data.extraCharges)]] as [string, string][] : []),
-    ["Grand Total", currency(data.total)],
+    ...(!hasPrevious && data.extraCharges > 0 ? [["Total", currency(data.total + data.extraCharges)]] as [string, string][] : []),
+    ...(!hasPrevious && data.extraCharges <= 0 ? [] : []),
+    ...(hasPrevious ? [["Remaining Balance", currency(data.total + data.extraCharges)]] as [string, string][] : []),
+    ...(hasPrevious ? [["Previous Balance", currency((data as any).previousBalance)]] as [string, string][] : []),
+    ["Grand Total", currency(data.total + data.extraCharges + (hasPrevious ? (data as any).previousBalance : 0))],
   ];
 
   // Calculate the totals box width to align with the right edge of the items table

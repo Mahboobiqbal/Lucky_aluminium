@@ -57,6 +57,7 @@ class QuotationBase(BaseModel):
     discount: float = 0
     extraCharges: float = 0
     total: float = 0
+    previousBalance: float = 0
     status: str = "draft"
     notes: str | None = None
 

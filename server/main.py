@@ -96,6 +96,14 @@ async def lifespan(app: FastAPI):
                     sync_conn.execute(text("ALTER TABLE inventory ADD COLUMN height_ft REAL DEFAULT 0"))
                 if "stock_qty" not in inventory_columns:
                     sync_conn.execute(text("ALTER TABLE inventory ADD COLUMN stock_qty REAL DEFAULT 0"))
+            if "orders" in tables:
+                order_columns = {c["name"] for c in inspector.get_columns("orders")}
+                if "previous_balance" not in order_columns:
+                    sync_conn.execute(text("ALTER TABLE orders ADD COLUMN previous_balance REAL DEFAULT 0"))
+            if "quotations" in tables:
+                quotation_columns = {c["name"] for c in inspector.get_columns("quotations")}
+                if "previous_balance" not in quotation_columns:
+                    sync_conn.execute(text("ALTER TABLE quotations ADD COLUMN previous_balance REAL DEFAULT 0"))
 
         await conn.run_sync(_ensure_columns)
 

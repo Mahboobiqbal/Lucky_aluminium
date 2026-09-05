@@ -57,6 +57,7 @@ export interface Quotation {
   discount: number;
   extraCharges: number;
   total: number;
+  previousBalance?: number;
   status: "draft" | "sent" | "accepted" | "rejected";
   notes?: string;
   createdAt: number;
@@ -73,6 +74,7 @@ export interface Order {
   items: QuotationItem[];
   total: number;
   paid: number;
+  previousBalance?: number;
   status: "pending" | "confirmed" | "in_production" | "ready" | "delivered" | "finished" | "cancelled";
   notes?: string;
   createdAt: number;

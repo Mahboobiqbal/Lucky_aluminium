@@ -90,6 +90,7 @@ function OrdersPage() {
     discountPercent: 0,
     total: 0,
     paid: 0,
+    previousBalance: 0,
     status: "pending",
     notes: "",
   });
@@ -185,7 +186,7 @@ function OrdersPage() {
       number: `ORD-${String(list.length + 1).padStart(4, "0")}`,
       customerId: 0, customerName: "",
       orderDate: Date.now(), deliveryDate: Date.now() + 86400000 * 7,
-      items: [{ ...emptyItem }], subtotal: 0, discountPercent: 0, total: 0, paid: 0, status: "pending", notes: "",
+      items: [{ ...emptyItem }], subtotal: 0, discountPercent: 0, total: 0, paid: 0, previousBalance: 0, status: "pending", notes: "",
     });
     setOpen(true);
   };
@@ -195,7 +196,7 @@ function OrdersPage() {
     setForm({
       number: o.number, customerId: o.customerId, customerName: o.customerName,
       orderDate: new Date(o.orderDate).getTime(), deliveryDate: o.deliveryDate ? new Date(o.deliveryDate).getTime() : Date.now() + 86400000 * 7,
-      items: o.items.map((i) => ({ ...i })), subtotal: o.subtotal ?? o.total, discountPercent: o.discountPercent ?? 0, total: o.total, paid: o.paid, status: o.status, notes: o.notes ?? "",
+      items: o.items.map((i) => ({ ...i })), subtotal: o.subtotal ?? o.total, discountPercent: o.discountPercent ?? 0, total: o.total, paid: o.paid, previousBalance: (o as any).previousBalance ?? 0, status: o.status, notes: o.notes ?? "",
     });
     setOpen(true);
   };
@@ -238,7 +239,7 @@ function OrdersPage() {
         orderDate: new Date(form.orderDate).toISOString(),
         deliveryDate: form.deliveryDate ? new Date(form.deliveryDate).toISOString() : null,
         subtotal: form.subtotal, discountPercent: form.discountPercent,
-        items, total: form.total, paid: form.paid, status: form.status, notes: form.notes,
+        items, total: form.total, paid: form.paid, previousBalance: form.previousBalance, status: form.status, notes: form.notes,
       };
       if (editingId) {
         await api.put(`/api/orders/${editingId}`, { id: editingId, ...body });
@@ -491,15 +492,33 @@ function OrdersPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
-              <div><Label className="text-xs">Discount %</Label><Input type="number" min="0" max="100" value={form.discountPercent || ""} onChange={(e) => {
-                const dp = Number(e.target.value);
-                const total = form.subtotal - (form.subtotal * dp / 100);
-                setForm({ ...form, discountPercent: dp, total });
-              }} className="h-8" /></div>
-              <div><Label className="text-xs">Paid amount</Label><Input type="number" value={form.paid || ""} onChange={(e) => setForm({ ...form, paid: Number(e.target.value) })} className="h-8" /></div>
-              <div className="stat-card py-3"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Subtotal</div><div className="text-sm font-semibold text-muted-foreground">{currency(form.subtotal)}</div>{form.discountPercent > 0 && <><div className="text-[11px] text-muted-foreground">Discount: {form.discountPercent}% (-{currency(form.subtotal * form.discountPercent / 100)})</div><div className="text-lg font-semibold">{currency(form.total)}</div></>}</div>
-              <div className="stat-card py-3"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Remaining Balance</div><div className="text-lg font-semibold text-rose-600">{currency(form.total - form.paid)}</div></div>
+            {/* --- ORDER TOTALS --- */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              {/* Left: Inputs */}
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label className="text-xs">Discount %</Label><Input type="number" min="0" max="100" value={form.discountPercent || ""} onChange={(e) => {
+                    const dp = Number(e.target.value);
+                    const total = form.subtotal - (form.subtotal * dp / 100);
+                    setForm({ ...form, discountPercent: dp, total });
+                  }} className="h-8" /></div>
+                  <div><Label className="text-xs">Paid amount</Label><Input type="number" value={form.paid || ""} onChange={(e) => setForm({ ...form, paid: Number(e.target.value) })} className="h-8" /></div>
+                </div>
+                <div><Label className="text-xs">Previous Balance (from before this order)</Label><Input type="number" value={form.previousBalance || ""} onChange={(e) => setForm({ ...form, previousBalance: Number(e.target.value) })} className="h-8" placeholder="0" /></div>
+              </div>
+              {/* Right: Summary */}
+              <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-1.5">
+                <div className="flex justify-between text-xs"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">{currency(form.subtotal)}</span></div>
+                {form.discountPercent > 0 && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Discount ({form.discountPercent}%)</span><span className="tabular-nums text-destructive">−{currency(form.subtotal * form.discountPercent / 100)}</span></div>}
+                <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5"><span>Order Total</span><span className="tabular-nums">{currency(form.total)}</span></div>
+                <div className="flex justify-between text-xs"><span className="text-muted-foreground">Paid / Advance</span><span className="tabular-nums">{currency(form.paid)}</span></div>
+                <div className="flex justify-between text-xs border-t border-border pt-1.5"><span className="text-muted-foreground">Remaining Balance</span><span className="tabular-nums font-semibold">{currency(Math.max(0, form.total - form.paid))}</span></div>
+                {form.previousBalance > 0 && <>
+                  <div className="border-t border-dashed border-border pt-1.5" />
+                  <div className="flex justify-between text-xs"><span className="text-blue-600">Previous Balance</span><span className="tabular-nums text-blue-600">{currency(form.previousBalance)}</span></div>
+                </>}
+                <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5"><span className="text-rose-600">Grand Total</span><span className="tabular-nums text-rose-600">{currency(Math.max(0, form.total - form.paid) + form.previousBalance)}</span></div>
+              </div>
             </div>
           </div>
           <DialogFooter>
