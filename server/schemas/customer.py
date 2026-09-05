@@ -12,6 +12,7 @@ class CustomerBase(BaseModel):
     address: str | None = None
     city: str | None = None
     notes: str | None = None
+    previousBalance: float = 0
 
 
 class CustomerCreate(CustomerBase):

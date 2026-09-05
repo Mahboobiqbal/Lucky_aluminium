@@ -10,6 +10,7 @@ export interface Customer {
   address?: string;
   city?: string;
   notes?: string;
+  previousBalance?: number;
   createdAt: number;
 }
 

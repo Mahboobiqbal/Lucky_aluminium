@@ -104,7 +104,10 @@ async def lifespan(app: FastAPI):
                 quotation_columns = {c["name"] for c in inspector.get_columns("quotations")}
                 if "previous_balance" not in quotation_columns:
                     sync_conn.execute(text("ALTER TABLE quotations ADD COLUMN previous_balance REAL DEFAULT 0"))
-
+            if "customers" in tables:
+                customer_columns = {c["name"] for c in inspector.get_columns("customers")}
+                if "previous_balance" not in customer_columns:
+                    sync_conn.execute(text("ALTER TABLE customers ADD COLUMN previous_balance REAL DEFAULT 0"))
         await conn.run_sync(_ensure_columns)
 
     # Seed the single admin user from environment variables
@@ -142,8 +145,34 @@ async def lifespan(app: FastAPI):
         elif len(existing_admins) > 1:
             logger.critical("CRITICAL: Multiple admin users detected (%d). Manual intervention required.", len(existing_admins))
 
-    yield
+    # Backfill: roll each order's previous_balance into its customer's running previous_balance.
+    # Safe to re-run: subtracts the previously-applied roll first, then re-applies.
+    async with async_session() as db:
+        try:
+            from models.customer import Customer
+            from models.order import Order
+            from sqlalchemy import update
+            # Zero out customer.previous_balance and subtract each order's previous_balance from it
+            await db.execute(update(Customer).values(previous_balance=0))
+            await db.flush()
+            # Now set each customer's previous_balance to the sum of its orders' previous_balance
+            rows = await db.execute(
+                select(Order.customer_id, func.coalesce(func.sum(Order.previous_balance), 0))
+                .where(Order.customer_id.isnot(None))
+                .group_by(Order.customer_id)
+            )
+            for cid, total_prev in rows.all():
+                if not cid:
+                    continue
+                await db.execute(
+                    update(Customer).where(Customer.id == cid).values(previous_balance=float(total_prev))
+                )
+            await db.commit()
+        except Exception as e:
+            logger.warning("Backfill of previous_balance failed: %s", e)
+            await db.rollback()
 
+    yield
 
 app = FastAPI(title="UDYANA ERP API", version="1.0.0", lifespan=lifespan)
 

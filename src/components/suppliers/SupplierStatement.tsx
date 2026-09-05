@@ -23,14 +23,14 @@ export function SupplierStatement({
   outstandingBalance: number;
   closingBalance: number;
 }) {
-  const summaryCards = [
-    { icon: ShoppingCart, label: "Total Purchases", value: currency(totalPurchases), tone: "blue" as const },
-    { icon: CreditCard, label: "Total Payments", value: currency(totalPayments), tone: "emerald" as const },
-    { icon: AlertTriangle, label: "Outstanding", value: currency(outstandingBalance), tone: outstandingBalance > 0 ? "rose" : "emerald" as const },
-    { icon: TrendingDown, label: "Closing Balance", value: currency(closingBalance), tone: "violet" as const },
+  const summaryCards: Array<{ icon: typeof ShoppingCart; label: string; value: string; tone: keyof typeof tones }> = [
+    { icon: ShoppingCart, label: "Total Purchases", value: currency(totalPurchases), tone: "blue" },
+    { icon: CreditCard, label: "Total Payments", value: currency(totalPayments), tone: "emerald" },
+    { icon: AlertTriangle, label: "Outstanding", value: currency(outstandingBalance), tone: outstandingBalance > 0 ? "rose" : "emerald" },
+    { icon: TrendingDown, label: "Closing Balance", value: currency(closingBalance), tone: "violet" },
   ];
 
-  const tones = {
+  const tones: Record<string, { bg: string; text: string; border: string }> = {
     blue: { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", border: "border-l-blue-500" },
     emerald: { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", border: "border-l-emerald-500" },
     rose: { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", border: "border-l-rose-500" },
@@ -55,7 +55,7 @@ export function SupplierStatement({
         </div>
       </div>
 
-      <LedgerTable rows={entries} title="Statement Ledger" />
+      <LedgerTable rows={entries} title="Statement Ledger" purchases={[]} supplier={supplier} company={{}} outstandingBalance={outstandingBalance} />
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => {

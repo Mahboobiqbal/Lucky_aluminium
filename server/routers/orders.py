@@ -5,18 +5,29 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from database import get_db
 from models.inventory import InventoryItem
 from models.invoice import Invoice, InvoiceItem
 from models.order import Order, OrderItem
 from models.product import Product
+from models.customer import Customer
 from schemas.order import OrderCreate, OrderResponse, OrderUpdate
 from utils.dates import naive
 from utils.deps import require_permission
+from database import get_db
 
 VALID_ORDER_STATUSES = ("pending", "confirmed", "in_production", "ready", "delivered", "finished", "cancelled")
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
+
+
+async def _adjust_customer_previous_balance(db: AsyncSession, customer_id: int | None, delta: float):
+    """Roll an order's previousBalance delta into the customer's running previous_balance."""
+    if not customer_id or not delta:
+        return
+    result = await db.execute(select(Customer).where(Customer.id == customer_id).with_for_update())
+    cust = result.scalar_one_or_none()
+    if cust:
+        cust.previous_balance = round(float(cust.previous_balance or 0) + delta, 2)
 
 
 async def _adjust_stock(db: AsyncSession, product_name: str, delta: float):
@@ -236,7 +247,6 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
 
         if body.status and body.status not in VALID_ORDER_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}. Allowed: {', '.join(VALID_ORDER_STATUSES)}")
-
         order = Order(
             number=body.number,
             customer_id=body.customerId,
@@ -255,6 +265,9 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
         )
         db.add(order)
         await db.flush()
+
+        # Roll the order's previous_balance into the customer's running previous_balance
+        await _adjust_customer_previous_balance(db, order.customer_id, float(getattr(body, 'previousBalance', 0) or 0))
 
         order_items = []
         for ci in calculated_items:
@@ -400,9 +413,20 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         order.discount_percent = discount_pct
         order.total = total
         order.paid = existing_paid
-        order.previous_balance = float(getattr(body, 'previousBalance', 0) or 0)
+        new_previous = float(getattr(body, 'previousBalance', 0) or 0)
+        old_previous = float(order.previous_balance or 0)
+        order.previous_balance = new_previous
         order.status = body.status
         order.notes = body.notes
+
+        # Roll the delta into the customer's running previous_balance (handle customer change too)
+        if order.customer_id:
+            if body.customerId and body.customerId != order.customer_id:
+                # Customer changed: subtract old from old customer, add new to new customer
+                await _adjust_customer_previous_balance(db, order.customer_id, -old_previous)
+                await _adjust_customer_previous_balance(db, body.customerId, new_previous)
+            else:
+                await _adjust_customer_previous_balance(db, order.customer_id, new_previous - old_previous)
 
         if body.status and body.status not in VALID_ORDER_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}. Allowed: {', '.join(VALID_ORDER_STATUSES)}")
@@ -483,6 +507,9 @@ async def delete_order(order_id: int, db: AsyncSession = Depends(get_db), _user=
         for item in items.scalars().all():
             consumed = await _consumed_units(db, item.product_name, item.item_type, item.width, item.height, item.length, item.quantity)
             await _adjust_stock(db, item.product_name, consumed)
+
+        # Reverse any previous_balance that was rolled into the customer
+        await _adjust_customer_previous_balance(db, order.customer_id, -float(order.previous_balance or 0))
 
         await db.delete(order)
         await db.commit()

@@ -31,6 +31,7 @@ export const Route = createFileRoute("/payments")({
 type Order = {
   id: number; number: string; customerId: number; customerName: string;
   orderDate: string; items: any[]; total: number; paid: number; status: string; notes?: string; createdAt: string;
+  previousBalance?: number;
 };
 
 type Payment = {
@@ -59,7 +60,8 @@ function sameMonth(dateStr: string, month: string, year: string) {
 }
 
 function pendingBalance(order: Order) {
-  return Math.max(0, order.total - order.paid);
+  // Total amount the customer must settle for this order: order.total minus paid, plus any previous balance carried in.
+  return Math.max(0, order.total - order.paid) + Number(order.previousBalance ?? 0);
 }
 
 function monthLabel(month: string, year: string) {
@@ -360,9 +362,21 @@ function PaymentsPage() {
                     <div className="font-semibold truncate text-base">{selectedOrder.customerName}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">{selectedOrder.number}</div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Remaining Balance</div>
-                    <div className="text-lg font-bold tabular-nums text-rose-600">{currency(selectedBalance)}</div>
+                  <div className="text-right space-y-1">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Order Balance</div>
+                      <div className="text-sm font-bold tabular-nums text-rose-600">{currency(Math.max(0, selectedOrder.total - selectedOrder.paid))}</div>
+                    </div>
+                    {Number(selectedOrder.previousBalance ?? 0) > 0 && (
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Previous Balance</div>
+                        <div className="text-sm font-bold tabular-nums text-blue-600">{currency(Number(selectedOrder.previousBalance ?? 0))}</div>
+                      </div>
+                    )}
+                    <div className="border-t border-border pt-1">
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Total Due</div>
+                      <div className="text-lg font-bold tabular-nums text-rose-600">{currency(selectedBalance)}</div>
+                    </div>
                   </div>
                 </div>
               </div>

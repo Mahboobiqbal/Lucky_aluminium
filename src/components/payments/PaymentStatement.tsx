@@ -54,6 +54,8 @@ function withCompanyDefaults(company: CompanyProfile): Required<CompanyProfile> 
     accountNumber: company.accountNumber || "",
     iban: company.iban || "",
     branchName: company.branchName || "",
+    easypaisaAccountTitle: company.easypaisaAccountTitle || "",
+    easypaisaAccountNumber: company.easypaisaAccountNumber || "",
   };
 }
 
