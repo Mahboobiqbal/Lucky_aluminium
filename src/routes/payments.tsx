@@ -60,8 +60,7 @@ function sameMonth(dateStr: string, month: string, year: string) {
 }
 
 function pendingBalance(order: Order) {
-  // Total amount the customer must settle for this order: order.total minus paid, plus any previous balance carried in.
-  return Math.max(0, order.total - order.paid) + Number(order.previousBalance ?? 0);
+  return (order as any).grandTotal ?? (Math.max(0, order.total - order.paid) + Number(order.previousBalance ?? 0));
 }
 
 function monthLabel(month: string, year: string) {
@@ -365,7 +364,7 @@ function PaymentsPage() {
                   <div className="text-right space-y-1">
                     <div>
                       <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Order Balance</div>
-                      <div className="text-sm font-bold tabular-nums text-rose-600">{currency(Math.max(0, selectedOrder.total - selectedOrder.paid))}</div>
+                      <div className="text-sm font-bold tabular-nums text-rose-600">{currency((selectedOrder as any).balance ?? Math.max(0, selectedOrder.total - selectedOrder.paid))}</div>
                     </div>
                     {Number(selectedOrder.previousBalance ?? 0) > 0 && (
                       <div>

@@ -21,6 +21,8 @@ class Order(Base):
     total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     paid: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     previous_balance: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    balance: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    grand_total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     status: Mapped[str] = mapped_column(String(20), default="pending")
     notes: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

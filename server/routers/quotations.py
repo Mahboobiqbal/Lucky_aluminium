@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 from database import get_db
 from models.quotation import Quotation, QuotationItem
 from models.product import Product
+from models.inventory import InventoryItem
 from schemas.quotation import QuotationCreate, QuotationResponse, QuotationUpdate
 from utils.dates import naive
 from utils.deps import require_permission
@@ -89,10 +90,17 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
         h = float(item.height or 0)
         l = float(item.length or 0)
 
-        if item_type == "window" and l > 0:
-            amount = l * qty * server_price
-        elif w > 0 and h > 0:
-            amount = w * h * qty * server_price
+        inv_result = await db.execute(select(InventoryItem).where(InventoryItem.name == item.productName))
+        inv_item = inv_result.scalar_one_or_none()
+        pricing_mode = inv_item.pricing_mode if inv_item else "piece"
+
+        if pricing_mode == "size":
+            if item_type == "window" and l > 0:
+                amount = l * qty * server_price
+            elif w > 0 and h > 0:
+                amount = w * h * qty * server_price
+            else:
+                amount = qty * server_price
         else:
             amount = qty * server_price
 
@@ -191,10 +199,17 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
         h = float(item.height or 0)
         l = float(item.length or 0)
 
-        if item_type == "window" and l > 0:
-            amount = l * qty * server_price
-        elif w > 0 and h > 0:
-            amount = w * h * qty * server_price
+        inv_result = await db.execute(select(InventoryItem).where(InventoryItem.name == item.productName))
+        inv_item = inv_result.scalar_one_or_none()
+        pricing_mode = inv_item.pricing_mode if inv_item else "piece"
+
+        if pricing_mode == "size":
+            if item_type == "window" and l > 0:
+                amount = l * qty * server_price
+            elif w > 0 and h > 0:
+                amount = w * h * qty * server_price
+            else:
+                amount = qty * server_price
         else:
             amount = qty * server_price
 

@@ -929,7 +929,7 @@ export function createPaymentReminderPdf(
   doc.text("Order Details", l, fy);
   fy += 2;
 
-  const outstandingOrders = orders.filter((o) => o.total - o.paid > 0);
+  const outstandingOrders = orders.filter((o) => (o as any).balance ?? (o.total - o.paid) > 0);
   const ordersToShow = outstandingOrders.length > 0 ? outstandingOrders : orders;
 
   const tableRows = ordersToShow.map((o) => [
@@ -937,7 +937,7 @@ export function createPaymentReminderPdf(
     dateShort(o.orderDate),
     currency(o.total),
     currency(o.paid),
-    currency(Math.max(0, o.total - o.paid)),
+    currency((o as any).balance ?? Math.max(0, o.total - o.paid)),
     o.status.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
   ]);
 

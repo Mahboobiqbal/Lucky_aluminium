@@ -102,15 +102,7 @@ function QuotationsPage() {
     setItems((prev) => prev.map((it, idx) => {
       if (idx !== i) return it;
       const next = { ...it, ...patch };
-      if (next.itemType === "window") {
-        next.amount = Number((next.length * next.quantity * next.unitPrice).toFixed(2));
-      } else {
-        const w = next.width || 0;
-        const h = next.height || 0;
-        const s = next.sqft || 0;
-        const area = s > 0 ? s : w * h;
-        next.amount = Number((area * next.quantity * next.unitPrice).toFixed(2));
-      }
+      next.amount = Number((next.quantity * next.unitPrice).toFixed(2));
       return next;
     }));
   };

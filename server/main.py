@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from sqlalchemy import inspect, select, text
+from sqlalchemy import func, inspect, select, text
 
 from config import settings, validate_settings
 from database import async_session, engine
@@ -100,6 +100,10 @@ async def lifespan(app: FastAPI):
                 order_columns = {c["name"] for c in inspector.get_columns("orders")}
                 if "previous_balance" not in order_columns:
                     sync_conn.execute(text("ALTER TABLE orders ADD COLUMN previous_balance REAL DEFAULT 0"))
+                if "balance" not in order_columns:
+                    sync_conn.execute(text("ALTER TABLE orders ADD COLUMN balance REAL DEFAULT 0"))
+                if "grand_total" not in order_columns:
+                    sync_conn.execute(text("ALTER TABLE orders ADD COLUMN grand_total REAL DEFAULT 0"))
             if "quotations" in tables:
                 quotation_columns = {c["name"] for c in inspector.get_columns("quotations")}
                 if "previous_balance" not in quotation_columns:

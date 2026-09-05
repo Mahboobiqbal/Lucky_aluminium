@@ -106,6 +106,8 @@ def _to_response(o: Order) -> dict:
         "total": float(o.total),
         "paid": float(o.paid),
         "previousBalance": float(o.previous_balance),
+        "balance": float(o.balance),
+        "grandTotal": float(o.grand_total),
         "status": o.status,
         "notes": o.notes,
         "createdAt": o.created_at,
@@ -220,10 +222,17 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
             h = float(item.height or 0)
             l = float(item.length or 0)
 
-            if item_type == "window" and l > 0:
-                amount = l * qty * server_price
-            elif w > 0 and h > 0:
-                amount = w * h * qty * server_price
+            inv_result = await db.execute(select(InventoryItem).where(InventoryItem.name == item.productName))
+            inv_item = inv_result.scalar_one_or_none()
+            pricing_mode = inv_item.pricing_mode if inv_item else "piece"
+
+            if pricing_mode == "size":
+                if item_type == "window" and l > 0:
+                    amount = l * qty * server_price
+                elif w > 0 and h > 0:
+                    amount = w * h * qty * server_price
+                else:
+                    amount = qty * server_price
             else:
                 amount = qty * server_price
 
@@ -247,6 +256,11 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
 
         if body.status and body.status not in VALID_ORDER_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}. Allowed: {', '.join(VALID_ORDER_STATUSES)}")
+        paid_val = float(body.paid or 0)
+        prev_bal = float(getattr(body, 'previousBalance', 0) or 0)
+        balance_val = round(max(0, total - paid_val), 2)
+        grand_total_val = round(balance_val + prev_bal, 2)
+
         order = Order(
             number=body.number,
             customer_id=body.customerId,
@@ -257,8 +271,10 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
             subtotal=subtotal,
             discount_percent=discount_pct,
             total=total,
-            paid=float(body.paid or 0),
-            previous_balance=float(getattr(body, 'previousBalance', 0) or 0),
+            paid=paid_val,
+            previous_balance=prev_bal,
+            balance=balance_val,
+            grand_total=grand_total_val,
             status=body.status,
             notes=body.notes,
             created_at=datetime.utcnow(),
@@ -310,6 +326,8 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    old_previous = float(order.previous_balance or 0)
+
     try:
         # Get old items to calculate net stock change
         old_items_result = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
@@ -351,9 +369,6 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
                 detail=f"Insufficient stock for: {'; '.join(error_messages)}"
             )
 
-        # Preserve existing paid amount
-        existing_paid = float(order.paid or 0)
-
         # Delete old items and restore stock
         for old in old_items:
             old_consumed = await _consumed_units(db, old.product_name, old.item_type, old.width, old.height, old.length, old.quantity)
@@ -378,10 +393,17 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
             h = float(item.height or 0)
             l = float(item.length or 0)
 
-            if item_type == "window" and l > 0:
-                amount = l * qty * server_price
-            elif w > 0 and h > 0:
-                amount = w * h * qty * server_price
+            inv_result = await db.execute(select(InventoryItem).where(InventoryItem.name == item.productName))
+            inv_item = inv_result.scalar_one_or_none()
+            pricing_mode = inv_item.pricing_mode if inv_item else "piece"
+
+            if pricing_mode == "size":
+                if item_type == "window" and l > 0:
+                    amount = l * qty * server_price
+                elif w > 0 and h > 0:
+                    amount = w * h * qty * server_price
+                else:
+                    amount = qty * server_price
             else:
                 amount = qty * server_price
 
@@ -412,10 +434,12 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         order.subtotal = subtotal
         order.discount_percent = discount_pct
         order.total = total
-        order.paid = existing_paid
+        new_paid = float(body.paid or 0)
+        order.paid = new_paid
         new_previous = float(getattr(body, 'previousBalance', 0) or 0)
-        old_previous = float(order.previous_balance or 0)
         order.previous_balance = new_previous
+        order.balance = round(max(0, total - new_paid), 2)
+        order.grand_total = round(order.balance + new_previous, 2)
         order.status = body.status
         order.notes = body.notes
 

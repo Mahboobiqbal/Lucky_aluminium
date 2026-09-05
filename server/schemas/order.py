@@ -60,6 +60,8 @@ class OrderBase(BaseModel):
     total: float = 0
     paid: float = 0
     previousBalance: float = 0
+    balance: float = 0
+    grandTotal: float = 0
     status: str = "pending"
     notes: str | None = None
 

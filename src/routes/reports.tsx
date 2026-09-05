@@ -58,7 +58,7 @@ function ReportsPage() {
 
   const orderRows = (list: Order[]) => [
     ["Order #", "Customer", "Date", "Total", "Paid", "Prev. Balance", "Balance"],
-    ...list.map((o) => [o.number, o.customerName, dateShort(o.orderDate), currency(o.total), currency(o.paid), Number(o.previousBalance ?? 0) > 0 ? currency(Number(o.previousBalance ?? 0)) : "—", currency(Math.max(0, o.total - o.paid))]),
+    ...list.map((o) => [o.number, o.customerName, dateShort(o.orderDate), currency(o.total), currency(o.paid), Number(o.previousBalance ?? 0) > 0 ? currency(Number(o.previousBalance ?? 0)) : "—", currency((o as any).balance ?? Math.max(0, o.total - o.paid))]),
   ];
 
   const profitLossRows = () => {
@@ -83,7 +83,7 @@ function ReportsPage() {
       case "Profit loss report": return profitLossRows();
       case "Top selling product": return topProductRows();
       case "Customer credit report": {
-        const list = orders.filter((o) => o.total > o.paid);
+        const list = orders.filter((o) => ((o as any).balance ?? Math.max(0, o.total - o.paid)) > 0);
         const rows = orderRows(list);
         const customerPrevTotal = customers.reduce((s, c) => s + Number(c.previousBalance ?? 0), 0);
         if (customerPrevTotal > 0) {

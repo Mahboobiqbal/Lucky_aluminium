@@ -54,7 +54,7 @@ function InvoicesPage() {
     customer: { name: order.customerName, mobile: customer?.mobile, whatsapp: customer?.whatsapp, email: customer?.email, address: customer?.address, city: customer?.city },
     items: order.items, subtotal: order.subtotal ?? order.total, discountPercent: order.discountPercent ?? 0, total: order.total, paid: order.paid,
     previousBalance: (order as any).previousBalance ?? 0,
-    balance: Math.max(0, order.total - order.paid),
+    balance: (order as any).balance ?? Math.max(0, order.total - order.paid),
     notes: order.notes,
   });
 
@@ -80,8 +80,8 @@ function InvoicesPage() {
     <AppShell title="Invoices">
       <PageContainer>
         <TableShell>
-          <table className="data-table">
-            <thead><tr><th>Invoice #</th><th>Customer</th><th>Order</th><th>Date</th><th>Items</th><th className="text-right">Subtotal</th><th className="text-center">Discount</th><th className="text-right">Total</th><th className="text-right">Paid</th><th className="text-right">Balance</th><th className="text-right">Prev. Balance</th><th className="w-28 text-right">Actions</th></tr></thead>
+          <table className="data-table min-w-[1100px]">
+            <thead><tr><th>Invoice #</th><th>Customer</th><th>Order</th><th>Date</th><th className="text-center">Items</th><th className="text-right">Subtotal</th><th className="text-center">Discount</th><th className="text-right">Total</th><th className="text-right">Paid</th><th className="text-right">Balance</th><th className="text-right">Prev. Balance</th><th className="w-36 text-center">Actions</th></tr></thead>
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
@@ -89,18 +89,20 @@ function InvoicesPage() {
                   <td>{o.customerName}</td>
                   <td className="text-muted-foreground">{o.number}</td>
                   <td className="text-muted-foreground">{dateShort(o.orderDate)}</td>
-                  <td>{o.items.length}</td>
+                  <td className="text-center">{o.items.length}</td>
                   <td className="text-right tabular-nums">{currency(o.subtotal ?? o.total)}</td>
-                  <td className="text-center tabular-nums">{o.discountPercent > 0 ? `${o.discountPercent}%` : "-"}</td>
+                  <td className="text-center tabular-nums">{o.discountPercent > 0 ? `${o.discountPercent}%` : "\u2014"}</td>
                   <td className="text-right tabular-nums">{currency(o.total)}</td>
                   <td className="text-right tabular-nums text-emerald-600">{currency(o.paid)}</td>
-                  <td className="text-right tabular-nums text-rose-600">{currency(Math.max(0, o.total - o.paid))}</td>
-                  {Number((o as any).previousBalance ?? 0) > 0 && <td className="text-right tabular-nums text-blue-600">{currency((o as any).previousBalance)}</td>}
-                  <td className="text-right">
-                    <button onClick={() => handleView(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="View"><Eye className="size-3.5" /></button>
-                    {can("invoices", "export") && <button onClick={() => handleDownload(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Download"><Download className="size-3.5" /></button>}
-                    {can("invoices", "print") && <button onClick={() => handlePrint(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Print"><Printer className="size-3.5" /></button>}
-                    {can("invoices", "delete") && <button onClick={() => setDeleteTarget(o.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center" title="Delete"><Trash2 className="size-3.5" /></button>}
+                  <td className="text-right tabular-nums text-rose-600">{currency((o as any).balance ?? Math.max(0, o.total - o.paid))}</td>
+                  <td className="text-right tabular-nums text-blue-600">{Number((o as any).previousBalance ?? 0) > 0 ? currency((o as any).previousBalance) : "\u2014"}</td>
+                  <td>
+                    <div className="flex items-center justify-center gap-1 flex-nowrap whitespace-nowrap">
+                      <button onClick={() => handleView(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="View"><Eye className="size-3.5" /></button>
+                      {can("invoices", "export") && <button onClick={() => handleDownload(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Download"><Download className="size-3.5" /></button>}
+                      {can("invoices", "print") && <button onClick={() => handlePrint(o)} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center" title="Print"><Printer className="size-3.5" /></button>}
+                      {can("invoices", "delete") && <button onClick={() => setDeleteTarget(o.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center" title="Delete"><Trash2 className="size-3.5" /></button>}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -156,11 +158,11 @@ function InvoicesPage() {
                 </div>
                 <div className="flex justify-end"><div className="w-64 space-y-1 text-sm">
                   <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="font-medium text-emerald-600">{currency(selectedOrder.paid)}</span></div>
-                  <div className="flex justify-between border-t pt-1"><span className="font-semibold">Balance</span><span className="font-semibold text-rose-600">{currency(Math.max(0, selectedOrder.total - selectedOrder.paid))}</span></div>
+                  <div className="flex justify-between border-t pt-1"><span className="font-semibold">Balance</span><span className="font-semibold text-rose-600">{currency((selectedOrder as any).balance ?? Math.max(0, selectedOrder.total - selectedOrder.paid))}</span></div>
                   {(Number((selectedOrder as any).previousBalance ?? 0) > 0) && (
                     <>
                       <div className="flex justify-between border-t border-dashed pt-1"><span className="text-blue-600">Previous Balance</span><span className="font-medium text-blue-600">{currency((selectedOrder as any).previousBalance)}</span></div>
-                      <div className="flex justify-between border-t pt-1"><span className="font-bold">Grand Total</span><span className="font-bold text-rose-600">{currency(Math.max(0, selectedOrder.total - selectedOrder.paid) + Number((selectedOrder as any).previousBalance ?? 0))}</span></div>
+                      <div className="flex justify-between border-t pt-1"><span className="font-bold">Grand Total</span><span className="font-bold text-rose-600">{currency((selectedOrder as any).grandTotal ?? Math.max(0, selectedOrder.total - selectedOrder.paid) + Number((selectedOrder as any).previousBalance ?? 0))}</span></div>
                     </>
                   )}
                 </div></div>

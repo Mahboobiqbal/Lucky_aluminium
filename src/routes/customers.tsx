@@ -72,11 +72,12 @@ function CustomersPage() {
   const company = companyFromSettings(settings);
 
   const customerPayments = useMemo(() => {
-    const map: Record<number, { total: number; paid: number }> = {};
+    const map: Record<number, { total: number; paid: number; balance: number }> = {};
     for (const o of orders) {
-      if (!map[o.customerId]) map[o.customerId] = { total: 0, paid: 0 };
+      if (!map[o.customerId]) map[o.customerId] = { total: 0, paid: 0, balance: 0 };
       map[o.customerId].total += o.total;
       map[o.customerId].paid += o.paid;
+      map[o.customerId].balance += (o as any).balance ?? Math.max(0, o.total - o.paid);
     }
     return map;
   }, [orders]);
@@ -170,7 +171,7 @@ function CustomersPage() {
               {filtered.map((c) => {
                 const pmt = customerPayments[c.id];
                 const paid = pmt?.paid ?? 0;
-                const orderBalance = pmt ? Math.max(0, pmt.total - pmt.paid) : 0;
+                const orderBalance = pmt ? pmt.balance : 0;
                 const opening = Number(c.previousBalance ?? 0);
                 const balance = orderBalance + opening;
                 return (
@@ -227,7 +228,7 @@ function CustomersPage() {
           {selected && (() => {
             const customerOrders = orders.filter((o) => o.customerId === selected.id);
             const pmt = customerPayments[selected.id];
-            const orderBalance = pmt ? Math.max(0, pmt.total - pmt.paid) : 0;
+            const orderBalance = pmt ? pmt.balance : 0;
             const openingBalance = Number(selected.previousBalance ?? 0);
             const totalBalance = orderBalance + openingBalance;
             return (
@@ -259,7 +260,7 @@ function CustomersPage() {
                               <td>{o.items.length}</td>
                               <td className="text-right tabular-nums whitespace-nowrap">{currency(o.total)}</td>
                               <td className="text-right tabular-nums text-emerald-600 whitespace-nowrap">{currency(o.paid)}</td>
-                              <td className="text-right tabular-nums text-rose-600 whitespace-nowrap">{currency(Math.max(0, o.total - o.paid))}</td>
+                              <td className="text-right tabular-nums text-rose-600 whitespace-nowrap">{currency((o as any).balance ?? Math.max(0, o.total - o.paid))}</td>
                               <td><Badge variant="outline" className={`text-[11px] ${statusColor[o.status]}`}>{statusLabel(o.status)}</Badge></td>
                             </tr>
                           ))}

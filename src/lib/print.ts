@@ -204,7 +204,7 @@ export function printCustomer(
                     <td>${esc(o.items.length)}</td>
                     <td class="right">${esc(currency(o.total))}</td>
                     <td class="right">${esc(currency(o.paid))}</td>
-                    <td class="right">${esc(currency(Math.max(0, o.total - o.paid)))}</td>
+                    <td class="right">${esc(currency((o as any).balance ?? Math.max(0, o.total - o.paid)))}</td>
                     <td>${esc(o.status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()))}</td>
                   </tr>`,
               )
@@ -220,7 +220,7 @@ export function printCustomer(
 export function printCustomers(
   customers: Customer[],
   company?: CompanyProfile,
-  paymentMap?: Record<number, { total: number; paid: number }>,
+  paymentMap?: Record<number, { total: number; paid: number; balance: number }>,
 ) {
   openPrintDocument(
     "Customers",
@@ -229,7 +229,7 @@ export function printCustomers(
             .map((c) => {
               const pmt = c.id && paymentMap ? paymentMap[c.id] : undefined;
               const paid = pmt?.paid ?? 0;
-              const orderBalance = pmt ? Math.max(0, pmt.total - pmt.paid) : 0;
+              const orderBalance = pmt ? (pmt as any).balance ?? Math.max(0, pmt.total - pmt.paid) : 0;
               const opening = Number(c.previousBalance ?? 0);
               const balance = orderBalance + opening;
               return `<tr>
@@ -275,7 +275,7 @@ export function printInvoice(order: Order, company?: CompanyProfile) {
             .join("")}
           <tr class="total"><td colspan="5" class="right">Total</td><td class="right">${esc(currency(order.total))}</td></tr>
           <tr class="total"><td colspan="5" class="right">Paid</td><td class="right">${esc(currency(order.paid))}</td></tr>
-          <tr class="total"><td colspan="5" class="right">Remaining Balance</td><td class="right">${esc(currency(order.total - order.paid))}</td></tr>
+          <tr class="total"><td colspan="5" class="right">Remaining Balance</td><td class="right">${esc(currency((order as any).balance ?? order.total - order.paid))}</td></tr>
         </tbody>
       </table>
       <div class="footer muted">Thank you for your business.</div>

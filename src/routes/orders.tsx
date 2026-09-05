@@ -301,7 +301,7 @@ function OrdersPage() {
                   <td className="text-muted-foreground">{dateShort(o.deliveryDate)}</td>
                   <td className="text-right tabular-nums whitespace-nowrap">{currency(o.total)}</td>
                   <td className="text-right tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{currency(o.paid)}</td>
-                  <td className="text-right tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">{currency(Math.max(0, o.total - o.paid))}</td>
+                  <td className="text-right tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">{currency(o.balance ?? Math.max(0, o.total - o.paid))}</td>
                   <td className="text-right tabular-nums text-blue-600 dark:text-blue-400 whitespace-nowrap">{Number(o.previousBalance ?? 0) > 0 ? currency(Number(o.previousBalance ?? 0)) : "—"}</td>
                   <td>
                     {can("orders", "edit") ? (
@@ -513,12 +513,12 @@ function OrdersPage() {
                 {form.discountPercent > 0 && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Discount ({form.discountPercent}%)</span><span className="tabular-nums text-destructive">−{currency(form.subtotal * form.discountPercent / 100)}</span></div>}
                 <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5"><span>Order Total</span><span className="tabular-nums">{currency(form.total)}</span></div>
                 <div className="flex justify-between text-xs"><span className="text-muted-foreground">Paid / Advance</span><span className="tabular-nums">{currency(form.paid)}</span></div>
-                <div className="flex justify-between text-xs border-t border-border pt-1.5"><span className="text-muted-foreground">Remaining Balance</span><span className="tabular-nums font-semibold">{currency(Math.max(0, form.total - form.paid))}</span></div>
+                <div className="flex justify-between text-xs border-t border-border pt-1.5"><span className="text-muted-foreground">Remaining Balance</span><span className="tabular-nums font-semibold">{currency(editingId ? (form as any).balance ?? Math.max(0, form.total - form.paid) : Math.max(0, form.total - form.paid))}</span></div>
                 {form.previousBalance > 0 && <>
                   <div className="border-t border-dashed border-border pt-1.5" />
                   <div className="flex justify-between text-xs"><span className="text-blue-600">Previous Balance</span><span className="tabular-nums text-blue-600">{currency(form.previousBalance)}</span></div>
                 </>}
-                <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5"><span className="text-rose-600">Grand Total</span><span className="tabular-nums text-rose-600">{currency(Math.max(0, form.total - form.paid) + form.previousBalance)}</span></div>
+                <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5"><span className="text-rose-600">Grand Total</span><span className="tabular-nums text-rose-600">{currency(editingId ? (form as any).grandTotal ?? Math.max(0, form.total - form.paid) + form.previousBalance : Math.max(0, form.total - form.paid) + form.previousBalance)}</span></div>
               </div>
             </div>
           </div>

@@ -76,6 +76,8 @@ export interface Order {
   total: number;
   paid: number;
   previousBalance?: number;
+  balance?: number;
+  grandTotal?: number;
   status: "pending" | "confirmed" | "in_production" | "ready" | "delivered" | "finished" | "cancelled";
   notes?: string;
   createdAt: number;
