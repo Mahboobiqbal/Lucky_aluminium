@@ -31,7 +31,7 @@ const STATUSES = ["pending", "confirmed", "in_production", "ready", "delivered",
 type OrderItem = {
   productId?: number;
   productName: string;
-  itemType: "window" | "other";
+  itemType: "length" | "window";
   width: number;
   height: number;
   length: number;
@@ -53,9 +53,12 @@ type Order = {
   items: OrderItem[];
   subtotal: number;
   discountPercent: number;
+  extraCharges?: number;
   total: number;
   paid: number;
   previousBalance?: number;
+  balance?: number;
+  grandTotal?: number;
   status: string;
   notes?: string;
   createdAt: string;
@@ -65,7 +68,7 @@ type Customer = { id: number; name: string };
 type Product = { id: number; name: string; basePrice: number; active: boolean };
 type InventoryItem = { id: number; name: string; itemType?: string; pricingMode?: string; currentStock: number; widthFt?: number; heightFt?: number; length?: number };
 
-const emptyItem: OrderItem = { productName: "", itemType: "other", width: 0, height: 0, length: 0, quantity: 0, unitPrice: 0, amount: 0 };
+const emptyItem: OrderItem = { productName: "", itemType: "window", width: 0, height: 0, length: 0, quantity: 0, unitPrice: 0, amount: 0 };
 
 function OrdersPage() {
   const { can } = useAuth();
@@ -90,6 +93,7 @@ function OrdersPage() {
     items: [emptyItem] as OrderItem[],
     subtotal: 0,
     discountPercent: 0,
+    extraCharges: 0,
     total: 0,
     paid: 0,
     previousBalance: 0,
@@ -111,7 +115,7 @@ function OrdersPage() {
       setCustomers(custs || []);
       setProducts((prods || []).filter((p) => p.active));
       setInventory(inv || []);
-    } catch {} finally {
+    } catch { toast.error("Failed to load data"); } finally {
       setLoading(false);
     }
   }, []);
@@ -131,15 +135,15 @@ function OrdersPage() {
 
   const unitOf = (productName: string, itemType?: string): string => {
     const inv = invOf(productName);
-    const type = inv?.itemType || itemType || "other";
-    return isSizeMode(productName) ? (type === "window" ? "ft" : "sqft") : "pcs";
+    const type = inv?.itemType || itemType || "window";
+    return isSizeMode(productName) ? (type === "length" ? "ft" : "sqft") : "pcs";
   };
 
   const consumedOf = (item: OrderItem): number => {
     if (!isSizeMode(item.productName)) return item.quantity;
     const inv = invOf(item.productName);
-    const type = inv?.itemType || item.itemType || "other";
-    if (type === "window") {
+    const type = inv?.itemType || item.itemType || "window";
+    if (type === "length") {
       const dim = item.length > 0 ? item.length : (inv?.length || 0);
       return dim ? dim * item.quantity : item.quantity;
     }
@@ -161,7 +165,8 @@ function OrdersPage() {
   const recalc = (items: OrderItem[], discountPercent?: number) => {
     const subtotal = items.reduce((s, item) => s + item.amount, 0);
     const dp = discountPercent ?? form.discountPercent;
-    const total = subtotal - (subtotal * dp / 100);
+    const extraVal = form.extraCharges || 0;
+    const total = subtotal - (subtotal * dp / 100) + extraVal;
     return { subtotal, total };
   };
 
@@ -169,7 +174,7 @@ function OrdersPage() {
     const items = [...form.items];
     const next = { ...items[index], ...patch };
     if (isSizeMode(next.productName)) {
-      if (next.itemType === "window") {
+      if (next.itemType === "length") {
         next.amount = next.length * next.quantity * next.unitPrice;
       } else {
         next.amount = next.width * next.height * next.quantity * next.unitPrice;
@@ -188,7 +193,7 @@ function OrdersPage() {
       number: `ORD-${String(list.length + 1).padStart(4, "0")}`,
       customerId: 0, customerName: "",
       orderDate: Date.now(), deliveryDate: Date.now() + 86400000 * 7,
-      items: [{ ...emptyItem }], subtotal: 0, discountPercent: 0, total: 0, paid: 0, previousBalance: 0, status: "pending", notes: "",
+      items: [{ ...emptyItem }], subtotal: 0, discountPercent: 0, extraCharges: 0, total: 0, paid: 0, previousBalance: 0, status: "pending", notes: "",
     });
     setOpen(true);
   };
@@ -198,7 +203,7 @@ function OrdersPage() {
     setForm({
       number: o.number, customerId: o.customerId, customerName: o.customerName,
       orderDate: new Date(o.orderDate).getTime(), deliveryDate: o.deliveryDate ? new Date(o.deliveryDate).getTime() : Date.now() + 86400000 * 7,
-      items: o.items.map((i) => ({ ...i })), subtotal: o.subtotal ?? o.total, discountPercent: o.discountPercent ?? 0, total: o.total, paid: o.paid, previousBalance: (o as any).previousBalance ?? 0, status: o.status, notes: o.notes ?? "",
+      items: o.items.map((i) => ({ ...i })), subtotal: o.subtotal ?? o.total, discountPercent: o.discountPercent ?? 0, extraCharges: o.extraCharges ?? 0, total: o.total, paid: o.paid, previousBalance: (o as any).previousBalance ?? 0, status: o.status, notes: o.notes ?? "",
     });
     setOpen(true);
   };
@@ -240,7 +245,7 @@ function OrdersPage() {
         number: form.number, customerId, customerName: form.customerName,
         orderDate: new Date(form.orderDate).toISOString(),
         deliveryDate: form.deliveryDate ? new Date(form.deliveryDate).toISOString() : null,
-        subtotal: form.subtotal, discountPercent: form.discountPercent,
+        subtotal: form.subtotal, discountPercent: form.discountPercent, extraCharges: form.extraCharges,
         items, total: form.total, paid: form.paid, previousBalance: form.previousBalance, status: form.status, notes: form.notes,
       };
       if (editingId) {
@@ -395,14 +400,14 @@ function OrdersPage() {
               <div className="divide-y divide-border">
                 {form.items.map((item, index) => (
                   <div key={index} className="p-3 space-y-2">
-                    <div className="grid gap-2 items-end" style={{ gridTemplateColumns: item.itemType === "window" ? "minmax(0,1fr) 140px 70px 70px 90px 90px 36px" : "minmax(0,1fr) 140px 70px 70px 70px 90px 90px 36px" }}>
+                    <div className="grid gap-2 items-end" style={{ gridTemplateColumns: item.itemType === "length" ? "minmax(0,1fr) 140px 70px 70px 90px 90px 36px" : "minmax(0,1fr) 140px 70px 70px 70px 90px 90px 36px" }}>
                       <div className="min-w-0">
                         <Label className="text-xs">Product</Label>
                         <Select value={item.productName || "__none__"} onValueChange={(v) => {
                           if (v === "__none__") return updateItem(index, { productName: "" });
                           const prod = products.find((p) => p.name === v);
                           const inv = invOf(v);
-                          updateItem(index, { productName: v, itemType: inv ? (inv.itemType === "window" ? "window" : "other") : item.itemType, unitPrice: prod?.basePrice || item.unitPrice });
+                          updateItem(index, { productName: v, itemType: inv ? (inv.itemType === "length" ? "length" : "window") : item.itemType, unitPrice: prod?.basePrice || item.unitPrice });
                         }}>
                           <SelectTrigger className="h-8 overflow-hidden"><SelectValue placeholder="Select product" /></SelectTrigger>
                           <SelectContent className="max-h-[280px]">
@@ -456,32 +461,33 @@ function OrdersPage() {
                       </div>
                       <div>
                         <Label className="text-xs">Type</Label>
-                        <Select value={item.itemType || "other"} onValueChange={(v) => updateItem(index, { itemType: v as "window" | "other" })}>
+                        <Select value={item.itemType || "window"} onValueChange={(v) => updateItem(index, { itemType: v as "length" | "window" })}>
                           <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="other">Other Items</SelectItem>
-                            <SelectItem value="window">Window</SelectItem>
+                            <SelectItem value="window">Other Items</SelectItem>
+                            <SelectItem value="length">Length-based</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      {item.itemType === "window" ? (
-                        <div><Label className="text-xs">Length</Label><Input type="number" value={item.length || ""} onChange={(e) => updateItem(index, { length: Number(e.target.value) })} className="h-8" /></div>
+                      {item.itemType === "length" ? (
+                        <div><Label className="text-xs">Length</Label><Input type="number" min="0" value={item.length || ""} onChange={(e) => updateItem(index, { length: Number(e.target.value) })} className="h-8" /></div>
                       ) : (
                         <>
-                          <div><Label className="text-xs">Width</Label><Input type="number" value={item.width || ""} onChange={(e) => updateItem(index, { width: Number(e.target.value) })} className="h-8" /></div>
-                          <div><Label className="text-xs">Height</Label><Input type="number" value={item.height || ""} onChange={(e) => updateItem(index, { height: Number(e.target.value) })} className="h-8" /></div>
+                          <div><Label className="text-xs">Width</Label><Input type="number" min="0" value={item.width || ""} onChange={(e) => updateItem(index, { width: Number(e.target.value) })} className="h-8" /></div>
+                          <div><Label className="text-xs">Height</Label><Input type="number" min="0" value={item.height || ""} onChange={(e) => updateItem(index, { height: Number(e.target.value) })} className="h-8" /></div>
                         </>
                       )}
                       <div>
                         <Label className="text-xs">Qty</Label>
                         <Input
                           type="number"
+                          min="0"
                           value={item.quantity || ""}
                           onChange={(e) => updateItem(index, { quantity: Number(e.target.value) })}
                           className={`h-8 ${item.productName && getAvailableStock(item.productName) !== null && consumedOf(item) > (getAvailableStock(item.productName) || 0) ? "border-rose-500 focus:ring-rose-500" : ""}`}
                         />
                       </div>
-                      <div><Label className="text-xs">Unit Price{isSizeMode(item.productName) ? (item.itemType === "window" ? " /ft" : " /sqft") : " /pc"}</Label><Input type="number" value={item.unitPrice || ""} onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })} className="h-8" /></div>
+                      <div><Label className="text-xs">Unit Price{isSizeMode(item.productName) ? (item.itemType === "length" ? " /ft" : " /sqft") : " /pc"}</Label><Input type="number" min="0" value={item.unitPrice || ""} onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })} className="h-8" /></div>
                       <div><Label className="text-xs">Amount</Label><div className="h-8 px-2 rounded border bg-muted/40 flex items-center text-sm font-semibold truncate">{currency(item.amount)}</div></div>
                       <div className="flex items-end justify-center pb-0.5"><Button variant="ghost" size="sm" className="h-8 w-8 px-0 text-destructive" onClick={() => { const items = form.items.filter((_, i) => i !== index); const { subtotal, total } = recalc(items); setForm({ ...form, items, subtotal, total }); }} disabled={form.items.length === 1}><Trash2 className="size-3.5" /></Button></div>
                     </div>
@@ -503,17 +509,24 @@ function OrdersPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label className="text-xs">Discount %</Label><Input type="number" min="0" max="100" value={form.discountPercent || ""} onChange={(e) => {
                     const dp = Number(e.target.value);
-                    const total = form.subtotal - (form.subtotal * dp / 100);
+                    const extraVal = form.extraCharges || 0;
+                    const total = form.subtotal - (form.subtotal * dp / 100) + extraVal;
                     setForm({ ...form, discountPercent: dp, total });
                   }} className="h-8" /></div>
-                  <div><Label className="text-xs">Paid amount</Label><Input type="number" value={form.paid || ""} onChange={(e) => setForm({ ...form, paid: Number(e.target.value) })} className="h-8" /></div>
+                  <div><Label className="text-xs">Extra Charges</Label><Input type="number" min="0" value={form.extraCharges || ""} onChange={(e) => {
+                    const extraVal = Number(e.target.value);
+                    const total = form.subtotal - (form.subtotal * form.discountPercent / 100) + extraVal;
+                    setForm({ ...form, extraCharges: extraVal, total });
+                  }} className="h-8" /></div>
+                  <div><Label className="text-xs">Paid amount</Label><Input type="number" min="0" value={form.paid || ""} onChange={(e) => setForm({ ...form, paid: Number(e.target.value) })} className="h-8" /></div>
                 </div>
-                <div><Label className="text-xs">Previous Balance (from before this order)</Label><Input type="number" value={form.previousBalance || ""} onChange={(e) => setForm({ ...form, previousBalance: Number(e.target.value) })} className="h-8" placeholder="0" /></div>
+                <div><Label className="text-xs">Previous Balance (from before this order)</Label><Input type="number" min="0" value={form.previousBalance || ""} onChange={(e) => setForm({ ...form, previousBalance: Number(e.target.value) })} className="h-8" placeholder="0" /></div>
               </div>
               {/* Right: Summary */}
               <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-1.5">
                 <div className="flex justify-between text-xs"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">{currency(form.subtotal)}</span></div>
                 {form.discountPercent > 0 && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Discount ({form.discountPercent}%)</span><span className="tabular-nums text-destructive">−{currency(form.subtotal * form.discountPercent / 100)}</span></div>}
+                {(form.extraCharges ?? 0) > 0 && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Extra Charges</span><span className="tabular-nums">{currency(form.extraCharges)}</span></div>}
                 <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5"><span>Order Total</span><span className="tabular-nums">{currency(form.total)}</span></div>
                 <div className="flex justify-between text-xs"><span className="text-muted-foreground">Paid / Advance</span><span className="tabular-nums">{currency(form.paid)}</span></div>
                 <div className="flex justify-between text-xs border-t border-border pt-1.5"><span className="text-muted-foreground">Remaining Balance</span><span className="tabular-nums font-semibold">{currency(editingId ? (form as any).balance ?? Math.max(0, form.total - form.paid) : Math.max(0, form.total - form.paid))}</span></div>

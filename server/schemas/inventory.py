@@ -7,7 +7,7 @@ class InventoryItemBase(BaseModel):
     name: str
     category: str
     unit: str
-    itemType: str = "other"
+    itemType: str = "window"
     pricingMode: str = "piece"
     currentStock: float = 0
     minStock: float = 0

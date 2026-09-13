@@ -75,7 +75,7 @@ type CustomerInvoiceCustomer = {
 
 type CustomerInvoiceItem = {
   productName: string;
-  itemType?: "window" | "other";
+  itemType?: "length" | "window";
   width: number;
   height: number;
   length?: number;
@@ -353,7 +353,7 @@ export function createCustomerInvoicePdf(data: CustomerInvoiceData, company: Com
   const tableStartY = headerBottom + 84 + 26;
 
   const body = data.items.map((item, index) => {
-    const isWindow = item.itemType === "window";
+    const isWindow = item.itemType === "length";
     const dimensions = isWindow ? `${item.length || 0} Length` : `${item.width} × ${item.height} = ${formatNumber(item.width * item.height)} Sq Ft`;
     return [
       String(index + 1),

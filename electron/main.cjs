@@ -12,6 +12,16 @@ const isDev = !app.isPackaged;
 const DEV_PORT = 5173;
 const NITRO_PORT = 3000;
 
+function isPathAllowed(filePath) {
+  const resolved = path.resolve(filePath);
+  const allowed = [
+    app.getPath("userData"),
+    app.getPath("documents"),
+    app.getPath("desktop"),
+  ];
+  return allowed.some((dir) => resolved.startsWith(dir));
+}
+
 function getBackendPath() {
   const base = isDev
     ? path.join(__dirname, "..", "server", "dist", "udyana-server")
@@ -136,6 +146,9 @@ ipcMain.handle("file:save", async (_event, filePath, data) => {
     if (!path.isAbsolute(target)) {
       target = path.join(app.getPath("userData"), ".lucky-aluminium-backups", path.basename(target));
     }
+    if (!isPathAllowed(target)) {
+      return { ok: false, error: "Path not allowed" };
+    }
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, Buffer.from(data));
     return { ok: true, path: target };
@@ -146,6 +159,7 @@ ipcMain.handle("file:save", async (_event, filePath, data) => {
 
 ipcMain.handle("file:exists", async (_event, filePath) => {
   try {
+    if (!isPathAllowed(filePath)) return { ok: false };
     return { ok: fs.existsSync(filePath) };
   } catch {
     return { ok: false };
@@ -153,6 +167,7 @@ ipcMain.handle("file:exists", async (_event, filePath) => {
 });
 
 ipcMain.handle("file:read", async (_event, filePath) => {
+  if (!isPathAllowed(filePath)) return null;
   if (!fs.existsSync(filePath)) return null;
   return fs.readFileSync(filePath).buffer;
 });

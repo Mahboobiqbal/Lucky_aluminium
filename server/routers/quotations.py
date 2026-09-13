@@ -24,7 +24,7 @@ def _to_response(q: Quotation) -> dict:
         "customerName": q.customer_name,
         "date": q.date,
         "subtotal": float(q.subtotal),
-        "discount": float(q.discount),
+        "discountPercent": float(q.discount_percent),
         "extraCharges": float(q.extra_charges),
         "total": float(q.total),
         "previousBalance": float(q.previous_balance),
@@ -84,7 +84,7 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
     for item in body.items:
         product = product_cache.get(item.productName)
         server_price = float(product.base_price) if product else float(item.unitPrice)
-        item_type = item.itemType or "other"
+        item_type = item.itemType or "window"
         qty = item.quantity
         w = float(item.width or 0)
         h = float(item.height or 0)
@@ -95,7 +95,7 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
         pricing_mode = inv_item.pricing_mode if inv_item else "piece"
 
         if pricing_mode == "size":
-            if item_type == "window" and l > 0:
+            if item_type == "length" and l > 0:
                 amount = l * qty * server_price
             elif w > 0 and h > 0:
                 amount = w * h * qty * server_price
@@ -119,9 +119,9 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
         })
 
     subtotal = round(sum(ci["amount"] for ci in calculated_items), 2)
-    discount = max(0, float(body.discount or 0))
+    discount_pct = max(0, min(float(body.discountPercent or 0), 100))
     extra = max(0, float(body.extraCharges or 0))
-    total = round(subtotal - discount + extra, 2)
+    total = round(subtotal - (subtotal * discount_pct / 100) + extra, 2)
 
     quotation = Quotation(
         number=body.number,
@@ -129,7 +129,7 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
         customer_name=body.customerName,
         date=naive(body.date),
         subtotal=subtotal,
-        discount=discount,
+        discount_percent=discount_pct,
         extra_charges=extra,
         total=total,
         previous_balance=float(getattr(body, 'previousBalance', 0) or 0),
@@ -193,7 +193,7 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
     for item in body.items:
         product = product_cache.get(item.productName)
         server_price = float(product.base_price) if product else float(item.unitPrice)
-        item_type = item.itemType or "other"
+        item_type = item.itemType or "window"
         qty = item.quantity
         w = float(item.width or 0)
         h = float(item.height or 0)
@@ -204,7 +204,7 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
         pricing_mode = inv_item.pricing_mode if inv_item else "piece"
 
         if pricing_mode == "size":
-            if item_type == "window" and l > 0:
+            if item_type == "length" and l > 0:
                 amount = l * qty * server_price
             elif w > 0 and h > 0:
                 amount = w * h * qty * server_price
@@ -228,12 +228,12 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
         })
 
     subtotal = round(sum(ci["amount"] for ci in calculated_items), 2)
-    discount = max(0, float(body.discount or 0))
+    discount_pct = max(0, min(float(body.discountPercent or 0), 100))
     extra = max(0, float(body.extraCharges or 0))
-    total = round(subtotal - discount + extra, 2)
+    total = round(subtotal - (subtotal * discount_pct / 100) + extra, 2)
 
     quotation.subtotal = subtotal
-    quotation.discount = discount
+    quotation.discount_percent = discount_pct
     quotation.extra_charges = extra
     quotation.total = total
     quotation.previous_balance = float(getattr(body, 'previousBalance', 0) or 0)

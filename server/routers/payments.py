@@ -64,6 +64,11 @@ async def create_payment(body: PaymentCreate, db: AsyncSession = Depends(get_db)
         order = result.scalar_one_or_none()
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
+        existing = await db.execute(select(Payment).where(Payment.order_id == body.orderId))
+        total_existing = sum(float(p.amount) for p in existing.scalars().all())
+        order_total = float(order.total or 0)
+        if total_existing + float(body.amount) > order_total + 0.01:
+            raise HTTPException(status_code=400, detail=f"Payment exceeds order total. Order total: {order_total}, already paid: {total_existing}")
 
     payment = Payment(
         invoice_id=body.invoiceId,
@@ -102,6 +107,17 @@ async def update_payment(payment_id: int, body: PaymentCreate, db: AsyncSession 
         raise HTTPException(status_code=404, detail="Payment not found")
 
     old_order_id = payment.order_id
+
+    if body.orderId:
+        result = await db.execute(select(Order).where(Order.id == body.orderId))
+        order = result.scalar_one_or_none()
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        other_payments = await db.execute(select(Payment).where(Payment.order_id == body.orderId, Payment.id != payment_id))
+        total_other = sum(float(p.amount) for p in other_payments.scalars().all())
+        order_total = float(order.total or 0)
+        if total_other + float(body.amount) > order_total + 0.01:
+            raise HTTPException(status_code=400, detail=f"Payment exceeds order total. Order total: {order_total}, other payments: {total_other}")
 
     payment.invoice_id = body.invoiceId
     payment.order_id = body.orderId

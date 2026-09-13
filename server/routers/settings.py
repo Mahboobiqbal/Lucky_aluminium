@@ -17,9 +17,11 @@ from models.quotation import Quotation, QuotationItem
 from models.setting import Setting
 from models.supplier import Supplier
 from schemas.setting import SettingUpdate
-from utils.deps import require_permission
+from utils.deps import require_permission, require_role
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
+
+ALLOWED_SETTING_KEYS = ("company_name", "currency", "tax_rate", "low_stock_threshold", "date_format")
 
 RESET_TABLES = [
     Backup,
@@ -51,6 +53,8 @@ async def list_settings(db: AsyncSession = Depends(get_db), _user=Depends(requir
 @router.put("")
 async def update_settings(body: list[SettingUpdate], db: AsyncSession = Depends(get_db), _user=Depends(require_permission("settings", "edit"))):
     for item in body:
+        if item.key not in ALLOWED_SETTING_KEYS:
+            raise HTTPException(status_code=400, detail=f"Invalid setting key: {item.key}. Allowed: {', '.join(ALLOWED_SETTING_KEYS)}")
         result = await db.execute(select(Setting).where(Setting.key == item.key))
         setting = result.scalar_one_or_none()
         if setting:
@@ -63,7 +67,7 @@ async def update_settings(body: list[SettingUpdate], db: AsyncSession = Depends(
 
 
 @router.post("/reset")
-async def reset_all_data(db: AsyncSession = Depends(get_db), _user=Depends(require_permission("settings", "edit"))):
+async def reset_all_data(db: AsyncSession = Depends(get_db), _user=Depends(require_role("admin"))):
     async with engine.begin() as conn:
         await conn.execute(text("PRAGMA foreign_keys = OFF"))
         for model in reversed(RESET_TABLES):

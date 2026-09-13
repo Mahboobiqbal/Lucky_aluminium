@@ -5,6 +5,7 @@ import { AppShell, PageContainer } from "@/components/layout/AppShell";
 import { TableShell } from "@/components/layout/TableShell";
 import { EmptyState } from "@/components/layout/EmptyState";
 import { Ruler } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/measurements")({
   head: () => ({ meta: [{ title: "Measurements — Lucky Aluminium" }] }),
@@ -18,7 +19,7 @@ function MeasurementsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    try { const data = await api.safeGet<Order[]>("/api/orders"); setOrders(data || []); } catch {} finally { setLoading(false); }
+    try { const data = await api.safeGet<Order[]>("/api/orders"); setOrders(data || []); } catch { toast.error("Failed to load measurements"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);

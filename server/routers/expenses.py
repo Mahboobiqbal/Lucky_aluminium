@@ -47,7 +47,7 @@ async def create_expense(body: ExpenseCreate, db: AsyncSession = Depends(get_db)
         amount=body.amount,
         date=naive(body.date),
         description=body.description,
-        created_by=body.createdBy,
+        created_by=_user.username,
         created_at=datetime.utcnow(),
     )
     db.add(expense)

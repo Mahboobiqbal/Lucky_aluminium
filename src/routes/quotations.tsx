@@ -28,7 +28,7 @@ export const Route = createFileRoute("/quotations")({
 type QuotationItem = {
   productId?: number;
   productName: string;
-  itemType: "window" | "other";
+  itemType: "length" | "window";
   width: number;
   height: number;
   length: number;
@@ -47,7 +47,7 @@ type Quotation = {
   date: string;
   items: QuotationItem[];
   subtotal: number;
-  discount: number;
+  discountPercent: number;
   extraCharges: number;
   total: number;
   status: string;
@@ -64,26 +64,29 @@ function QuotationsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [customerName, setCustomerName] = useState("");
-  const [discount, setDiscount] = useState(0);
+  const [discountPercent, setDiscountPercent] = useState(0);
   const [extra, setExtra] = useState(0);
   const [previousBalance, setPreviousBalance] = useState(0);
   const [items, setItems] = useState<QuotationItem[]>([]);
 
   const [list, setList] = useState<Quotation[]>([]);
   const [settings, setSettings] = useState<Setting[]>([]);
+  const [inventory, setInventory] = useState<{ id: number; name: string; pricingMode?: string; itemType?: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   const company = companyFromSettings(settings);
 
   const fetchData = useCallback(async () => {
     try {
-      const [quotations, settingsData] = await Promise.all([
+      const [quotations, settingsData, invData] = await Promise.all([
         api.safeGet<Quotation[]>("/api/quotations"),
         api.safeGet<Setting[]>("/api/settings"),
+        api.safeGet<{ id: number; name: string; pricingMode?: string; itemType?: string }[]>("/api/inventory"),
       ]);
       setList(quotations || []);
       setSettings(settingsData || []);
-    } catch {} finally {
+      setInventory(invData || []);
+    } catch { toast.error("Failed to load quotations"); } finally {
       setLoading(false);
     }
   }, []);
@@ -96,26 +99,37 @@ function QuotationsPage() {
   );
 
   const subtotal = items.reduce((s, it) => s + it.amount, 0);
-  const discountAmount = subtotal * discount / 100;
+  const discountAmount = subtotal * discountPercent / 100;
   const total = Math.max(0, subtotal - discountAmount + extra);
 
-  const addItem = () => setItems([...items, { productName: "", itemType: "other", width: 0, height: 0, length: 0, sqft: 0, quantity: 0, unitPrice: 0, amount: 0, notes: "" }]);
+  const invOf = (productName: string) => inventory.find((i) => i.name.toLowerCase() === productName.toLowerCase());
+  const isSizeMode = (productName: string) => invOf(productName)?.pricingMode === "size";
+
+  const addItem = () => setItems([...items, { productName: "", itemType: "window", width: 0, height: 0, length: 0, sqft: 0, quantity: 0, unitPrice: 0, amount: 0, notes: "" }]);
   const updateItem = (i: number, patch: Partial<QuotationItem>) => {
     setItems((prev) => prev.map((it, idx) => {
       if (idx !== i) return it;
       const next = { ...it, ...patch };
-      next.amount = Number((next.quantity * next.unitPrice).toFixed(2));
+      if (isSizeMode(next.productName)) {
+        if (next.itemType === "length") {
+          next.amount = next.length * next.quantity * next.unitPrice;
+        } else {
+          next.amount = next.width * next.height * next.quantity * next.unitPrice;
+        }
+      } else {
+        next.amount = next.quantity * next.unitPrice;
+      }
       return next;
     }));
   };
   const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i));
 
-  const reset = () => { setEditingId(null); setCustomerName(""); setDiscount(0); setExtra(0); setPreviousBalance(0); setItems([]); };
+  const reset = () => { setEditingId(null); setCustomerName(""); setDiscountPercent(0); setExtra(0); setPreviousBalance(0); setItems([]); };
   const openNew = () => { reset(); setOpen(true); };
   const openEdit = (qt: Quotation) => {
     setEditingId(qt.id);
     setCustomerName(qt.customerName);
-    setDiscount(qt.discount);
+    setDiscountPercent(qt.discountPercent);
     setExtra(qt.extraCharges);
     setPreviousBalance((qt as any).previousBalance ?? 0);
     setItems(qt.items.map((it) => ({ ...it })));
@@ -140,7 +154,7 @@ function QuotationsPage() {
           customerId: 0,
           customerName: customerName.trim(),
           date: list.find((x) => x.id === editingId)?.date || new Date().toISOString(),
-          items, subtotal, discount, extraCharges: extra, total, previousBalance, status: "draft", notes: "",
+          items, subtotal, discountPercent, extraCharges: extra, total, previousBalance, status: "draft", notes: "",
         });
         toast.success("Quotation updated");
       } else {
@@ -149,7 +163,7 @@ function QuotationsPage() {
           customerId: 0,
           customerName: customerName.trim(),
           date: new Date().toISOString(),
-          items, subtotal, discount, extraCharges: extra, total, previousBalance, status: "draft", notes: "",
+          items, subtotal, discountPercent, extraCharges: extra, total, previousBalance, status: "draft", notes: "",
         });
         toast.success("Quotation created");
       }
@@ -220,7 +234,7 @@ function QuotationsPage() {
                   <td className="text-muted-foreground">{dateShort(qt.date)}</td>
                   <td>{qt.items.length}</td>
                   <td className="tabular-nums whitespace-nowrap">{currency(qt.subtotal)}</td>
-                  <td className="text-center tabular-nums whitespace-nowrap">{qt.discount > 0 ? `${qt.discount}%` : "-"}</td>
+                  <td className="text-center tabular-nums whitespace-nowrap">{qt.discountPercent > 0 ? `${qt.discountPercent}%` : "-"}</td>
                   <td className="tabular-nums font-semibold whitespace-nowrap">{currency(qt.total)}</td>
                   <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[11px] border ${statusColor[qt.status]}`}>{statusLabel(qt.status)}</span></td>
                   <td>
@@ -295,7 +309,7 @@ function QuotationsPage() {
 
           <div className="px-6 pt-3 pb-1 space-y-3">
             {items.map((it, i) => {
-              const isWindow = it.itemType === "window";
+              const isWindow = it.itemType === "length";
               const s = it.sqft || 0;
               const sqftVal = s > 0 ? s : (it.width || 0) * (it.height || 0);
               const measTotal = isWindow ? it.length * (it.quantity || 1) : sqftVal * (it.quantity || 1);
@@ -305,26 +319,26 @@ function QuotationsPage() {
                     <div><Label className="text-[10px]">Product</Label><Input className={inputClass} type="text" value={it.productName} onChange={(e) => updateItem(i, { productName: e.target.value })} placeholder="Product name" /></div>
                     <div>
                       <Label className="text-[10px]">Type</Label>
-                      <Select value={it.itemType || "other"} onValueChange={(v) => updateItem(i, { itemType: v as "window" | "other" })}>
+                      <Select value={it.itemType || "window"} onValueChange={(v) => updateItem(i, { itemType: v as "length" | "window" })}>
                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="other">Other</SelectItem>
-                          <SelectItem value="window">Window</SelectItem>
+                          <SelectItem value="window">Other</SelectItem>
+                          <SelectItem value="length">Length-based</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     {isWindow ? (
-                      <div><Label className="text-[10px]">Length (ft)</Label><Input className={inputClass} type="number" value={it.length || ""} onChange={(e) => updateItem(i, { length: Number(e.target.value) })} /></div>
+                      <div><Label className="text-[10px]">Length (ft)</Label><Input className={inputClass} type="number" min="0" value={it.length || ""} onChange={(e) => updateItem(i, { length: Number(e.target.value) })} /></div>
                     ) : (
                       <>
-                        <div><Label className="text-[10px]">W</Label><Input className={inputClass} type="number" value={it.width || ""} onChange={(e) => updateItem(i, { width: Number(e.target.value) })} /></div>
-                        <div><Label className="text-[10px]">H</Label><Input className={inputClass} type="number" value={it.height || ""} onChange={(e) => updateItem(i, { height: Number(e.target.value) })} /></div>
-                        <div><Label className="text-[10px]">Sq Ft</Label><Input className={inputClass} type="number" value={it.sqft || ""} onChange={(e) => updateItem(i, { sqft: Number(e.target.value) })} /></div>
+                        <div><Label className="text-[10px]">W</Label><Input className={inputClass} type="number" min="0" value={it.width || ""} onChange={(e) => updateItem(i, { width: Number(e.target.value) })} /></div>
+                        <div><Label className="text-[10px]">H</Label><Input className={inputClass} type="number" min="0" value={it.height || ""} onChange={(e) => updateItem(i, { height: Number(e.target.value) })} /></div>
+                        <div><Label className="text-[10px]">Sq Ft</Label><Input className={inputClass} type="number" min="0" value={it.sqft || ""} onChange={(e) => updateItem(i, { sqft: Number(e.target.value) })} /></div>
                       </>
                     )}
                     <div><Label className="text-[10px]">Meas.</Label><div className="h-8 px-2 rounded border bg-muted/30 flex items-center text-sm font-semibold tabular-nums">{measTotal.toFixed(2)}</div></div>
-                    <div><Label className="text-[10px]">Qty</Label><Input className={inputClass} type="number" value={it.quantity || ""} onChange={(e) => updateItem(i, { quantity: Number(e.target.value) })} /></div>
-                    <div><Label className="text-[10px]">Rate</Label><Input className={inputClass} type="number" value={it.unitPrice || ""} onChange={(e) => updateItem(i, { unitPrice: Number(e.target.value) })} /></div>
+                    <div><Label className="text-[10px]">Qty</Label><Input className={inputClass} type="number" min="0" value={it.quantity || ""} onChange={(e) => updateItem(i, { quantity: Number(e.target.value) })} /></div>
+                    <div><Label className="text-[10px]">Rate</Label><Input className={inputClass} type="number" min="0" value={it.unitPrice || ""} onChange={(e) => updateItem(i, { unitPrice: Number(e.target.value) })} /></div>
                     <div><Label className="text-[10px]">Amount</Label><div className="h-8 px-2 rounded border bg-muted/30 flex items-center text-sm font-semibold tabular-nums">{currency(it.amount)}</div></div>
                     <Button type="button" variant="ghost" size="sm" className="h-8 px-1.5 text-destructive" onClick={() => removeItem(i)} disabled={items.length === 1} title="Remove item"><Trash2 className="size-3.5" /></Button>
                   </div>
@@ -341,7 +355,7 @@ function QuotationsPage() {
             <div className="px-6 pt-3 pb-4 flex justify-end">
             <div className="w-72 space-y-1">
               <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums font-medium">{currency(subtotal)}</span></div>
-              {discount > 0 && <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Discount ({discount}%)</span><span className="tabular-nums text-destructive">− {currency(discountAmount)}</span></div>}
+              {discountPercent > 0 && <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Discount ({discountPercent}%)</span><span className="tabular-nums text-destructive">− {currency(discountAmount)}</span></div>}
               <div className="flex justify-between items-center py-1.5 text-sm font-bold border-t border-border pt-1.5"><span>Order Total</span><span className="tabular-nums">{currency(total)}</span></div>
               {extra > 0 && <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Extra Charges</span><span className="tabular-nums font-medium">{currency(extra)}</span></div>}
               {previousBalance > 0 && <>
@@ -351,9 +365,9 @@ function QuotationsPage() {
               <Separator />
               <div className="flex justify-between items-center py-2"><span className="text-base font-bold text-rose-600">Grand Total</span><span className="text-lg font-bold tabular-nums text-rose-600">{currency(total + extra + previousBalance)}</span></div>
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
-                <div><Label className="text-[10px] text-muted-foreground">Discount %</Label><Input type="number" min="0" max="100" value={discount || ""} onChange={(e) => setDiscount(Number(e.target.value))} className="h-7 text-xs" /></div>
-                <div><Label className="text-[10px] text-muted-foreground">Extra charges</Label><Input type="number" value={extra || ""} onChange={(e) => setExtra(Number(e.target.value))} className="h-7 text-xs" /></div>
-                <div className="col-span-2"><Label className="text-[10px] text-muted-foreground">Previous Balance</Label><Input type="number" value={previousBalance || ""} onChange={(e) => setPreviousBalance(Number(e.target.value))} className="h-7 text-xs" placeholder="0" /></div>
+                <div><Label className="text-[10px] text-muted-foreground">Discount %</Label><Input type="number" min="0" max="100" value={discountPercent || ""} onChange={(e) => setDiscountPercent(Number(e.target.value))} className="h-7 text-xs" /></div>
+                <div><Label className="text-[10px] text-muted-foreground">Extra charges</Label><Input type="number" min="0" value={extra || ""} onChange={(e) => setExtra(Number(e.target.value))} className="h-7 text-xs" /></div>
+                <div className="col-span-2"><Label className="text-[10px] text-muted-foreground">Previous Balance</Label><Input type="number" min="0" value={previousBalance || ""} onChange={(e) => setPreviousBalance(Number(e.target.value))} className="h-7 text-xs" placeholder="0" /></div>
               </div>
             </div>
           </div>

@@ -110,7 +110,7 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
   // --- ITEMS TABLE ---
   const thead = [["#", "Product", "Description", "Type", "Measurement", "Qty", "Rate", "Amount"]];
   const tbody = data.items.map((item, i) => {
-    const isWindow = (item as any).itemType === "window";
+    const isWindow = (item as any).itemType === "length";
     const measurement = isWindow
       ? `${(item as any).length || 0} ft`
       : (item.sqft && item.sqft > 0) ? `${item.sqft} sqft` : (item.width && item.height ? `${item.width}x${item.height} = ${(item.width * item.height).toFixed(2)} sqft` : "-");
@@ -171,7 +171,7 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
 
   // --- TOTALS SECTION (right-aligned box) ---
   const totalMeasurement = data.items.reduce((sum, item) => {
-    const isWindow = (item as any).itemType === "window";
+    const isWindow = (item as any).itemType === "length";
     if (isWindow) {
       return sum + ((item as any).length || 0) * item.quantity;
     }
@@ -179,13 +179,13 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
     return sum + area * item.quantity;
   }, 0);
 
-  const discountAmount = data.subtotal * data.discount / 100;
+  const discountAmount = data.subtotal * data.discountPercent / 100;
 
   const hasPrevious = (data as any).previousBalance > 0;
   const totalsRows: Array<[string, string]> = [
     ["Total Measurement", totalMeasurement.toFixed(2)],
-    ...(data.discount > 0 || data.extraCharges > 0 ? [["Subtotal", currency(data.subtotal)]] as [string, string][] : []),
-    ...(data.discount > 0 ? [["Discount (" + data.discount + "%)", "- " + currency(discountAmount)]] as [string, string][] : []),
+    ...(data.discountPercent > 0 || data.extraCharges > 0 ? [["Subtotal", currency(data.subtotal)]] as [string, string][] : []),
+    ...(data.discountPercent > 0 ? [["Discount (" + data.discountPercent + "%)", "- " + currency(discountAmount)]] as [string, string][] : []),
     ["Order Total", currency(data.total)],
     ...(data.extraCharges > 0 ? [["Extra Charges", currency(data.extraCharges)]] as [string, string][] : []),
     ...(!hasPrevious && data.extraCharges > 0 ? [["Total", currency(data.total + data.extraCharges)]] as [string, string][] : []),

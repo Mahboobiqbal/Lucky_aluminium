@@ -51,8 +51,8 @@ async def _consumed_units(db: AsyncSession, product_name: str, item_type: str, w
     result = await db.execute(select(InventoryItem).where(InventoryItem.name == product_name))
     inv_item = result.scalar_one_or_none()
     if inv_item and inv_item.pricing_mode == "size":
-        item_type = item_type or inv_item.item_type or "other"
-        if item_type == "window":
+        item_type = item_type or inv_item.item_type or "window"
+        if item_type == "length":
             dim = length or inv_item.length or 0
             return dim * quantity if dim else quantity
         else:
@@ -69,7 +69,7 @@ async def _check_stock(db: AsyncSession, items: list) -> list:
         product_name = item.productName if hasattr(item, 'productName') else item.product_name
         if not product_name:
             continue
-        result = await db.execute(select(InventoryItem).where(InventoryItem.name == product_name))
+        result = await db.execute(select(InventoryItem).where(InventoryItem.name == product_name).with_for_update())
         inv_item = result.scalar_one_or_none()
         if not inv_item:
             continue
@@ -103,6 +103,7 @@ def _to_response(o: Order) -> dict:
         "deliveryDate": o.delivery_date,
         "subtotal": float(o.subtotal),
         "discountPercent": float(o.discount_percent),
+        "extraCharges": float(o.extra_charges),
         "total": float(o.total),
         "paid": float(o.paid),
         "previousBalance": float(o.previous_balance),
@@ -193,6 +194,14 @@ async def get_order(order_id: int, db: AsyncSession = Depends(get_db), _user=Dep
 @router.post("")
 async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("orders", "create"))):
     try:
+        if not body.items:
+            raise HTTPException(status_code=400, detail="Order must have at least one item")
+
+        if body.customerId:
+            cust_result = await db.execute(select(Customer).where(Customer.id == body.customerId))
+            if not cust_result.scalar_one_or_none():
+                raise HTTPException(status_code=400, detail="Customer not found")
+
         # Check stock availability before creating order
         stock_errors = await _check_stock(db, body.items)
         if stock_errors:
@@ -216,7 +225,7 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
         for item in body.items:
             product = product_cache.get(item.productName)
             server_price = float(product.base_price) if product else float(item.unitPrice)
-            item_type = item.itemType or "other"
+            item_type = item.itemType or "window"
             qty = item.quantity
             w = float(item.width or 0)
             h = float(item.height or 0)
@@ -227,7 +236,7 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
             pricing_mode = inv_item.pricing_mode if inv_item else "piece"
 
             if pricing_mode == "size":
-                if item_type == "window" and l > 0:
+                if item_type == "length" and l > 0:
                     amount = l * qty * server_price
                 elif w > 0 and h > 0:
                     amount = w * h * qty * server_price
@@ -252,7 +261,8 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
 
         subtotal = round(sum(ci["amount"] for ci in calculated_items), 2)
         discount_pct = max(0, min(float(body.discountPercent or 0), 100))
-        total = round(subtotal - (subtotal * discount_pct / 100), 2)
+        extra = max(0, float(getattr(body, 'extraCharges', 0) or 0))
+        total = round(subtotal - (subtotal * discount_pct / 100) + extra, 2)
 
         if body.status and body.status not in VALID_ORDER_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}. Allowed: {', '.join(VALID_ORDER_STATUSES)}")
@@ -270,6 +280,7 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
             delivery_date=naive(body.deliveryDate),
             subtotal=subtotal,
             discount_percent=discount_pct,
+            extra_charges=extra,
             total=total,
             paid=paid_val,
             previous_balance=prev_bal,
@@ -328,6 +339,14 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
 
     old_previous = float(order.previous_balance or 0)
 
+    if body.status and body.status not in VALID_ORDER_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}. Allowed: {', '.join(VALID_ORDER_STATUSES)}")
+
+    if body.customerId:
+        cust_result = await db.execute(select(Customer).where(Customer.id == body.customerId))
+        if not cust_result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Customer not found")
+
     try:
         # Get old items to calculate net stock change
         old_items_result = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
@@ -347,7 +366,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         errors = []
         for product_name, delta in stock_changes.items():
             if delta < 0:  # Only check if we're deducting more than returning
-                result = await db.execute(select(InventoryItem).where(InventoryItem.name == product_name))
+                result = await db.execute(select(InventoryItem).where(InventoryItem.name == product_name).with_for_update())
                 inv_item = result.scalar_one_or_none()
                 if inv_item:
                     available = float(inv_item.current_stock or 0)
@@ -387,7 +406,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         for item in body.items:
             product = product_cache.get(item.productName)
             server_price = float(product.base_price) if product else float(item.unitPrice)
-            item_type = item.itemType or "other"
+            item_type = item.itemType or "window"
             qty = item.quantity
             w = float(item.width or 0)
             h = float(item.height or 0)
@@ -398,7 +417,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
             pricing_mode = inv_item.pricing_mode if inv_item else "piece"
 
             if pricing_mode == "size":
-                if item_type == "window" and l > 0:
+                if item_type == "length" and l > 0:
                     amount = l * qty * server_price
                 elif w > 0 and h > 0:
                     amount = w * h * qty * server_price
@@ -423,7 +442,8 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
 
         subtotal = round(sum(ci["amount"] for ci in calculated_items), 2)
         discount_pct = max(0, min(float(body.discountPercent or 0), 100))
-        total = round(subtotal - (subtotal * discount_pct / 100), 2)
+        extra = max(0, float(getattr(body, 'extraCharges', 0) or 0))
+        total = round(subtotal - (subtotal * discount_pct / 100) + extra, 2)
 
         order.number = body.number
         order.customer_id = body.customerId
@@ -433,6 +453,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         order.delivery_date = naive(body.deliveryDate)
         order.subtotal = subtotal
         order.discount_percent = discount_pct
+        order.extra_charges = extra
         order.total = total
         new_paid = float(body.paid or 0)
         order.paid = new_paid
@@ -446,14 +467,10 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         # Roll the delta into the customer's running previous_balance (handle customer change too)
         if order.customer_id:
             if body.customerId and body.customerId != order.customer_id:
-                # Customer changed: subtract old from old customer, add new to new customer
                 await _adjust_customer_previous_balance(db, order.customer_id, -old_previous)
                 await _adjust_customer_previous_balance(db, body.customerId, new_previous)
             else:
                 await _adjust_customer_previous_balance(db, order.customer_id, new_previous - old_previous)
-
-        if body.status and body.status not in VALID_ORDER_STATUSES:
-            raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}. Allowed: {', '.join(VALID_ORDER_STATUSES)}")
 
         order_items = []
         for ci in calculated_items:

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 class OrderItemBase(BaseModel):
     productId: int | None = None
     productName: str
-    itemType: str = "other"
+    itemType: str = "window"
     width: float = 0
     height: float = 0
     length: float = 0
@@ -57,6 +57,7 @@ class OrderBase(BaseModel):
     deliveryDate: datetime | None = None
     subtotal: float = 0
     discountPercent: float = 0
+    extraCharges: float = 0
     total: float = 0
     paid: float = 0
     previousBalance: float = 0

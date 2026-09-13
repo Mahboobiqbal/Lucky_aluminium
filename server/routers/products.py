@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -19,15 +19,12 @@ def _to_response(p: Product) -> dict:
         "code": p.code,
         "name": p.name,
         "category": p.category,
-        "openingType": p.opening_type,
-        "profileSeries": p.profile_series,
-        "glassType": p.glass_type,
-        "glassThickness": p.glass_thickness,
-        "frameColor": p.frame_color,
-        "handleType": p.handle_type,
-        "lockType": p.lock_type,
+        "color": p.color,
+        "size": p.size,
+        "gaze": p.gaze,
         "unit": p.unit,
         "basePrice": float(p.base_price),
+        "extraCharges": float(p.extra_charges),
         "description": p.description,
         "active": p.active,
         "createdAt": p.created_at,
@@ -51,12 +48,14 @@ async def get_product(product_id: int, db: AsyncSession = Depends(get_db), _user
 
 @router.post("")
 async def create_product(body: ProductCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("products", "create"))):
+    existing = await db.execute(select(Product).where(func.lower(Product.name) == body.name.strip().lower()))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Product with this name already exists")
+
     product = Product(
         code=body.code, name=body.name, category=body.category,
-        opening_type=body.openingType, profile_series=body.profileSeries,
-        glass_type=body.glassType, glass_thickness=body.glassThickness,
-        frame_color=body.frameColor, handle_type=body.handleType,
-        lock_type=body.lockType, unit=body.unit, base_price=body.basePrice,
+        color=body.color, size=body.size, gaze=body.gaze,
+        unit=body.unit, base_price=body.basePrice, extra_charges=body.extraCharges,
         description=body.description, active=body.active,
         created_at=datetime.utcnow(),
     )
@@ -73,18 +72,20 @@ async def update_product(product_id: int, body: ProductUpdate, db: AsyncSession 
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    if body.name and body.name.strip().lower() != (product.name or "").strip().lower():
+        existing = await db.execute(select(Product).where(func.lower(Product.name) == body.name.strip().lower(), Product.id != product_id))
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Product with this name already exists")
+
     product.code = body.code
     product.name = body.name
     product.category = body.category
-    product.opening_type = body.openingType
-    product.profile_series = body.profileSeries
-    product.glass_type = body.glassType
-    product.glass_thickness = body.glassThickness
-    product.frame_color = body.frameColor
-    product.handle_type = body.handleType
-    product.lock_type = body.lockType
+    product.color = body.color
+    product.size = body.size
+    product.gaze = body.gaze
     product.unit = body.unit
     product.base_price = body.basePrice
+    product.extra_charges = body.extraCharges
     product.description = body.description
     product.active = body.active
 

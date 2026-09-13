@@ -68,8 +68,8 @@ function SettingsPage() {
         } else {
           setPhones([{ label: "", number: map.phone || "" }]);
         }
-      } catch { setPhones([{ label: "", number: map.phone || "" }]); }
-    } catch {}
+      } catch { setPhones([{ label: "", number: map.phone || "" }]);       }
+    } catch { toast.error("Failed to load settings"); }
   }, []);
 
   useEffect(() => { fetchSettings(); }, [fetchSettings]);

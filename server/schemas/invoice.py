@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class InvoiceItemBase(BaseModel):
     productName: str
-    itemType: str = "other"
+    itemType: str = "window"
     width: float = 0
     height: float = 0
     length: float = 0

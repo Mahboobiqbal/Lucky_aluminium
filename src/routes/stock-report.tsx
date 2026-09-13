@@ -31,7 +31,7 @@ type InventoryItem = {
 };
 
 const empty: Omit<InventoryItem, "id" | "createdAt"> = {
-  name: "", category: "", unit: "pcs", itemType: "other", pricingMode: "piece",
+  name: "", category: "", unit: "pcs", itemType: "window", pricingMode: "piece",
   currentStock: 0, minStock: 0, costPrice: 0, supplier: "", widthFt: 0, heightFt: 0, length: 0, stockQty: 0,
 };
 
@@ -54,7 +54,7 @@ function StockReportPage() {
     try {
       const data = await api.safeGet<InventoryItem[]>("/api/inventory");
       setList(data || []);
-    } catch {} finally { setLoading(false); }
+    } catch { toast.error("Failed to load stock data"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -69,7 +69,7 @@ function StockReportPage() {
       const q = search.toLowerCase();
       if (q && ![item.name, item.category, item.supplier ?? ""].some((v) => v.toLowerCase().includes(q))) return false;
       if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
-      if (typeFilter !== "all" && (item.itemType || "other") !== typeFilter) return false;
+      if (typeFilter !== "all" && (item.itemType || "window") !== typeFilter) return false;
       if (statusFilter === "low" && item.currentStock >= item.minStock) return false;
       if (statusFilter === "out" && item.currentStock > 0) return false;
       if (statusFilter === "ok" && item.currentStock < item.minStock) return false;
@@ -84,7 +84,7 @@ function StockReportPage() {
   const totalUnits = list.reduce((s, i) => s + (i.stockQty ?? 0), 0);
 
   const unitOf = (item: InventoryItem) => {
-    if ((item.pricingMode || "piece") === "size") return (item.itemType || "other") === "window" ? "ft" : "sqft";
+    if ((item.pricingMode || "piece") === "size") return (item.itemType || "window") === "length" ? "ft" : "sqft";
     return "pcs";
   };
 
@@ -117,7 +117,7 @@ function StockReportPage() {
     setEditingId(item.id);
     setForm({
       name: item.name, category: item.category, unit: item.unit,
-      itemType: (item.itemType || "other") as "window" | "other",
+      itemType: (item.itemType || "window") as "length" | "window",
       pricingMode: (item.pricingMode || "piece") as "piece" | "size",
       currentStock: item.currentStock, minStock: item.minStock, costPrice: item.costPrice,
       supplier: item.supplier || "", widthFt: item.widthFt ?? 0, heightFt: item.heightFt ?? 0,
@@ -159,8 +159,8 @@ function StockReportPage() {
                 <SelectTrigger className="h-9 w-36 rounded-lg"><SelectValue placeholder="Type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="length">Length-based</SelectItem>
                   <SelectItem value="window">Window</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -199,7 +199,7 @@ function StockReportPage() {
                   const low = item.currentStock > 0 && item.currentStock < item.minStock;
                   const out = item.currentStock === 0;
                   const value = item.currentStock * item.costPrice;
-                  const isWindow = (item.itemType || "other") === "window";
+                  const isWindow = (item.itemType || "window") === "length";
                   const dimension = isWindow
                     ? `${item.length || 0} ft`
                     : (item.widthFt || item.heightFt) ? `${item.widthFt ?? 0} × ${item.heightFt ?? 0} ft` : "-";
@@ -207,12 +207,12 @@ function StockReportPage() {
                     <tr key={item.id} className={`${out ? "bg-rose-500/5" : low ? "bg-amber-500/5" : ""} hover:bg-muted/30 transition-colors`}>
                       <td className="text-center text-muted-foreground">{idx + 1}</td>
                       <td className="font-medium">{item.name}</td>
-                      <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${isWindow ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30" : "bg-muted/50 text-muted-foreground border-border"}`}>{isWindow ? "Window" : "Other"}</span></td>
+                      <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${isWindow ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30" : "bg-muted/50 text-muted-foreground border-border"}`}>{isWindow ? "Length-based" : "Window"}</span></td>
                       <td>{item.category || "-"}</td>
                       <td className="text-muted-foreground">{item.supplier || "-"}</td>
                       <td className="tabular-nums text-muted-foreground">{dimension}</td>
                       <td className="tabular-nums text-muted-foreground">{item.stockQty ?? 0}</td>
-                      <td className={`tabular-nums ${low ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}`}>{currentStock} <span className="text-[10px] text-muted-foreground">{unitOf(item)}</span></td>
+                      <td className={`tabular-nums ${low ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}`}>{item.currentStock} <span className="text-[10px] text-muted-foreground">{unitOf(item)}</span></td>
                       <td className="tabular-nums text-muted-foreground">{item.minStock}</td>
                       <td className="tabular-nums">{currency(item.costPrice)}<span className="text-[10px] text-muted-foreground">/{unitOf(item)}</span></td>
                       <td className="tabular-nums font-medium">{currency(value)}</td>
@@ -273,12 +273,12 @@ function StockReportPage() {
             </DialogHeader>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <InfoRow label="Type" value={(viewItem.itemType || "other") === "window" ? "Window" : "Other"} />
+                <InfoRow label="Type" value={(viewItem.itemType || "window") === "length" ? "Length-based" : "Window"} />
                 <InfoRow label="Category" value={viewItem.category || "—"} />
                 <InfoRow label="Supplier" value={viewItem.supplier || "—"} />
                 <InfoRow label="Unit" value={viewItem.unit} />
                 <InfoRow label="Dimension" value={
-                  (viewItem.itemType || "other") === "window"
+                  (viewItem.itemType || "window") === "length"
                     ? `${viewItem.length || 0} ft`
                     : (viewItem.widthFt || viewItem.heightFt) ? `${viewItem.widthFt ?? 0} × ${viewItem.heightFt ?? 0} ft` : "—"
                 } />
@@ -329,11 +329,11 @@ function StockReportPage() {
             <div><Label className="text-xs">Unit</Label><Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="h-8" /></div>
             <div>
               <Label className="text-xs">Type</Label>
-              <Select value={form.itemType || "other"} onValueChange={(v) => setForm({ ...form, itemType: v as "window" | "other" })}>
+              <Select value={form.itemType || "window"} onValueChange={(v) => setForm({ ...form, itemType: v as "length" | "window" })}>
                 <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="other">Other</SelectItem>
                   <SelectItem value="window">Window</SelectItem>
+                  <SelectItem value="length">Length-based</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -348,7 +348,7 @@ function StockReportPage() {
               </Select>
             </div>
             <div><Label className="text-xs">Supplier</Label><Input value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} className="h-8" /></div>
-            {form.itemType === "window" ? (
+            {form.itemType === "length" ? (
               <div><Label className="text-xs">Length (ft)</Label><Input type="number" value={form.length || ""} onChange={(e) => setForm({ ...form, length: Number(e.target.value) })} className="h-8" /></div>
             ) : (
               <>
@@ -359,7 +359,7 @@ function StockReportPage() {
             <div><Label className="text-xs">Qty</Label><Input type="number" value={form.stockQty || ""} onChange={(e) => setForm({ ...form, stockQty: Number(e.target.value) })} className="h-8" /></div>
             <div><Label className="text-xs">Current stock</Label><Input type="number" value={form.currentStock || ""} onChange={(e) => setForm({ ...form, currentStock: Number(e.target.value) })} className="h-8" /></div>
             <div><Label className="text-xs">Minimum stock</Label><Input type="number" value={form.minStock || ""} onChange={(e) => setForm({ ...form, minStock: Number(e.target.value) })} className="h-8" /></div>
-            <div className="col-span-2"><Label className="text-xs">Cost price {form.pricingMode === "size" ? (form.itemType === "window" ? "per ft" : "per sqft") : "per pc"}</Label><Input type="number" value={form.costPrice || ""} onChange={(e) => setForm({ ...form, costPrice: Number(e.target.value) })} className="h-8" /></div>
+            <div className="col-span-2"><Label className="text-xs">Cost price {form.pricingMode === "size" ? (form.itemType === "length" ? "per ft" : "per sqft") : "per pc"}</Label><Input type="number" value={form.costPrice || ""} onChange={(e) => setForm({ ...form, costPrice: Number(e.target.value) })} className="h-8" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>

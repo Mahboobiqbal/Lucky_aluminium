@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 class QuotationItemBase(BaseModel):
     productId: int | None = None
     productName: str
-    itemType: str = "other"
+    itemType: str = "window"
     width: float = 0
     height: float = 0
     length: float = 0
@@ -54,7 +54,7 @@ class QuotationBase(BaseModel):
     customerName: str
     date: datetime
     subtotal: float = 0
-    discount: float = 0
+    discountPercent: float = 0
     extraCharges: float = 0
     total: float = 0
     previousBalance: float = 0
@@ -68,11 +68,11 @@ class QuotationBase(BaseModel):
             raise ValueError("Subtotal cannot be negative")
         return float(v)
 
-    @field_validator("discount", mode="before")
+    @field_validator("discountPercent", mode="before")
     @classmethod
-    def discount_non_negative(cls, v):
-        if float(v) < 0:
-            raise ValueError("Discount cannot be negative")
+    def discount_percent_valid(cls, v):
+        if float(v) < 0 or float(v) > 100:
+            raise ValueError("Discount must be between 0 and 100")
         return float(v)
 
     @field_validator("extraCharges", mode="before")

@@ -7,15 +7,12 @@ class ProductBase(BaseModel):
     code: str
     name: str
     category: str
-    openingType: str | None = None
-    profileSeries: str | None = None
-    glassType: str | None = None
-    glassThickness: str | None = None
-    frameColor: str | None = None
-    handleType: str | None = None
-    lockType: str | None = None
+    color: str | None = None
+    size: str | None = None
+    gaze: str | None = None
     unit: str
     basePrice: float = 0
+    extraCharges: float = 0
     description: str | None = None
     active: bool = True
 

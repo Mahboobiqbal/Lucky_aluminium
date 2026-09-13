@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class PurchaseItemBase(BaseModel):
     productName: str
-    itemType: str = "other"
+    itemType: str = "window"
     pricingMode: str = "piece"
     widthFt: float = 0
     heightFt: float = 0
@@ -32,6 +32,8 @@ class PurchaseItemBase(BaseModel):
     @field_validator("salePrice", mode="before")
     @classmethod
     def salePrice_non_negative(cls, v):
+        if v is None or v == "":
+            return 0
         if float(v) < 0:
             raise ValueError("Sale price cannot be negative")
         return float(v)

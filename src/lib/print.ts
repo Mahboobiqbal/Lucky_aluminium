@@ -267,7 +267,7 @@ export function printInvoice(order: Order, company?: CompanyProfile) {
           ${order.items
             .map(
               (item) => {
-                const isWindow = item.itemType === "window";
+                const isWindow = item.itemType === "length";
                 const dims = isWindow ? `${item.length} ft` : `${item.width} × ${item.height} = ${(item.width * item.height).toFixed(2)} sq ft`;
                 return `<tr><td>${esc(item.productName)}</td><td>${esc(item.notes || "")}</td><td>${esc(dims)}</td><td class="right">${esc(item.quantity)}</td><td class="right">${esc(currency(item.unitPrice))}</td><td class="right">${esc(currency(item.amount))}</td></tr>`;
               }

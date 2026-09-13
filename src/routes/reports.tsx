@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { BarChart3, Download } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell, PageContainer } from "@/components/layout/AppShell";
 import { TableShell } from "@/components/layout/TableShell";
 import { EmptyState } from "@/components/layout/EmptyState";
@@ -48,7 +49,7 @@ function ReportsPage() {
         api.safeGet<InventoryItem[]>("/api/inventory"),
       ]);
       setOrders(o || []); setCustomers(cs || []); setExpenses(e || []); setSettings(s || []); setInventory(inv || []);
-    } catch {} finally { setLoading(false); }
+    } catch { toast.error("Failed to load report data"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);

@@ -89,8 +89,8 @@ async def create_user(body: UserCreate, db: AsyncSession = Depends(get_db), _use
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Username already exists")
 
-    if len(body.password) < 4:
-        raise HTTPException(status_code=400, detail="Password must be at least 4 characters")
+    if len(body.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
     # Force role to "manager" — never trust frontend-supplied role for admin
     user = User(

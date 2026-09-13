@@ -19,13 +19,9 @@ export interface Product {
   code: string;
   name: string;
   category: string;
-  openingType?: string;
-  profileSeries?: string;
-  glassType?: string;
-  glassThickness?: string;
-  frameColor?: string;
-  handleType?: string;
-  lockType?: string;
+  color?: string;
+  size?: string;
+  gaze?: string;
   unit: string;
   basePrice: number;
   description?: string;
@@ -36,7 +32,7 @@ export interface Product {
 export interface QuotationItem {
   productId?: number;
   productName: string;
-  itemType?: "window" | "other";
+  itemType?: "length" | "window";
   width: number;
   height: number;
   length?: number;
@@ -55,7 +51,7 @@ export interface Quotation {
   date: number;
   items: QuotationItem[];
   subtotal: number;
-  discount: number;
+  discountPercent: number;
   extraCharges: number;
   total: number;
   previousBalance?: number;
@@ -92,7 +88,7 @@ export interface Invoice {
   date: number;
   items: QuotationItem[];
   subtotal: number;
-  discount: number;
+  discountPercent: number;
   extraCharges: number;
   total: number;
   paid: number;

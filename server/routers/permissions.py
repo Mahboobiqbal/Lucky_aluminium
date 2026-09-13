@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models.user import User, UserPermission
+from schemas.user import UserPermissionBase
 from utils.deps import get_current_user, require_role
 
 router = APIRouter(prefix="/api/permissions", tags=["permissions"])
@@ -44,7 +45,7 @@ async def get_user_permissions(
 @router.put("/user/{user_id}")
 async def update_user_permissions(
     user_id: int,
-    permissions: list[dict],
+    permissions: list[UserPermissionBase],
     db: AsyncSession = Depends(get_db),
     _user=Depends(require_role("admin")),
 ):
@@ -60,13 +61,13 @@ async def update_user_permissions(
     for perm in permissions:
         db.add(UserPermission(
             user_id=user_id,
-            module_key=perm.get("moduleKey", ""),
-            can_view=perm.get("canView", True),
-            can_create=perm.get("canCreate", True),
-            can_edit=perm.get("canEdit", True),
-            can_delete=perm.get("canDelete", True),
-            can_print=perm.get("canPrint", True),
-            can_export=perm.get("canExport", True),
+            module_key=perm.moduleKey,
+            can_view=perm.canView,
+            can_create=perm.canCreate,
+            can_edit=perm.canEdit,
+            can_delete=perm.canDelete,
+            can_print=perm.canPrint,
+            can_export=perm.canExport,
         ))
 
     await db.commit()

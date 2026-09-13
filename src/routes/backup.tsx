@@ -42,7 +42,7 @@ function BackupPage() {
     try {
       const data = await api.safeGet<BackupRecord[]>("/api/backup/snapshots");
       setBackups(data || []);
-    } catch {} finally { setLoading(false); }
+    } catch { toast.error("Failed to load backups"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -78,7 +78,7 @@ function BackupPage() {
         }
       }
       fetchData();
-    } catch { /* silent */ }
+    } catch { toast.error("Auto-backup failed"); }
   }, [fetchData, doExport]);
 
   useEffect(() => {

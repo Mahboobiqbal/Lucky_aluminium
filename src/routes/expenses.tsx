@@ -41,7 +41,7 @@ function ExpensesPage() {
     try {
       const data = await api.safeGet<Expense[]>("/api/expenses");
       setList(data || []);
-    } catch {} finally {
+    } catch { toast.error("Failed to load expenses"); } finally {
       setLoading(false);
     }
   }, []);
@@ -143,7 +143,7 @@ function ExpensesPage() {
                 {lines.map((line, index) => (
                   <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 p-3 items-end">
                     <div><Label className="text-xs">Description</Label><Input value={line.description} onChange={(e) => { const next = [...lines]; next[index] = { ...next[index], description: e.target.value }; setLines(next); }} className="h-8" placeholder="What is this for?" /></div>
-                    <div><Label className="text-xs">Amount</Label><Input type="number" value={line.amount || ""} onChange={(e) => { const next = [...lines]; next[index] = { ...next[index], amount: Number(e.target.value) }; setLines(next); }} className="h-8 w-28" placeholder="0" /></div>
+                    <div><Label className="text-xs">Amount</Label><Input type="number" min="0" value={line.amount || ""} onChange={(e) => { const next = [...lines]; next[index] = { ...next[index], amount: Number(e.target.value) }; setLines(next); }} className="h-8 w-28" placeholder="0" /></div>
                     <Button variant="ghost" size="sm" className="h-8 px-2 text-destructive" onClick={() => setLines(lines.filter((_, i) => i !== index))} disabled={lines.length === 1}><Trash2 className="size-3.5" /></Button>
                   </div>
                 ))}

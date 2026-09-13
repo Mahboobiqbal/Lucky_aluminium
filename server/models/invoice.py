@@ -31,7 +31,7 @@ class InvoiceItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"))
     product_name: Mapped[str] = mapped_column(String(200))
-    item_type: Mapped[str] = mapped_column(String(20), default="other")
+    item_type: Mapped[str] = mapped_column(String(20), default="window")
     width: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
     height: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
     length: Mapped[float] = mapped_column(Numeric(10, 2), default=0)

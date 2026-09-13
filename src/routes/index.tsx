@@ -88,31 +88,31 @@ function Dashboard() {
         api.safeGet<any[]>("/api/customers"), api.safeGet<Order[]>("/api/orders"),
         api.safeGet<Expense[]>("/api/expenses"), api.safeGet<InventoryItem[]>("/api/inventory"),
       ]);
-      setCustomerCount(custs?.length || 0);
-      setCustomers((custs as Customer[]) || []);
-      setOrders(ords || []);
-      setExpenses(exps || []);
-      setInventory(inv || []);
-    } catch {} finally { setLoading(false); }
+      setCustomerCount(Array.isArray(custs) ? custs.length : 0);
+      setCustomers(Array.isArray(custs) ? (custs as Customer[]) : []);
+      setOrders(Array.isArray(ords) ? ords : []);
+      setExpenses(Array.isArray(exps) ? exps : []);
+      setInventory(Array.isArray(inv) ? inv : []);
+    } catch { toast.error("Failed to load dashboard data"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const totalSales = orders.reduce((s, o) => s + o.total, 0);
+  const totalSales = (Array.isArray(orders) ? orders : []).reduce((s, o) => s + (o.total || 0), 0);
   // Pending payments = sum of per-order balance + sum of customer-level previous balance.
-  const customerPrevTotal = customers.reduce((s, c) => s + Number(c.previousBalance ?? 0), 0);
-  const pendingPayments = orders.reduce((s, o) => s + Math.max(0, o.total - o.paid), 0) + customerPrevTotal;
-  const byStatus = orders.reduce<Record<string, number>>((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {});
-  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const customerPrevTotal = (Array.isArray(customers) ? customers : []).reduce((s, c) => s + Number(c.previousBalance ?? 0), 0);
+  const pendingPayments = (Array.isArray(orders) ? orders : []).reduce((s, o) => s + Math.max(0, (o.total || 0) - (o.paid || 0)), 0) + customerPrevTotal;
+  const byStatus = (Array.isArray(orders) ? orders : []).reduce<Record<string, number>>((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {});
+  const totalExpenses = (Array.isArray(expenses) ? expenses : []).reduce((s, e) => s + (e.amount || 0), 0);
   const today = new Date().toDateString();
-  const dailyExpenses = expenses.filter((e) => new Date(e.date).toDateString() === today).reduce((s, e) => s + e.amount, 0);
-  const lowStock = inventory.filter((i) => i.currentStock > 0 && i.currentStock < 10);
+  const dailyExpenses = (Array.isArray(expenses) ? expenses : []).filter((e) => new Date(e.date).toDateString() === today).reduce((s, e) => s + (e.amount || 0), 0);
+  const lowStock = (Array.isArray(inventory) ? inventory : []).filter((i) => i.currentStock > 0 && i.currentStock < 10);
 
   const monthly = Array.from({ length: 6 }).map((_, i) => {
     const d = new Date(); d.setMonth(d.getMonth() - (5 - i));
     const label = d.toLocaleString("en-IN", { month: "short" });
-    const rev = orders.filter((o) => new Date(o.orderDate).getMonth() === d.getMonth() && new Date(o.orderDate).getFullYear() === d.getFullYear()).reduce((s, o) => s + o.total, 0);
-    const exp = expenses.filter((e) => new Date(e.date).getMonth() === d.getMonth() && new Date(e.date).getFullYear() === d.getFullYear()).reduce((s, e) => s + e.amount, 0);
+    const rev = (Array.isArray(orders) ? orders : []).filter((o) => new Date(o.orderDate).getMonth() === d.getMonth() && new Date(o.orderDate).getFullYear() === d.getFullYear()).reduce((s, o) => s + (o.total || 0), 0);
+    const exp = (Array.isArray(expenses) ? expenses : []).filter((e) => new Date(e.date).getMonth() === d.getMonth() && new Date(e.date).getFullYear() === d.getFullYear()).reduce((s, e) => s + (e.amount || 0), 0);
     return { label, revenue: rev, expenses: exp };
   });
 
@@ -167,10 +167,8 @@ function Dashboard() {
             <StatCard icon={Users} label="Customers" value={String(customerCount)} tone="primary" onClick={() => navigate({ to: "/customers" })} subtitle={`${orders.length} total orders`} />
             <StatCard icon={ClipboardList} label="Total Orders" value={String(orders.length)} tone="violet" onClick={() => navigate({ to: "/orders" })} subtitle={`${byStatus["pending"] || 0} pending`} />
             <StatCard icon={Wallet} label="Total Revenue" value={currency(totalSales)} tone="emerald" subtitle={`${currency(totalExpenses)} expenses`} />
-            <StatCard icon={CreditCard} label="Pending Payments" value={currency(pendingPayments)} tone="rose" onClick={() => navigate({ to: "/payments" })} subtitle={`${orders.filter((o) => o.paid < o.total && o.total > 0).length} orders`} />
-          </div>
-
             <StatCard icon={CreditCard} label="Pending Payments" value={currency(pendingPayments)} tone="rose" onClick={() => navigate({ to: "/payments" })} subtitle={`${orders.filter((o) => o.paid < o.total && o.total > 0).length} orders · prev. balance ${currency(customerPrevTotal)}`} />
+          </div>
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
             <div className="space-y-5">
               {/* Revenue vs Expenses chart */}

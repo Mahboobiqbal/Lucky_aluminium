@@ -41,7 +41,7 @@ function InvoicesPage() {
     try {
       const [o, c, s] = await Promise.all([api.safeGet<Order[]>("/api/orders"), api.safeGet<Customer[]>("/api/customers"), api.safeGet<Setting[]>("/api/settings")]);
       setOrders(o || []); setCustomers(c || []); setSettings(s || []);
-    } catch {} finally { setLoading(false); }
+    } catch { toast.error("Failed to load data"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -141,12 +141,12 @@ function InvoicesPage() {
                     </thead>
                     <tbody>
                       {selectedOrder.items.map((it: any, i: number) => {
-                        const isWindow = it.itemType === "window";
+                        const isWindow = it.itemType === "length";
                         return (
                           <tr key={i}>
                             <td className="text-center text-muted-foreground">{i + 1}</td>
                             <td className="font-medium">{it.productName}</td>
-                            <td className="text-center">{isWindow ? "Window" : "Other"}</td>
+                            <td className="text-center">{isWindow ? "Length-based" : "Window"}</td>
                             <td className="text-center tabular-nums">{isWindow ? `${it.length} ft` : `${it.width} × ${it.height} = ${((it.width || 0) * (it.height || 0)).toFixed(2)} sq ft`}</td>
                             <td className="text-center">{it.quantity}</td>
                             <td className="tabular-nums">{currency(it.unitPrice)}</td>

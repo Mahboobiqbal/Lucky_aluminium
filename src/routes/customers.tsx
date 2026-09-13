@@ -93,7 +93,7 @@ function CustomersPage() {
       setList(custs || []);
       setOrders(ords || []);
       setSettings(sets || []);
-    } catch {} finally {
+    } catch { toast.error("Failed to load data"); } finally {
       setLoading(false);
     }
   }, []);
@@ -217,7 +217,7 @@ function CustomersPage() {
             <div><Label className="text-xs">City</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="h-8" /></div>
             <div className="col-span-2"><Label className="text-xs">Address</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="h-8" /></div>
             <div className="col-span-2"><Label className="text-xs">Notes</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} /></div>
-            <div><Label className="text-xs">Previous Balance (opening carry)</Label><Input type="number" value={form.previousBalance || ""} onChange={(e) => setForm({ ...form, previousBalance: Number(e.target.value) })} className="h-8" placeholder="0" /></div>
+            <div><Label className="text-xs">Previous Balance (opening carry)</Label><Input type="number" min="0" value={form.previousBalance || ""} onChange={(e) => setForm({ ...form, previousBalance: Number(e.target.value) })} className="h-8" placeholder="0" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>

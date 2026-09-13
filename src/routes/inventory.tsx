@@ -22,7 +22,7 @@ export const Route = createFileRoute("/inventory")({
 });
 
 type InventoryItem = { id: number; name: string; category: string; unit: string; itemType: string; pricingMode?: string; currentStock: number; minStock: number; costPrice: number; supplier?: string; widthFt?: number; heightFt?: number; length?: number; stockQty?: number; createdAt: string };
-const empty: Omit<InventoryItem, "id" | "createdAt"> = { name: "", category: "", unit: "pcs", itemType: "other", pricingMode: "piece", currentStock: 0, minStock: 0, costPrice: 0, supplier: "", widthFt: 0, heightFt: 0, length: 0, stockQty: 0 };
+const empty: Omit<InventoryItem, "id" | "createdAt"> = { name: "", category: "", unit: "pcs", itemType: "window", pricingMode: "piece", currentStock: 0, minStock: 0, costPrice: 0, supplier: "", widthFt: 0, heightFt: 0, length: 0, stockQty: 0 };
 
 function InventoryPage() {
   const { can } = useAuth();
@@ -34,7 +34,7 @@ function InventoryPage() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
-    try { const data = await api.safeGet<InventoryItem[]>("/api/inventory"); setList(data || []); } catch {} finally { setLoading(false); }
+    try { const data = await api.safeGet<InventoryItem[]>("/api/inventory"); setList(data || []); } catch { toast.error("Failed to load inventory"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -69,7 +69,7 @@ function InventoryPage() {
             <tbody>
               {list.map((i) => {
                 const low = i.currentStock < i.minStock;
-                const isWindow = (i.itemType || "other") === "window";
+                const isWindow = (i.itemType || "window") === "length";
                 const unitOf = (i.pricingMode || "piece") === "size" ? (isWindow ? "ft" : "sqft") : "pcs";
                 const dimension = isWindow
                   ? `${i.length || 0} ft`
@@ -77,7 +77,7 @@ function InventoryPage() {
                 return (
                   <tr key={i.id}>
                     <td className="font-medium">{i.name}</td>
-                    <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${isWindow ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30" : "bg-muted/50 text-muted-foreground border-border"}`}>{isWindow ? "Window" : "Other"}</span></td>
+                    <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${isWindow ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30" : "bg-muted/50 text-muted-foreground border-border"}`}>{isWindow ? "Length-based" : "Window"}</span></td>
                     <td>{i.category}</td><td className="text-muted-foreground">{i.supplier || "-"}</td><td>{i.unit}</td>
                     <td className="tabular-nums text-muted-foreground">{dimension}</td>
                     <td className="tabular-nums text-muted-foreground">{i.stockQty ?? 0}</td>
@@ -86,7 +86,7 @@ function InventoryPage() {
                     <td>{low ? <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] border bg-amber-500/15 text-amber-600 border-amber-500/30"><AlertTriangle className="size-3" />Low</span> : <span className="inline-flex rounded px-1.5 py-0.5 text-[11px] border bg-emerald-500/15 text-emerald-600 border-emerald-500/30">OK</span>}</td>
                     <td>
                       <TableActions>
-                        {can("inventory", "edit") && <button onClick={() => { setEditingId(i.id); setForm({ name: i.name, category: i.category, unit: i.unit, itemType: (i.itemType || "other") as "window" | "other", pricingMode: (i.pricingMode || "piece") as "piece" | "size", currentStock: i.currentStock, minStock: i.minStock, costPrice: i.costPrice, supplier: i.supplier || "", widthFt: i.widthFt ?? 0, heightFt: i.heightFt ?? 0, length: i.length ?? 0, stockQty: i.stockQty ?? 0 }); setOpen(true); }} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Pencil className="size-3.5" /></button>}
+                        {can("inventory", "edit") && <button onClick={() => { setEditingId(i.id); setForm({ name: i.name, category: i.category, unit: i.unit, itemType: (i.itemType || "window") as "length" | "window", pricingMode: (i.pricingMode || "piece") as "piece" | "size", currentStock: i.currentStock, minStock: i.minStock, costPrice: i.costPrice, supplier: i.supplier || "", widthFt: i.widthFt ?? 0, heightFt: i.heightFt ?? 0, length: i.length ?? 0, stockQty: i.stockQty ?? 0 }); setOpen(true); }} className="size-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground inline-grid place-items-center"><Pencil className="size-3.5" /></button>}
                         {can("inventory", "delete") && <button onClick={() => setDeleteTarget(i.id)} className="size-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive inline-grid place-items-center"><Trash2 className="size-3.5" /></button>}
                       </TableActions>
                     </td>
@@ -108,11 +108,11 @@ function InventoryPage() {
             <div><Label className="text-xs">Unit</Label><Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="h-8" /></div>
             <div>
               <Label className="text-xs">Type</Label>
-              <Select value={form.itemType || "other"} onValueChange={(v) => setForm({ ...form, itemType: v as "window" | "other" })}>
+              <Select value={form.itemType || "window"} onValueChange={(v) => setForm({ ...form, itemType: v as "length" | "window" })}>
                 <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="other">Other</SelectItem>
                   <SelectItem value="window">Window</SelectItem>
+                  <SelectItem value="length">Length-based</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -127,18 +127,18 @@ function InventoryPage() {
               </Select>
             </div>
             <div><Label className="text-xs">Supplier</Label><Input value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} className="h-8" /></div>
-            {form.itemType === "window" ? (
-              <div><Label className="text-xs">Length (ft)</Label><Input type="number" value={form.length || ""} onChange={(e) => setForm({ ...form, length: Number(e.target.value) })} className="h-8" /></div>
+            {form.itemType === "length" ? (
+              <div><Label className="text-xs">Length (ft)</Label><Input type="number" min="0" value={form.length || ""} onChange={(e) => setForm({ ...form, length: Number(e.target.value) })} className="h-8" /></div>
             ) : (
               <>
-                <div><Label className="text-xs">W (ft)</Label><Input type="number" value={form.widthFt || ""} onChange={(e) => setForm({ ...form, widthFt: Number(e.target.value) })} className="h-8" /></div>
-                <div><Label className="text-xs">H (ft)</Label><Input type="number" value={form.heightFt || ""} onChange={(e) => setForm({ ...form, heightFt: Number(e.target.value) })} className="h-8" /></div>
+                <div><Label className="text-xs">W (ft)</Label><Input type="number" min="0" value={form.widthFt || ""} onChange={(e) => setForm({ ...form, widthFt: Number(e.target.value) })} className="h-8" /></div>
+                <div><Label className="text-xs">H (ft)</Label><Input type="number" min="0" value={form.heightFt || ""} onChange={(e) => setForm({ ...form, heightFt: Number(e.target.value) })} className="h-8" /></div>
               </>
             )}
-            <div><Label className="text-xs">Qty</Label><Input type="number" value={form.stockQty || ""} onChange={(e) => setForm({ ...form, stockQty: Number(e.target.value) })} className="h-8" /></div>
-            <div><Label className="text-xs">Current stock</Label><Input type="number" value={form.currentStock || ""} onChange={(e) => setForm({ ...form, currentStock: Number(e.target.value) })} className="h-8" /></div>
-            <div><Label className="text-xs">Minimum stock</Label><Input type="number" value={form.minStock || ""} onChange={(e) => setForm({ ...form, minStock: Number(e.target.value) })} className="h-8" /></div>
-            <div className="col-span-2"><Label className="text-xs">Cost price {form.pricingMode === "size" ? (form.itemType === "window" ? "per ft" : "per sqft") : "per pc"}</Label><Input type="number" value={form.costPrice || ""} onChange={(e) => setForm({ ...form, costPrice: Number(e.target.value) })} className="h-8" /></div>
+            <div><Label className="text-xs">Qty</Label><Input type="number" min="0" value={form.stockQty || ""} onChange={(e) => setForm({ ...form, stockQty: Number(e.target.value) })} className="h-8" /></div>
+            <div><Label className="text-xs">Current stock</Label><Input type="number" min="0" value={form.currentStock || ""} onChange={(e) => setForm({ ...form, currentStock: Number(e.target.value) })} className="h-8" /></div>
+            <div><Label className="text-xs">Minimum stock</Label><Input type="number" min="0" value={form.minStock || ""} onChange={(e) => setForm({ ...form, minStock: Number(e.target.value) })} className="h-8" /></div>
+            <div className="col-span-2"><Label className="text-xs">Cost price {form.pricingMode === "size" ? (form.itemType === "length" ? "per ft" : "per sqft") : "per pc"}</Label><Input type="number" min="0" value={form.costPrice || ""} onChange={(e) => setForm({ ...form, costPrice: Number(e.target.value) })} className="h-8" /></div>
           </div>
           <DialogFooter><Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button><Button size="sm" onClick={save}>Save</Button></DialogFooter>
         </DialogContent>

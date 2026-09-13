@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -11,6 +11,9 @@ from utils.dates import naive
 from utils.deps import require_permission
 
 router = APIRouter(prefix="/api/inventory", tags=["inventory"])
+
+VALID_PRICING_MODES = ("piece", "size")
+VALID_ITEM_TYPES = ("length", "window")
 
 
 def _to_response(i: InventoryItem) -> dict:
@@ -43,6 +46,15 @@ async def get_inventory_item(item_id: int, db: AsyncSession = Depends(get_db), _
 
 @router.post("")
 async def create_inventory_item(body: InventoryItemCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("inventory", "create"))):
+    if body.pricingMode and body.pricingMode not in VALID_PRICING_MODES:
+        raise HTTPException(status_code=400, detail=f"Invalid pricingMode: {body.pricingMode}. Allowed: {', '.join(VALID_PRICING_MODES)}")
+    if body.itemType and body.itemType not in VALID_ITEM_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid itemType: {body.itemType}. Allowed: {', '.join(VALID_ITEM_TYPES)}")
+
+    existing = await db.execute(select(InventoryItem).where(func.lower(InventoryItem.name) == body.name.strip().lower()))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Inventory item with this name already exists")
+
     item = InventoryItem(
         name=body.name, category=body.category, unit=body.unit,
         item_type=body.itemType, pricing_mode=body.pricingMode,
@@ -64,6 +76,16 @@ async def update_inventory_item(item_id: int, body: InventoryItemUpdate, db: Asy
     item = result.scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Inventory item not found")
+
+    if body.pricingMode and body.pricingMode not in VALID_PRICING_MODES:
+        raise HTTPException(status_code=400, detail=f"Invalid pricingMode: {body.pricingMode}. Allowed: {', '.join(VALID_PRICING_MODES)}")
+    if body.itemType and body.itemType not in VALID_ITEM_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid itemType: {body.itemType}. Allowed: {', '.join(VALID_ITEM_TYPES)}")
+
+    if body.name and body.name.strip().lower() != (item.name or "").strip().lower():
+        existing = await db.execute(select(InventoryItem).where(func.lower(InventoryItem.name) == body.name.strip().lower(), InventoryItem.id != item_id))
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Inventory item with this name already exists")
 
     item.name = body.name
     item.category = body.category

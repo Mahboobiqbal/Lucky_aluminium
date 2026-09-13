@@ -13,7 +13,7 @@ class InventoryItem(Base):
     name: Mapped[str] = mapped_column(String(200))
     category: Mapped[str] = mapped_column(String(100))
     unit: Mapped[str] = mapped_column(String(20))
-    item_type: Mapped[str] = mapped_column(String(20), default="other")
+    item_type: Mapped[str] = mapped_column(String(20), default="window")
     pricing_mode: Mapped[str] = mapped_column(String(10), default="piece")
     current_stock: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     min_stock: Mapped[float] = mapped_column(Numeric(12, 2), default=0)

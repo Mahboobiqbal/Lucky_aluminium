@@ -130,7 +130,7 @@ function AccessControlPage() {
       const data = await api.safeGet<ApiUser[]>("/api/users");
       setUsers(data || []);
     } catch {
-      // silent
+      toast.error("Failed to load users");
     } finally {
       setLoading(false);
     }
@@ -169,7 +169,7 @@ function AccessControlPage() {
       setEditingId(full.id);
       setShowPw(false);
       setUserOpen(true);
-    } catch {}
+    } catch { toast.error("Failed to load user"); }
   };
 
   const saveUser = async () => {
@@ -254,7 +254,7 @@ function AccessControlPage() {
     try {
       const full = await api.safeGet<ApiUserWithPerms>(`/api/users/${userId}`);
       if (full) setSelectedUser(full);
-    } catch {}
+    } catch { toast.error("Failed to load user permissions"); }
   };
 
   const toggleAction = async (moduleKey: string, field: FieldName, grant: boolean) => {
@@ -336,7 +336,7 @@ function AccessControlPage() {
     try {
       const full = await api.safeGet<ApiUserWithPerms>(`/api/users/${u.id}`);
       if (full) setSelectedUser(full);
-    } catch {}
+    } catch { toast.error("Failed to load user data"); }
   };
 
   return (

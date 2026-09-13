@@ -139,7 +139,7 @@ function PaymentsPage() {
       setOrders(o || []);
       setPayments(p || []);
       setSettings(s || []);
-    } catch {} finally {
+    } catch { toast.error("Failed to load data"); } finally {
       setLoading(false);
     }
   }, []);

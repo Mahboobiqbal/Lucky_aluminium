@@ -28,7 +28,7 @@ class PurchaseItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     purchase_id: Mapped[int] = mapped_column(ForeignKey("purchases.id", ondelete="CASCADE"))
     product_name: Mapped[str] = mapped_column(String(200))
-    item_type: Mapped[str] = mapped_column(String(20), default="other")
+    item_type: Mapped[str] = mapped_column(String(20), default="window")
     pricing_mode: Mapped[str] = mapped_column(String(10), default="piece")
     width_ft: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     height_ft: Mapped[float] = mapped_column(Numeric(12, 2), default=0)

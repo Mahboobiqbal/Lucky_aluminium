@@ -10,6 +10,7 @@ from database import get_db
 from models.inventory import InventoryItem
 from models.product import Product
 from models.purchase import Purchase, PurchaseItem
+from models.supplier import Supplier
 from schemas.purchase import PurchaseCreate, PurchaseResponse
 from utils.dates import naive
 from utils.deps import require_permission
@@ -41,13 +42,9 @@ async def _sync_purchase_products(purchase: Purchase, items: list, db: AsyncSess
                 code=_build_product_code(product_name, purchase.id, index),
                 name=product_name,
                 category="Purchased",
-                opening_type=None,
-                profile_series=None,
-                glass_type=None,
-                glass_thickness=None,
-                frame_color=None,
-                handle_type=None,
-                lock_type=None,
+                color=None,
+                size=None,
+                gaze=None,
                 unit="pcs",
                 base_price=float(getattr(item, "salePrice", 0) or getattr(item, "purchasePrice", 0) or 0),
                 description=f"Added from purchase {purchase.invoice_number} ({purchase.supplier_name})",
@@ -89,10 +86,10 @@ async def _sync_purchase_inventory(purchase: Purchase, items: list, db: AsyncSes
         height_ft = float(getattr(item, "heightFt", 0) or 0)
         length = float(getattr(item, "length", 0) or 0)
         quantity = float(getattr(item, "quantity", 0) or 0)
-        item_type = getattr(item, "itemType", "other") or "other"
+        item_type = getattr(item, "itemType", "window") or "window"
         pricing_mode = getattr(item, "pricingMode", "piece") or "piece"
         if pricing_mode == "size":
-            total_stock = length * quantity if item_type == "window" and length else (width_ft * height_ft * quantity if width_ft and height_ft else quantity)
+            total_stock = length * quantity if item_type == "length" and length else (width_ft * height_ft * quantity if width_ft and height_ft else quantity)
         else:
             total_stock = quantity
 
@@ -189,13 +186,40 @@ async def get_purchase(purchase_id: int, db: AsyncSession = Depends(get_db), _us
 
 @router.post("")
 async def create_purchase(body: PurchaseCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("purchase", "create"))):
+    if body.supplierId:
+        sup_result = await db.execute(select(Supplier).where(Supplier.id == body.supplierId))
+        if not sup_result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Supplier not found")
+
     try:
+        calculated_amounts = []
+        for item in body.items:
+            pricing_mode = getattr(item, "pricingMode", "piece") or "piece"
+            item_type = getattr(item, "itemType", "window") or "window"
+            qty = float(getattr(item, "quantity", 0) or 0)
+            w = float(getattr(item, "widthFt", 0) or 0)
+            h = float(getattr(item, "heightFt", 0) or 0)
+            l = float(getattr(item, "length", 0) or 0)
+            purchase_price = float(getattr(item, "purchasePrice", 0) or 0)
+            if pricing_mode == "size":
+                if item_type == "length" and l > 0:
+                    amount = l * qty * purchase_price
+                elif w > 0 and h > 0:
+                    amount = w * h * qty * purchase_price
+                else:
+                    amount = qty * purchase_price
+            else:
+                amount = qty * purchase_price
+            calculated_amounts.append(round(amount, 2))
+
+        server_total = round(sum(calculated_amounts), 2)
+
         purchase = Purchase(
             invoice_number=body.invoiceNumber,
             supplier_id=body.supplierId,
             supplier_name=body.supplierName,
             payment_type=body.paymentType,
-            total_amount=body.totalAmount,
+            total_amount=server_total,
             date=naive(body.date),
             notes=body.notes,
             created_at=datetime.utcnow(),
@@ -203,7 +227,7 @@ async def create_purchase(body: PurchaseCreate, db: AsyncSession = Depends(get_d
         db.add(purchase)
         await db.flush()
 
-        for item in body.items:
+        for idx, item in enumerate(body.items):
             db.add(PurchaseItem(
                 purchase_id=purchase.id,
                 product_name=item.productName,
@@ -215,7 +239,7 @@ async def create_purchase(body: PurchaseCreate, db: AsyncSession = Depends(get_d
                 quantity=item.quantity,
                 purchase_price=item.purchasePrice,
                 sale_price=item.salePrice,
-                amount=item.amount,
+                amount=calculated_amounts[idx],
             ))
 
         await _sync_purchase_products(purchase, body.items, db)
@@ -256,11 +280,11 @@ async def delete_purchase(purchase_id: int, db: AsyncSession = Depends(get_db), 
             height_ft = float(getattr(item, "height_ft", 0) or 0)
             length = float(getattr(item, "length", 0) or 0)
             quantity = float(getattr(item, "quantity", 0) or 0)
-            item_type = getattr(item, "item_type", "other") or "other"
+            item_type = getattr(item, "item_type", "window") or "window"
             pricing_mode = getattr(item, "pricing_mode", "piece") or "piece"
 
             if pricing_mode == "size":
-                total_stock = length * quantity if item_type == "window" and length else (width_ft * height_ft * quantity if width_ft and height_ft else quantity)
+                total_stock = length * quantity if item_type == "length" and length else (width_ft * height_ft * quantity if width_ft and height_ft else quantity)
             else:
                 total_stock = quantity
 

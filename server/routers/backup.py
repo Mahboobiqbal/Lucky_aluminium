@@ -61,6 +61,7 @@ async def _export_all(db: AsyncSession) -> dict:
         if table_name == "users":
             for row_data in table_data:
                 row_data.pop("password_hash", None)
+                row_data.pop("id", None)
         data[table_name] = table_data
     return data
 
@@ -118,7 +119,11 @@ def _coerce_row(model, row: dict) -> dict:
 
 @router.post("/import")
 async def import_backup(request: Request, db: AsyncSession = Depends(get_db), _user=Depends(require_role("admin"))):
-    body = await request.json()
+    raw = await request.body()
+    if len(raw) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Backup file too large (max 50MB)")
+
+    body = json.loads(raw)
     if not isinstance(body, dict) or not body:
         raise HTTPException(status_code=400, detail="Backup file must be a JSON object with table data")
 
@@ -134,6 +139,15 @@ async def import_backup(request: Request, db: AsyncSession = Depends(get_db), _u
             for row_data in rows:
                 row_data.pop("password_hash", None)
 
+    saved_passwords: dict[str, str] = {}
+    try:
+        existing_users = await db.execute(select(User.username, User.password_hash))
+        for username, pw_hash in existing_users.all():
+            if username and pw_hash:
+                saved_passwords[username] = pw_hash
+    except Exception:
+        pass
+
     row_count = sum(len(rows) for rows in body.values())
     try:
         for table_name, _model in reversed(ALL_TABLES):
@@ -146,6 +160,17 @@ async def import_backup(request: Request, db: AsyncSession = Depends(get_db), _u
     except Exception:
         await db.rollback()
         raise HTTPException(status_code=400, detail="Import failed: backup is not compatible with this version")
+
+    if saved_passwords:
+        try:
+            for username, pw_hash in saved_passwords.items():
+                user_result = await db.execute(select(User).where(User.username == username))
+                user = user_result.scalar_one_or_none()
+                if user and not user.password_hash:
+                    user.password_hash = pw_hash
+            await db.commit()
+        except Exception:
+            await db.commit()
 
     return {"message": f"Restored {row_count} rows from backup", "success": True, "tables": len(body)}
 

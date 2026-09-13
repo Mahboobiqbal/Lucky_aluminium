@@ -34,23 +34,20 @@ type Product = {
   code: string;
   name: string;
   category: string;
-  openingType?: string;
-  profileSeries?: string;
-  glassType?: string;
-  glassThickness?: string;
-  frameColor?: string;
-  handleType?: string;
-  lockType?: string;
+  color?: string;
+  size?: string;
+  gaze?: string;
   unit: string;
   basePrice: number;
+  extraCharges?: number;
   description?: string;
   active: boolean;
   createdAt: string;
 };
 
 const empty: Omit<Product, "id" | "createdAt"> = {
-  code: "", name: "", category: CATEGORIES[0], profileSeries: "", glassType: "", glassThickness: "",
-  frameColor: "White", handleType: "", lockType: "", unit: "sqft", basePrice: 0, description: "", active: true,
+  code: "", name: "", category: CATEGORIES[0], color: "", size: "", gaze: "",
+  unit: "sqft", basePrice: 0, extraCharges: 0, description: "", active: true,
 };
 
 function ProductsPage() {
@@ -67,7 +64,7 @@ function ProductsPage() {
     try {
       const data = await api.safeGet<Product[]>("/api/products");
       setList(data || []);
-    } catch {} finally {
+    } catch { toast.error("Failed to load products"); } finally {
       setLoading(false);
     }
   }, []);
@@ -77,7 +74,7 @@ function ProductsPage() {
   const filtered = useMemo(() => {
     if (!q) return list;
     const s = q.toLowerCase();
-    return list.filter((p) => [p.name, p.code, p.category].some((v) => v?.toLowerCase().includes(s)));
+    return list.filter((p) => [p.name, p.code, p.category, p.color, p.size, p.gaze].some((v) => v?.toLowerCase().includes(s)));
   }, [list, q]);
 
   const openNew = () => {
@@ -88,7 +85,7 @@ function ProductsPage() {
 
   const openEdit = (p: Product) => {
     setEditingId(p.id);
-    setForm({ code: p.code, name: p.name, category: p.category, profileSeries: p.profileSeries || "", glassType: p.glassType || "", glassThickness: p.glassThickness || "", frameColor: p.frameColor || "", handleType: p.handleType || "", lockType: p.lockType || "", unit: p.unit, basePrice: p.basePrice, description: p.description || "", active: p.active });
+    setForm({ code: p.code, name: p.name, category: p.category, color: p.color || "", size: p.size || "", gaze: p.gaze || "", unit: p.unit, basePrice: p.basePrice, extraCharges: p.extraCharges || 0, description: p.description || "", active: p.active });
     setOpen(true);
   };
 
@@ -134,12 +131,15 @@ function ProductsPage() {
       <PageContainer>
         <TableShell>
           <table className="data-table">
-            <thead><tr><th>Code</th><th>Name</th><th>Unit</th><th className="whitespace-nowrap">Base price</th><th>Status</th><th className="text-center whitespace-nowrap">Actions</th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>Color</th><th>Size</th><th>Gaze</th><th>Unit</th><th className="whitespace-nowrap">Base price</th><th>Status</th><th className="text-center whitespace-nowrap">Actions</th></tr></thead>
             <tbody>
               {filtered.map((p) => (
                 <tr key={p.id}>
                   <td className="font-mono text-xs text-muted-foreground">{p.code}</td>
                   <td className="font-medium">{p.name}</td>
+                  <td>{p.color || "-"}</td>
+                  <td>{p.size || "-"}</td>
+                  <td>{p.gaze || "-"}</td>
                   <td>{p.unit}</td>
                   <td className="tabular-nums font-medium whitespace-nowrap">{currency(p.basePrice)}</td>
                   <td>{p.active
@@ -172,19 +172,17 @@ function ProductsPage() {
                 <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <div><Label className="text-xs">Color</Label><Input value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-8" placeholder="e.g. White, Black" /></div>
+            <div><Label className="text-xs">Size</Label><Input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} className="h-8" placeholder="e.g. 4x6 ft" /></div>
+            <div><Label className="text-xs">Gaze (Glass)</Label><Input value={form.gaze} onChange={(e) => setForm({ ...form, gaze: e.target.value })} className="h-8" placeholder="e.g. Toughened, Mirror" /></div>
             <div><Label className="text-xs">Unit</Label>
               <Select value={form.unit} onValueChange={(v) => setForm({ ...form, unit: v })}>
                 <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                <SelectContent>{["sqft", "sqm", "pcs", "m"].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                <SelectContent>{["sqft", "sqm", "pcs", "m", "ft", "length"].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label className="text-xs">Profile series</Label><Input value={form.profileSeries} onChange={(e) => setForm({ ...form, profileSeries: e.target.value })} className="h-8" placeholder="e.g. 60mm" /></div>
-            <div><Label className="text-xs">Glass type</Label><Input value={form.glassType} onChange={(e) => setForm({ ...form, glassType: e.target.value })} className="h-8" /></div>
-            <div><Label className="text-xs">Glass thickness</Label><Input value={form.glassThickness} onChange={(e) => setForm({ ...form, glassThickness: e.target.value })} className="h-8" placeholder="e.g. 5mm" /></div>
-            <div><Label className="text-xs">Frame color</Label><Input value={form.frameColor} onChange={(e) => setForm({ ...form, frameColor: e.target.value })} className="h-8" /></div>
-            <div><Label className="text-xs">Handle</Label><Input value={form.handleType} onChange={(e) => setForm({ ...form, handleType: e.target.value })} className="h-8" /></div>
-            <div><Label className="text-xs">Lock</Label><Input value={form.lockType} onChange={(e) => setForm({ ...form, lockType: e.target.value })} className="h-8" /></div>
-            <div><Label className="text-xs">Base price</Label><Input type="number" value={form.basePrice || ""} onChange={(e) => setForm({ ...form, basePrice: Number(e.target.value) })} className="h-8" /></div>
+            <div><Label className="text-xs">Base price</Label><Input type="number" min="0" value={form.basePrice || ""} onChange={(e) => setForm({ ...form, basePrice: Number(e.target.value) })} className="h-8" /></div>
+            <div><Label className="text-xs">Extra Charges</Label><Input type="number" min="0" value={form.extraCharges || ""} onChange={(e) => setForm({ ...form, extraCharges: Number(e.target.value) })} className="h-8" /></div>
             <div className="col-span-3"><Label className="text-xs">Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} /></div>
             <label className="col-span-3 flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />Active
