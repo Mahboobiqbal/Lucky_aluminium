@@ -78,9 +78,9 @@ function withinRange(row: PaymentRow, range: DateRange) {
 }
 
 function toPaymentRows(orders: Order[], payments: Payment[]): PaymentRow[] {
-  return orders.flatMap((order) => {
+  return (Array.isArray(orders) ? orders : []).flatMap((order) => {
     if (order.paid <= 0) return [];
-    const recordedPayments = payments
+    const recordedPayments = (Array.isArray(payments) ? payments : [])
       .filter((p) => p.orderId === order.id && p.amount > 0)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const recordedTotal = recordedPayments.reduce((sum, p) => sum + p.amount, 0);
@@ -136,9 +136,9 @@ function PaymentsPage() {
         api.safeGet<Payment[]>("/api/payments"),
         api.safeGet<Setting[]>("/api/settings"),
       ]);
-      setOrders(o || []);
-      setPayments(p || []);
-      setSettings(s || []);
+      setOrders(Array.isArray(o) ? o : []);
+      setPayments(Array.isArray(p) ? p : []);
+      setSettings(Array.isArray(s) ? s : []);
     } catch { toast.error("Failed to load data"); } finally {
       setLoading(false);
     }
@@ -148,8 +148,8 @@ function PaymentsPage() {
 
   const allRows = useMemo(() => toPaymentRows(orders, payments), [orders, payments]);
   const totalPaid = allRows.reduce((sum, row) => sum + row.paid, 0);
-  const totalDue = orders.reduce((sum, order) => sum + pendingBalance(order), 0);
-  const paidOrderCount = orders.filter((order) => order.paid >= order.total && order.total > 0).length;
+  const totalDue = (Array.isArray(orders) ? orders : []).reduce((sum, order) => sum + pendingBalance(order), 0);
+  const paidOrderCount = (Array.isArray(orders) ? orders : []).filter((order) => order.paid >= order.total && order.total > 0).length;
 
   const range: DateRange = useMemo(() => preset === "custom" ? rangeFromCustom(customStart, customEnd) : resolvePresetRange(preset), [preset, customStart, customEnd]);
   const searchedRows = useMemo(() => allRows.filter((row) => matchesSearch(row, search)), [allRows, search]);
@@ -158,7 +158,7 @@ function PaymentsPage() {
   const filteredRows = useMemo(() => searchedRows.filter((row) => withinRange(row, range)), [searchedRows, range]);
 
   const pendingOrders = useMemo(
-    () => orders.filter((order) => pendingBalance(order) > 0).filter((order) => {
+    () => (Array.isArray(orders) ? orders : []).filter((order) => pendingBalance(order) > 0).filter((order) => {
       const q = pendingSearch.trim().toLowerCase();
       if (!q) return true;
       return [order.customerName, order.number, order.notes ?? ""].some((v) => v.toLowerCase().includes(q));

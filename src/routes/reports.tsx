@@ -48,14 +48,14 @@ function ReportsPage() {
         api.safeGet<Expense[]>("/api/expenses"), api.safeGet<Setting[]>("/api/settings"),
         api.safeGet<InventoryItem[]>("/api/inventory"),
       ]);
-      setOrders(o || []); setCustomers(cs || []); setExpenses(e || []); setSettings(s || []); setInventory(inv || []);
+      setOrders(Array.isArray(o) ? o : []); setCustomers(Array.isArray(cs) ? cs : []); setExpenses(Array.isArray(e) ? e : []); setSettings(Array.isArray(s) ? s : []); setInventory(Array.isArray(inv) ? inv : []);
     } catch { toast.error("Failed to load report data"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const dailyOrders = useMemo(() => orders.filter((o) => new Date(o.orderDate).toISOString().slice(0, 10) === date), [orders, date]);
-  const monthlyOrders = useMemo(() => orders.filter((o) => new Date(o.orderDate).toISOString().slice(0, 7) === month), [orders, month]);
+  const dailyOrders = useMemo(() => (Array.isArray(orders) ? orders : []).filter((o) => new Date(o.orderDate).toISOString().slice(0, 10) === date), [orders, date]);
+  const monthlyOrders = useMemo(() => (Array.isArray(orders) ? orders : []).filter((o) => new Date(o.orderDate).toISOString().slice(0, 7) === month), [orders, month]);
 
   const orderRows = (list: Order[]) => [
     ["Order #", "Customer", "Date", "Total", "Paid", "Prev. Balance", "Balance"],
@@ -63,15 +63,15 @@ function ReportsPage() {
   ];
 
   const profitLossRows = () => {
-    const sales = orders.reduce((s, o) => s + o.total, 0);
-    const paid = orders.reduce((s, o) => s + o.paid, 0);
-    const exp = expenses.reduce((s, e) => s + e.amount, 0);
+    const sales = (Array.isArray(orders) ? orders : []).reduce((s, o) => s + o.total, 0);
+    const paid = (Array.isArray(orders) ? orders : []).reduce((s, o) => s + o.paid, 0);
+    const exp = (Array.isArray(expenses) ? expenses : []).reduce((s, e) => s + e.amount, 0);
     return [["Metric", "Amount"], ["Sales", currency(sales)], ["Payments received", currency(paid)], ["Expenses", currency(exp)], ["Profit / Loss", currency(sales - exp)]];
   };
 
   const topProductRows = () => {
     const map: Record<string, { qty: number; amount: number }> = {};
-    orders.forEach((o) => o.items.forEach((it) => { if (!map[it.productName]) map[it.productName] = { qty: 0, amount: 0 }; map[it.productName].qty += it.quantity; map[it.productName].amount += it.amount; }));
+    (Array.isArray(orders) ? orders : []).forEach((o) => o.items.forEach((it) => { if (!map[it.productName]) map[it.productName] = { qty: 0, amount: 0 }; map[it.productName].qty += it.quantity; map[it.productName].amount += it.amount; }));
     const sorted = Object.entries(map).sort((a, b) => b[1].amount - a[1].amount);
     return [["Product", "Qty Sold", "Revenue"], ...sorted.map(([name, v]) => [name, String(v.qty), currency(v.amount)])];
   };
@@ -84,15 +84,15 @@ function ReportsPage() {
       case "Profit loss report": return profitLossRows();
       case "Top selling product": return topProductRows();
       case "Customer credit report": {
-        const list = orders.filter((o) => ((o as any).balance ?? Math.max(0, o.total - o.paid)) > 0);
+        const list = (Array.isArray(orders) ? orders : []).filter((o) => ((o as any).balance ?? Math.max(0, o.total - o.paid)) > 0);
         const rows = orderRows(list);
-        const customerPrevTotal = customers.reduce((s, c) => s + Number(c.previousBalance ?? 0), 0);
+        const customerPrevTotal = (Array.isArray(customers) ? customers : []).reduce((s, c) => s + Number(c.previousBalance ?? 0), 0);
         if (customerPrevTotal > 0) {
           rows.push(["", "", "Customer-level previous balance (carry)", "", "", "", currency(customerPrevTotal)]);
         }
         return rows;
       }
-      case "Roznamcha": return orderRows(orders);
+      case "Roznamcha": return orderRows(Array.isArray(orders) ? orders : []);
       default: return [];
     }
   };

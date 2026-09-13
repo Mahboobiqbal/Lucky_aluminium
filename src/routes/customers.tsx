@@ -90,9 +90,9 @@ function CustomersPage() {
         api.safeGet<Order[]>("/api/orders"),
         api.safeGet<Setting[]>("/api/settings"),
       ]);
-      setList(custs || []);
-      setOrders(ords || []);
-      setSettings(sets || []);
+      setList(Array.isArray(custs) ? custs : []);
+      setOrders(Array.isArray(ords) ? ords : []);
+      setSettings(Array.isArray(sets) ? sets : []);
     } catch { toast.error("Failed to load data"); } finally {
       setLoading(false);
     }
@@ -101,9 +101,10 @@ function CustomersPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = useMemo(() => {
-    if (!q) return list;
+    const arr = Array.isArray(list) ? list : [];
+    if (!q) return arr;
     const s = q.toLowerCase();
-    return list.filter((c) => [c.name, c.code, c.mobile, c.city, c.email].some((v) => v?.toLowerCase().includes(s)));
+    return arr.filter((c) => [c.name, c.code, c.mobile, c.city, c.email].some((v) => v?.toLowerCase().includes(s)));
   }, [list, q]);
 
   const openNew = () => {
@@ -230,7 +231,7 @@ function CustomersPage() {
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Customer history</DialogTitle></DialogHeader>
           {selected && (() => {
-            const customerOrders = orders.filter((o) => o.customerId === selected.id);
+            const customerOrders = (Array.isArray(orders) ? orders : []).filter((o) => o.customerId === selected.id);
             const pmt = customerPayments[selected.id];
             const orderBalance = pmt ? pmt.balance : 0;
             const openingBalance = Number(selected.previousBalance ?? 0);

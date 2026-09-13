@@ -34,13 +34,13 @@ function InventoryPage() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
-    try { const data = await api.safeGet<InventoryItem[]>("/api/inventory"); setList(data || []); } catch { toast.error("Failed to load inventory"); } finally { setLoading(false); }
+    try { const data = await api.safeGet<InventoryItem[]>("/api/inventory"); setList(Array.isArray(data) ? data : []); } catch { toast.error("Failed to load inventory"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const totalValue = list.reduce((s, i) => s + i.currentStock * i.costPrice, 0);
-  const lowStock = list.filter((i) => i.currentStock < i.minStock);
+  const totalValue = (Array.isArray(list) ? list : []).reduce((s, i) => s + i.currentStock * i.costPrice, 0);
+  const lowStock = (Array.isArray(list) ? list : []).filter((i) => i.currentStock < i.minStock);
 
   const save = async () => {
     if (!form.name.trim()) return toast.error("Item name required");
@@ -59,7 +59,7 @@ function InventoryPage() {
     <AppShell title="Inventory" actions={can("inventory", "create") ? <Button size="sm" className="ml-auto" onClick={() => { setEditingId(null); setForm(empty); setOpen(true); }}><Plus className="size-3.5 mr-1" />New item</Button> : undefined}>
       <PageContainer>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="stat-card"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Items</div><div className="text-xl font-semibold tabular-nums">{list.length}</div></div>
+          <div className="stat-card"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Items</div><div className="text-xl font-semibold tabular-nums">{(Array.isArray(list) ? list : []).length}</div></div>
           <div className="stat-card"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Stock value</div><div className="text-xl font-semibold tabular-nums">{currency(totalValue)}</div></div>
           <div className="stat-card"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">Low stock</div><div className="text-xl font-semibold tabular-nums text-amber-600">{lowStock.length}</div></div>
         </div>
@@ -67,7 +67,7 @@ function InventoryPage() {
           <table className="data-table">
             <thead><tr><th>Item</th><th>Type</th><th>Category</th><th>Supplier</th><th>Unit</th><th>Dimension</th><th>Qty</th><th>Total stock</th><th>Min</th><th>Cost</th><th>Status</th><th className="text-center whitespace-nowrap">Actions</th></tr></thead>
             <tbody>
-              {list.map((i) => {
+              {(Array.isArray(list) ? list : []).map((i) => {
                 const low = i.currentStock < i.minStock;
                 const isWindow = (i.itemType || "window") === "length";
                 const unitOf = (i.pricingMode || "piece") === "size" ? (isWindow ? "ft" : "sqft") : "pcs";
@@ -95,7 +95,7 @@ function InventoryPage() {
               })}
             </tbody>
           </table>
-          {!list.length && <EmptyState icon={Boxes} title={loading ? "Loading..." : "No inventory items"} hint={loading ? "Please wait" : "Add your first item to get started"} />}
+          {!(Array.isArray(list) ? list : []).length && <EmptyState icon={Boxes} title={loading ? "Loading..." : "No inventory items"} hint={loading ? "Please wait" : "Add your first item to get started"} />}
         </TableShell>
       </PageContainer>
 

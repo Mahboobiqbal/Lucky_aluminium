@@ -40,13 +40,13 @@ function InvoicesPage() {
   const fetchData = useCallback(async () => {
     try {
       const [o, c, s] = await Promise.all([api.safeGet<Order[]>("/api/orders"), api.safeGet<Customer[]>("/api/customers"), api.safeGet<Setting[]>("/api/settings")]);
-      setOrders(o || []); setCustomers(c || []); setSettings(s || []);
+      setOrders(Array.isArray(o) ? o : []); setCustomers(Array.isArray(c) ? c : []); setSettings(Array.isArray(s) ? s : []);
     } catch { toast.error("Failed to load data"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const findCustomer = (order: Order) => customers.find((c) => c.id === order.customerId);
+  const findCustomer = (order: Order) => (Array.isArray(customers) ? customers : []).find((c) => c.id === order.customerId);
   const invoiceNumber = (order: Order) => `INV-${String(order.id).padStart(4, "0")}`;
 
   const buildInvoice = (order: Order, customer?: Customer): CustomerInvoiceData => ({
@@ -84,7 +84,7 @@ function InvoicesPage() {
           <table className="data-table min-w-[1100px]">
             <thead><tr><th>Invoice #</th><th>Customer</th><th>Order</th><th>Date</th><th className="text-center">Items</th><th>Subtotal</th><th className="text-center">Discount</th><th>Total</th><th>Paid</th><th>Balance</th><th>Prev. Balance</th><th className="text-center whitespace-nowrap">Actions</th></tr></thead>
             <tbody>
-              {orders.map((o) => (
+              {(Array.isArray(orders) ? orders : []).map((o) => (
                 <tr key={o.id}>
                   <td className="font-medium">{invoiceNumber(o)}</td>
                   <td>{o.customerName}</td>
@@ -109,7 +109,7 @@ function InvoicesPage() {
               ))}
             </tbody>
           </table>
-          {!orders.length && <EmptyState icon={FileText} title={loading ? "Loading..." : "No invoices"} hint={loading ? "Please wait" : "Invoices are generated from orders"} />}
+          {!(Array.isArray(orders) ? orders : []).length && <EmptyState icon={FileText} title={loading ? "Loading..." : "No invoices"} hint={loading ? "Please wait" : "Invoices are generated from orders"} />}
         </TableShell>
       </PageContainer>
 

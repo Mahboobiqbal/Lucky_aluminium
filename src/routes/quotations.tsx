@@ -83,9 +83,9 @@ function QuotationsPage() {
         api.safeGet<Setting[]>("/api/settings"),
         api.safeGet<{ id: number; name: string; pricingMode?: string; itemType?: string }[]>("/api/inventory"),
       ]);
-      setList(quotations || []);
-      setSettings(settingsData || []);
-      setInventory(invData || []);
+      setList(Array.isArray(quotations) ? quotations : []);
+      setSettings(Array.isArray(settingsData) ? settingsData : []);
+      setInventory(Array.isArray(invData) ? invData : []);
     } catch { toast.error("Failed to load quotations"); } finally {
       setLoading(false);
     }
@@ -94,7 +94,7 @@ function QuotationsPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = useMemo(
-    () => list.filter((x) => !q || [x.number, x.customerName].some((v) => v.toLowerCase().includes(q.toLowerCase()))),
+    () => (Array.isArray(list) ? list : []).filter((x) => !q || [x.number, x.customerName].some((v) => v.toLowerCase().includes(q.toLowerCase()))),
     [list, q],
   );
 
@@ -102,7 +102,7 @@ function QuotationsPage() {
   const discountAmount = subtotal * discountPercent / 100;
   const total = Math.max(0, subtotal - discountAmount + extra);
 
-  const invOf = (productName: string) => inventory.find((i) => i.name.toLowerCase() === productName.toLowerCase());
+  const invOf = (productName: string) => (Array.isArray(inventory) ? inventory : []).find((i) => i.name.toLowerCase() === productName.toLowerCase());
   const isSizeMode = (productName: string) => invOf(productName)?.pricingMode === "size";
 
   const addItem = () => setItems([...items, { productName: "", itemType: "window", width: 0, height: 0, length: 0, sqft: 0, quantity: 0, unitPrice: 0, amount: 0, notes: "" }]);
@@ -150,16 +150,16 @@ function QuotationsPage() {
       if (editingId) {
         await api.put(`/api/quotations/${editingId}`, {
           id: editingId,
-          number: list.find((x) => x.id === editingId)?.number || "",
+          number: (Array.isArray(list) ? list : []).find((x) => x.id === editingId)?.number || "",
           customerId: 0,
           customerName: customerName.trim(),
-          date: list.find((x) => x.id === editingId)?.date || new Date().toISOString(),
+          date: (Array.isArray(list) ? list : []).find((x) => x.id === editingId)?.date || new Date().toISOString(),
           items, subtotal, discountPercent, extraCharges: extra, total, previousBalance, status: "draft", notes: "",
         });
         toast.success("Quotation updated");
       } else {
         await api.post("/api/quotations", {
-          number: `QT-${String(list.length + 1).padStart(4, "0")}`,
+          number: `QT-${String((Array.isArray(list) ? list : []).length + 1).padStart(4, "0")}`,
           customerId: 0,
           customerName: customerName.trim(),
           date: new Date().toISOString(),
@@ -287,8 +287,8 @@ function QuotationsPage() {
             <div className="text-right shrink-0">
               <div className="text-xl font-bold tracking-wide">QUOTATION</div>
               <div className="text-[10px] text-primary-foreground/60 mt-0.5 leading-relaxed">
-                <div>Reference: {editingId ? list.find((x) => x.id === editingId)?.number : `QT-${String(list.length + 1).padStart(4, "0")}`}</div>
-                <div>Date: {editingId ? dateShort(list.find((x) => x.id === editingId)?.date) : dateShort(new Date().toISOString())}</div>
+                <div>Reference: {editingId ? (Array.isArray(list) ? list : []).find((x) => x.id === editingId)?.number : `QT-${String((Array.isArray(list) ? list : []).length + 1).padStart(4, "0")}`}</div>
+                <div>Date: {editingId ? dateShort((Array.isArray(list) ? list : []).find((x) => x.id === editingId)?.date) : dateShort(new Date().toISOString())}</div>
               </div>
             </div>
           </div>

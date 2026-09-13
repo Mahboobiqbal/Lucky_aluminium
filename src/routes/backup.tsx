@@ -41,7 +41,7 @@ function BackupPage() {
   const fetchData = useCallback(async () => {
     try {
       const data = await api.safeGet<BackupRecord[]>("/api/backup/snapshots");
-      setBackups(data || []);
+      setBackups(Array.isArray(data) ? data : []);
     } catch { toast.error("Failed to load backups"); } finally { setLoading(false); }
   }, []);
 
@@ -258,14 +258,14 @@ function BackupPage() {
 
         <div className="bg-card border border-border rounded-md max-w-4xl">
           <div className="px-4 py-2.5 border-b border-border text-sm font-semibold flex items-center gap-2"><HardDrive className="size-4 text-muted-foreground" />Saved Backups</div>
-          {backups.length === 0 ? (
+          {(Array.isArray(backups) ? backups : []).length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">{loading ? "Loading..." : "No backups yet."}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="data-table">
                 <thead><tr><th>Date</th><th>Size</th><th>Type</th><th>Tables</th><th className="text-center whitespace-nowrap">Actions</th></tr></thead>
                 <tbody>
-                  {backups.map((b) => (
+                  {(Array.isArray(backups) ? backups : []).map((b) => (
                     <tr key={b.id}>
                       <td className="font-medium">{dateShort(b.createdAt)}</td>
                       <td className="tabular-nums text-muted-foreground">{formatSize(b.size)}</td>

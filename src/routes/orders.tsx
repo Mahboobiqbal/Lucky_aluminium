@@ -111,10 +111,10 @@ function OrdersPage() {
         api.safeGet<Product[]>("/api/products"),
         api.safeGet<InventoryItem[]>("/api/inventory"),
       ]);
-      setList(orders || []);
-      setCustomers(custs || []);
-      setProducts((prods || []).filter((p) => p.active));
-      setInventory(inv || []);
+      setList(Array.isArray(orders) ? orders : []);
+      setCustomers(Array.isArray(custs) ? custs : []);
+      setProducts((Array.isArray(prods) ? prods : []).filter((p) => p.active));
+      setInventory(Array.isArray(inv) ? inv : []);
     } catch { toast.error("Failed to load data"); } finally {
       setLoading(false);
     }
@@ -122,14 +122,14 @@ function OrdersPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const filtered = list.filter((o) => !q || [o.number, o.customerName].some((v) => v.toLowerCase().includes(q.toLowerCase())));
+  const filtered = (Array.isArray(list) ? list : []).filter((o) => !q || [o.number, o.customerName].some((v) => v.toLowerCase().includes(q.toLowerCase())));
 
   const getAvailableStock = (productName: string): number | null => {
-    const item = inventory.find((i) => i.name.toLowerCase() === productName.toLowerCase());
+    const item = (Array.isArray(inventory) ? inventory : []).find((i) => i.name.toLowerCase() === productName.toLowerCase());
     return item ? item.currentStock : null;
   };
 
-  const invOf = (productName: string) => inventory.find((i) => i.name.toLowerCase() === productName.toLowerCase());
+  const invOf = (productName: string) => (Array.isArray(inventory) ? inventory : []).find((i) => i.name.toLowerCase() === productName.toLowerCase());
 
   const isSizeMode = (productName: string) => invOf(productName)?.pricingMode === "size";
 
@@ -190,7 +190,7 @@ function OrdersPage() {
   const openNew = () => {
     setEditingId(null);
     setForm({
-      number: `ORD-${String(list.length + 1).padStart(4, "0")}`,
+      number: `ORD-${String((Array.isArray(list) ? list : []).length + 1).padStart(4, "0")}`,
       customerId: 0, customerName: "",
       orderDate: Date.now(), deliveryDate: Date.now() + 86400000 * 7,
       items: [{ ...emptyItem }], subtotal: 0, discountPercent: 0, extraCharges: 0, total: 0, paid: 0, previousBalance: 0, status: "pending", notes: "",
@@ -376,7 +376,7 @@ function OrdersPage() {
                         </div>
                       </CommandEmpty>
                       <CommandGroup>
-                        {customers.filter((c) => !customerSearch || c.name.toLowerCase().includes(customerSearch.toLowerCase())).map((c) => (
+                        {(Array.isArray(customers) ? customers : []).filter((c) => !customerSearch || c.name.toLowerCase().includes(customerSearch.toLowerCase())).map((c) => (
                           <CommandItem key={c.id} value={c.name} onSelect={() => {
                             setForm({ ...form, customerId: c.id, customerName: c.name });
                             setCustomerSearch("");

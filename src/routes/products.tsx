@@ -63,7 +63,7 @@ function ProductsPage() {
   const fetchData = useCallback(async () => {
     try {
       const data = await api.safeGet<Product[]>("/api/products");
-      setList(data || []);
+      setList(Array.isArray(data) ? data : []);
     } catch { toast.error("Failed to load products"); } finally {
       setLoading(false);
     }
@@ -72,14 +72,14 @@ function ProductsPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = useMemo(() => {
-    if (!q) return list;
+    if (!q) return Array.isArray(list) ? list : [];
     const s = q.toLowerCase();
-    return list.filter((p) => [p.name, p.code, p.category, p.color, p.size, p.gaze].some((v) => v?.toLowerCase().includes(s)));
+    return (Array.isArray(list) ? list : []).filter((p) => [p.name, p.code, p.category, p.color, p.size, p.gaze].some((v) => v?.toLowerCase().includes(s)));
   }, [list, q]);
 
   const openNew = () => {
     setEditingId(null);
-    setForm({ ...empty, code: `PRD-${String(list.length + 1).padStart(4, "0")}` });
+    setForm({ ...empty, code: `PRD-${String((Array.isArray(list) ? list : []).length + 1).padStart(4, "0")}` });
     setOpen(true);
   };
 

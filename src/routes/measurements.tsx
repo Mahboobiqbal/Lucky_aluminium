@@ -19,12 +19,12 @@ function MeasurementsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    try { const data = await api.safeGet<Order[]>("/api/orders"); setOrders(data || []); } catch { toast.error("Failed to load measurements"); } finally { setLoading(false); }
+    try { const data = await api.safeGet<Order[]>("/api/orders"); setOrders(Array.isArray(data) ? data : []); } catch { toast.error("Failed to load measurements"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const rows = orders.flatMap((o) => o.items.map((it, i) => ({ order: o.number, customer: o.customerName, ...it, key: `${o.id}-${i}` })));
+  const rows = (Array.isArray(orders) ? orders : []).flatMap((o) => o.items.map((it, i) => ({ order: o.number, customer: o.customerName, ...it, key: `${o.id}-${i}` })));
 
   return (
     <AppShell title="Measurements">

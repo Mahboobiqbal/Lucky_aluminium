@@ -53,19 +53,19 @@ function StockReportPage() {
   const fetchData = useCallback(async () => {
     try {
       const data = await api.safeGet<InventoryItem[]>("/api/inventory");
-      setList(data || []);
+      setList(Array.isArray(data) ? data : []);
     } catch { toast.error("Failed to load stock data"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const categories = useMemo(() => {
-    const cats = new Set(list.map((i) => i.category).filter(Boolean));
+    const cats = new Set((Array.isArray(list) ? list : []).map((i) => i.category).filter(Boolean));
     return ["all", ...Array.from(cats).sort()];
   }, [list]);
 
   const filtered = useMemo(() => {
-    return list.filter((item) => {
+    return (Array.isArray(list) ? list : []).filter((item) => {
       const q = search.toLowerCase();
       if (q && ![item.name, item.category, item.supplier ?? ""].some((v) => v.toLowerCase().includes(q))) return false;
       if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
@@ -77,11 +77,11 @@ function StockReportPage() {
     });
   }, [list, search, categoryFilter, typeFilter, statusFilter]);
 
-  const totalItems = list.length;
-  const totalStockValue = list.reduce((s, i) => s + i.currentStock * i.costPrice, 0);
-  const lowStockCount = list.filter((i) => i.currentStock < i.minStock && i.currentStock > 0).length;
-  const outOfStockCount = list.filter((i) => i.currentStock === 0).length;
-  const totalUnits = list.reduce((s, i) => s + (i.stockQty ?? 0), 0);
+  const totalItems = (Array.isArray(list) ? list : []).length;
+  const totalStockValue = (Array.isArray(list) ? list : []).reduce((s, i) => s + i.currentStock * i.costPrice, 0);
+  const lowStockCount = (Array.isArray(list) ? list : []).filter((i) => i.currentStock < i.minStock && i.currentStock > 0).length;
+  const outOfStockCount = (Array.isArray(list) ? list : []).filter((i) => i.currentStock === 0).length;
+  const totalUnits = (Array.isArray(list) ? list : []).reduce((s, i) => s + (i.stockQty ?? 0), 0);
 
   const unitOf = (item: InventoryItem) => {
     if ((item.pricingMode || "piece") === "size") return (item.itemType || "window") === "length" ? "ft" : "sqft";

@@ -67,10 +67,10 @@ function SuppliersPage() {
         api.safeGet<PaymentRec[]>(supplierId ? `/api/payments?supplier_id=${supplierId}` : "/api/payments"),
         api.safeGet<Setting[]>("/api/settings"),
       ]);
-      setList(s || []);
-      setPurchases(p || []);
-      setPayments(pay || []);
-      setSettings(st || []);
+      setList(Array.isArray(s) ? s : []);
+      setPurchases(Array.isArray(p) ? p : []);
+      setPayments(Array.isArray(pay) ? pay : []);
+      setSettings(Array.isArray(st) ? st : []);
     } catch { toast.error("Failed to load data"); } finally {
       setLoading(false);
     }
@@ -78,9 +78,9 @@ function SuppliersPage() {
 
   useEffect(() => { void fetchData(selectedSupplierId); }, [fetchData, selectedSupplierId]);
 
-  const selectedSupplier = useMemo(() => list.find((s) => s.id === selectedSupplierId) ?? null, [list, selectedSupplierId]);
-  const supplierPurchases = useMemo(() => purchases.filter((p) => p.supplierId === selectedSupplierId), [purchases, selectedSupplierId]);
-  const supplierPayments = useMemo(() => payments.filter((p) => p.supplierId === selectedSupplierId), [payments, selectedSupplierId]);
+  const selectedSupplier = useMemo(() => (Array.isArray(list) ? list : []).find((s) => s.id === selectedSupplierId) ?? null, [list, selectedSupplierId]);
+  const supplierPurchases = useMemo(() => (Array.isArray(purchases) ? purchases : []).filter((p) => p.supplierId === selectedSupplierId), [purchases, selectedSupplierId]);
+  const supplierPayments = useMemo(() => (Array.isArray(payments) ? payments : []).filter((p) => p.supplierId === selectedSupplierId), [payments, selectedSupplierId]);
 
   const supplierTransactions = useMemo(() => {
     const txns: Omit<SupplierTransaction, "balance">[] = [
@@ -97,8 +97,8 @@ function SuppliersPage() {
     return buildSupplierLedger(purchasesForLedger as any, paymentsForLedger as any);
   }, [supplierPurchases, supplierPayments]);
 
-  const totalPurchases = supplierPurchases.reduce((s, p) => s + p.totalAmount, 0);
-  const totalPayments = supplierPayments.reduce((s, p) => s + p.amount, 0);
+  const totalPurchases = (Array.isArray(supplierPurchases) ? supplierPurchases : []).reduce((s, p) => s + p.totalAmount, 0);
+  const totalPayments = (Array.isArray(supplierPayments) ? supplierPayments : []).reduce((s, p) => s + p.amount, 0);
   const outstandingBalance = totalPurchases - totalPayments;
   const lastPurchaseDate = supplierPurchases.reduce((latest, p) => Math.max(latest, new Date(p.date).getTime()), 0) || undefined;
 
@@ -123,8 +123,8 @@ function SuppliersPage() {
   };
 
   const openPurchase = (supplierId?: number) => {
-    const supplier = supplierId ? list.find((s) => s.id === supplierId) : undefined;
-    setPurchaseForm({ invoiceNumber: `PUR-${String(purchases.length + 1).padStart(4, "0")}`, supplierId: supplier?.id ?? 0, supplierName: supplier?.name ?? "", items: [{ productName: "", itemType: "window", pricingMode: "piece", widthFt: undefined, heightFt: undefined, length: 0, quantity: 0, purchasePrice: 0, salePrice: 0, amount: 0 }] as PurchaseFormItem[], paymentType: "cash", totalAmount: 0, date: Date.now() });
+    const supplier = supplierId ? (Array.isArray(list) ? list : []).find((s) => s.id === supplierId) : undefined;
+    setPurchaseForm({ invoiceNumber: `PUR-${String((Array.isArray(purchases) ? purchases : []).length + 1).padStart(4, "0")}`, supplierId: supplier?.id ?? 0, supplierName: supplier?.name ?? "", items: [{ productName: "", itemType: "window", pricingMode: "piece", widthFt: undefined, heightFt: undefined, length: 0, quantity: 0, purchasePrice: 0, salePrice: 0, amount: 0 }] as PurchaseFormItem[], paymentType: "cash", totalAmount: 0, date: Date.now() });
     setPurchaseOpen(true);
   };
 
@@ -191,7 +191,7 @@ function SuppliersPage() {
       });
       await syncProductsFromPurchase(purchaseForm.invoiceNumber, purchaseForm.supplierName);
 
-      const supplier = list.find((s) => s.id === purchaseForm.supplierId);
+      const supplier = (Array.isArray(list) ? list : []).find((s) => s.id === purchaseForm.supplierId);
       if (supplier) {
         setPreviewInvoice({ invoiceNumber: purchaseForm.invoiceNumber, date: purchaseForm.date, supplier: { name: supplier.name, company: supplier.company, contact: supplier.contact, address: supplier.address }, items: purchaseForm.items.map((i) => ({ productName: i.productName, quantity: i.quantity, purchasePrice: i.purchasePrice, amount: i.amount })), paymentType: purchaseForm.paymentType, subtotal: purchaseForm.totalAmount, totalQuantity: purchaseForm.items.reduce((s, i) => s + i.quantity, 0), outstandingBalance: totalPurchases + purchaseForm.totalAmount - totalPayments });
         setPurchaseInvoiceOpen(true);
@@ -207,7 +207,7 @@ function SuppliersPage() {
     if (!paymentForm.amount || paymentForm.amount <= 0) return toast.error("Amount required");
     try {
       const result = await api.post<{ id: number }>("/api/payments", { supplierId: paymentForm.supplierId, supplierName: paymentForm.supplierName, amount: paymentForm.amount, method: paymentForm.method, date: new Date(paymentForm.date).toISOString(), notes: paymentForm.notes });
-      const supplier = list.find((s) => s.id === paymentForm.supplierId);
+      const supplier = (Array.isArray(list) ? list : []).find((s) => s.id === paymentForm.supplierId);
       if (supplier) {
         setPreviewReceipt({ receiptNumber: `RCPT-${result.id}`, paymentDate: paymentForm.date, method: paymentForm.method, amountPaid: paymentForm.amount, previousBalance: outstandingBalance, remainingBalance: outstandingBalance - paymentForm.amount, notes: paymentForm.notes, supplier: { name: supplier.name, company: supplier.company, contact: supplier.contact, address: supplier.address } });
         setPaymentReceiptOpen(true);
@@ -265,7 +265,7 @@ function SuppliersPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div><Label className="text-xs">Invoice Number *</Label><Input value={purchaseForm.invoiceNumber} onChange={(e) => setPurchaseForm({ ...purchaseForm, invoiceNumber: e.target.value })} className="h-8" /></div>
-              <div><Label className="text-xs">Supplier *</Label><Select value={purchaseForm.supplierId ? String(purchaseForm.supplierId) : ""} onValueChange={(v) => { const s = list.find((x) => x.id === Number(v)); setPurchaseForm({ ...purchaseForm, supplierId: Number(v), supplierName: s?.name || "" }); }}><SelectTrigger className="h-8"><SelectValue placeholder="Select supplier" /></SelectTrigger><SelectContent>{list.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent></Select></div>
+              <div><Label className="text-xs">Supplier *</Label><Select value={purchaseForm.supplierId ? String(purchaseForm.supplierId) : ""} onValueChange={(v) => { const s = list.find((x) => x.id === Number(v)); setPurchaseForm({ ...purchaseForm, supplierId: Number(v), supplierName: s?.name || "" }); }}><SelectTrigger className="h-8"><SelectValue placeholder="Select supplier" /></SelectTrigger><SelectContent>                {(Array.isArray(list) ? list : []).map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent></Select></div>
               <DateField label="Date" value={purchaseForm.date} onChange={(v) => setPurchaseForm({ ...purchaseForm, date: v })} />
               <div><Label className="text-xs">Payment Type</Label><select value={purchaseForm.paymentType} onChange={(e) => setPurchaseForm({ ...purchaseForm, paymentType: e.target.value })} className="h-9 px-2 rounded-lg border border-border bg-background text-sm w-full"><option value="cash">Cash</option><option value="credit">Credit</option><option value="cheque">Cheque</option><option value="bank_transfer">Bank Transfer</option></select></div>
             </div>

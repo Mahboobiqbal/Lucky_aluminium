@@ -128,7 +128,7 @@ function AccessControlPage() {
   const fetchUsers = useCallback(async () => {
     try {
       const data = await api.safeGet<ApiUser[]>("/api/users");
-      setUsers(data || []);
+      setUsers(Array.isArray(data) ? data : []);
     } catch {
       toast.error("Failed to load users");
     } finally {
@@ -139,7 +139,7 @@ function AccessControlPage() {
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const filtered = q
-    ? users.filter((u) =>
+    ? (Array.isArray(users) ? users : []).filter((u) =>
         [u.fullName, u.username, u.email, u.role].some((v) =>
           v?.toLowerCase().includes(q.toLowerCase()),
         ),

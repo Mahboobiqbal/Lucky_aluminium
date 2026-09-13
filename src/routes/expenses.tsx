@@ -40,7 +40,7 @@ function ExpensesPage() {
   const fetchData = useCallback(async () => {
     try {
       const data = await api.safeGet<Expense[]>("/api/expenses");
-      setList(data || []);
+      setList(Array.isArray(data) ? data : []);
     } catch { toast.error("Failed to load expenses"); } finally {
       setLoading(false);
     }
@@ -48,9 +48,9 @@ function ExpensesPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const total = list.reduce((s, e) => s + e.amount, 0);
-  const daily = useMemo(() => list.filter((e) => new Date(e.date).toISOString().slice(0, 10) === selectedDate), [list, selectedDate]);
-  const monthly = useMemo(() => list.filter((e) => new Date(e.date).toISOString().slice(0, 7) === selectedMonth), [list, selectedMonth]);
+  const total = (Array.isArray(list) ? list : []).reduce((s, e) => s + e.amount, 0);
+  const daily = useMemo(() => (Array.isArray(list) ? list : []).filter((e) => new Date(e.date).toISOString().slice(0, 10) === selectedDate), [list, selectedDate]);
+  const monthly = useMemo(() => (Array.isArray(list) ? list : []).filter((e) => new Date(e.date).toISOString().slice(0, 7) === selectedMonth), [list, selectedMonth]);
 
   const save = async () => {
     if (!category.trim()) return toast.error("Enter a category");
