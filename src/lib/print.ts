@@ -32,7 +32,7 @@ const defaultCompany: Required<Omit<CompanyProfile, "phones" | "phoneEntries" | 
 
 export function companyFromSettings(settings: { key: string; value: string }[]): CompanyProfile {
   const raw: Record<string, string> = {};
-  settings.forEach((s) => { raw[s.key] = s.value; });
+  (Array.isArray(settings) ? settings : []).forEach((s) => { raw[s.key] = s.value; });
 
   const profile: CompanyProfile = {
     companyName: raw.companyName,
