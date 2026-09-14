@@ -34,12 +34,19 @@ async def _sync_purchase_products(purchase: Purchase, items: list, db: AsyncSess
             continue
 
         normalized_name = _normalize_product_name(product_name)
-        existing_result = await db.execute(select(Product).where(func.lower(Product.name) == normalized_name))
-        product = existing_result.scalar_one_or_none()
-
         item_color = (getattr(item, "color", "") or "").strip() or None
         item_size = (getattr(item, "size", "") or "").strip() or None
         item_gaze = (getattr(item, "gaze", "") or "").strip() or None
+
+        existing_result = await db.execute(
+            select(Product).where(
+                func.lower(Product.name) == normalized_name,
+                func.lower(Product.color) == (item_color or "").lower(),
+                func.lower(Product.size) == (item_size or "").lower(),
+                func.lower(Product.gaze) == (item_gaze or "").lower(),
+            )
+        )
+        product = existing_result.scalar_one_or_none()
 
         if product is None:
             product = Product(
@@ -86,7 +93,18 @@ async def _sync_purchase_inventory(purchase: Purchase, items: list, db: AsyncSes
             continue
 
         normalized_name = _normalize_product_name(product_name)
-        existing_result = await db.execute(select(InventoryItem).where(func.lower(InventoryItem.name) == normalized_name))
+        item_color = (getattr(item, "color", "") or "").strip() or None
+        item_size = (getattr(item, "size", "") or "").strip() or None
+        item_gaze = (getattr(item, "gaze", "") or "").strip() or None
+
+        existing_result = await db.execute(
+            select(InventoryItem).where(
+                func.lower(InventoryItem.name) == normalized_name,
+                func.lower(InventoryItem.color) == (item_color or "").lower(),
+                func.lower(InventoryItem.size) == (item_size or "").lower(),
+                func.lower(InventoryItem.gaze) == (item_gaze or "").lower(),
+            )
+        )
         inventory = existing_result.scalar_one_or_none()
 
         width_ft = float(getattr(item, "widthFt", 0) or 0)
@@ -99,10 +117,6 @@ async def _sync_purchase_inventory(purchase: Purchase, items: list, db: AsyncSes
             total_stock = length * quantity if item_type == "length" and length else (width_ft * height_ft * quantity if width_ft and height_ft else quantity)
         else:
             total_stock = quantity
-
-        item_color = (getattr(item, "color", "") or "").strip() or None
-        item_size = (getattr(item, "size", "") or "").strip() or None
-        item_gaze = (getattr(item, "gaze", "") or "").strip() or None
 
         if inventory is None:
             inventory = InventoryItem(

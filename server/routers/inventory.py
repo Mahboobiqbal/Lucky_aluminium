@@ -53,9 +53,16 @@ async def create_inventory_item(body: InventoryItemCreate, db: AsyncSession = De
     if body.itemType and body.itemType not in VALID_ITEM_TYPES:
         raise HTTPException(status_code=400, detail=f"Invalid itemType: {body.itemType}. Allowed: {', '.join(VALID_ITEM_TYPES)}")
 
-    existing = await db.execute(select(InventoryItem).where(func.lower(InventoryItem.name) == body.name.strip().lower()))
+    existing = await db.execute(
+        select(InventoryItem).where(
+            func.lower(InventoryItem.name) == body.name.strip().lower(),
+            func.lower(InventoryItem.color) == (body.color or "").strip().lower(),
+            func.lower(InventoryItem.size) == (body.size or "").strip().lower(),
+            func.lower(InventoryItem.gaze) == (body.gaze or "").strip().lower(),
+        )
+    )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Inventory item with this name already exists")
+        raise HTTPException(status_code=400, detail="Inventory item with this name, color, size, gaze already exists")
 
     item = InventoryItem(
         name=body.name, category=body.category, color=body.color, size=body.size, gaze=body.gaze,
@@ -85,9 +92,17 @@ async def update_inventory_item(item_id: int, body: InventoryItemUpdate, db: Asy
         raise HTTPException(status_code=400, detail=f"Invalid itemType: {body.itemType}. Allowed: {', '.join(VALID_ITEM_TYPES)}")
 
     if body.name and body.name.strip().lower() != (item.name or "").strip().lower():
-        existing = await db.execute(select(InventoryItem).where(func.lower(InventoryItem.name) == body.name.strip().lower(), InventoryItem.id != item_id))
+        existing = await db.execute(
+            select(InventoryItem).where(
+                func.lower(InventoryItem.name) == body.name.strip().lower(),
+                func.lower(InventoryItem.color) == (body.color or "").strip().lower(),
+                func.lower(InventoryItem.size) == (body.size or "").strip().lower(),
+                func.lower(InventoryItem.gaze) == (body.gaze or "").strip().lower(),
+                InventoryItem.id != item_id,
+            )
+        )
         if existing.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="Inventory item with this name already exists")
+            raise HTTPException(status_code=400, detail="Inventory item with this name, color, size, gaze already exists")
 
     item.name = body.name
     item.category = body.category

@@ -48,9 +48,16 @@ async def get_product(product_id: int, db: AsyncSession = Depends(get_db), _user
 
 @router.post("")
 async def create_product(body: ProductCreate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("products", "create"))):
-    existing = await db.execute(select(Product).where(func.lower(Product.name) == body.name.strip().lower()))
+    existing = await db.execute(
+        select(Product).where(
+            func.lower(Product.name) == body.name.strip().lower(),
+            func.lower(Product.color) == (body.color or "").strip().lower(),
+            func.lower(Product.size) == (body.size or "").strip().lower(),
+            func.lower(Product.gaze) == (body.gaze or "").strip().lower(),
+        )
+    )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Product with this name already exists")
+        raise HTTPException(status_code=400, detail="Product with this name, color, size, gaze already exists")
 
     product = Product(
         code=body.code, name=body.name, category=body.category,
@@ -73,9 +80,17 @@ async def update_product(product_id: int, body: ProductUpdate, db: AsyncSession 
         raise HTTPException(status_code=404, detail="Product not found")
 
     if body.name and body.name.strip().lower() != (product.name or "").strip().lower():
-        existing = await db.execute(select(Product).where(func.lower(Product.name) == body.name.strip().lower(), Product.id != product_id))
+        existing = await db.execute(
+            select(Product).where(
+                func.lower(Product.name) == body.name.strip().lower(),
+                func.lower(Product.color) == (body.color or "").strip().lower(),
+                func.lower(Product.size) == (body.size or "").strip().lower(),
+                func.lower(Product.gaze) == (body.gaze or "").strip().lower(),
+                Product.id != product_id,
+            )
+        )
         if existing.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="Product with this name already exists")
+            raise HTTPException(status_code=400, detail="Product with this name, color, size, gaze already exists")
 
     product.code = body.code
     product.name = body.name
