@@ -128,9 +128,11 @@ function OrdersPage() {
 
   const filtered = (Array.isArray(list) ? list : []).filter((o) => !q || [o.number, o.customerName].some((v) => v.toLowerCase().includes(q.toLowerCase())));
 
-  const getAvailableStock = (productName: string): number | null => {
-    const item = (Array.isArray(inventory) ? inventory : []).find((i) => i.name.toLowerCase() === productName.toLowerCase());
-    return item ? item.currentStock : null;
+  const getAvailableStock = (productName: string, color?: string, size?: string, gaze?: string): number | null => {
+    const items = (Array.isArray(inventory) ? inventory : []).filter((i) => i.name.toLowerCase() === productName.toLowerCase());
+    if (!items.length) return null;
+    const exact = items.find((i) => (i.color || "") === (color || "") && (i.size || "") === (size || "") && (i.gaze || "") === (gaze || ""));
+    return exact ? exact.currentStock : items[0].currentStock;
   };
 
   const invOf = (productName: string) => (Array.isArray(inventory) ? inventory : []).find((i) => i.name.toLowerCase() === productName.toLowerCase());
@@ -422,37 +424,39 @@ function OrdersPage() {
                     <div className="grid gap-2 items-end" style={{ gridTemplateColumns: item.itemType === "length" ? "minmax(0,1fr) 90px 90px 90px 140px 70px 70px 90px 90px 36px" : "minmax(0,1fr) 90px 90px 90px 140px 70px 70px 70px 90px 90px 36px" }}>
                       <div className="min-w-0">
                         <Label className="text-xs">Product</Label>
-                        <Select value={item.productName || "__none__"} onValueChange={(v) => {
+                        <Select value={item.productName ? `inv-${item.productName}|${item.color || ""}|${item.size || ""}|${item.gaze || ""}` : "__none__"} onValueChange={(v) => {
                           if (v === "__none__") return updateItem(index, { productName: "" });
-                          const prod = products.find((p) => p.name === v);
-                          const inv = invOf(v);
+                          const inv = (Array.isArray(inventory) ? inventory : []).find((i) => `inv-${i.name}|${i.color || ""}|${i.size || ""}|${i.gaze || ""}` === v);
+                          if (!inv) return;
+                          const prod = products.find((p) => p.name.toLowerCase() === inv.name.toLowerCase());
                           updateItem(index, {
-                            productName: v,
-                            color: inv?.color || "",
-                            size: inv?.size || "",
-                            gaze: inv?.gaze || "",
-                            itemType: inv ? (inv.itemType === "length" ? "length" : "window") : item.itemType,
+                            productName: inv.name,
+                            color: inv.color || "",
+                            size: inv.size || "",
+                            gaze: inv.gaze || "",
+                            itemType: inv.itemType === "length" ? "length" : "window",
                             unitPrice: prod?.basePrice || item.unitPrice,
                           });
                         }}>
                           <SelectTrigger className="h-8 overflow-hidden"><SelectValue placeholder="Select product" /></SelectTrigger>
                           <SelectContent className="max-h-[280px]">
                             <SelectItem value="__none__">-- Select product --</SelectItem>
-                            {products.map((p) => {
-                              const stock = getAvailableStock(p.name);
-                              const unit = unitOf(p.name);
-                              const isLow = stock !== null && stock < 10;
-                              const isOut = stock !== null && stock <= 0;
+                            {(Array.isArray(inventory) ? inventory : []).map((inv) => {
+                              const key = `inv-${inv.name}|${inv.color || ""}|${inv.size || ""}|${inv.gaze || ""}`;
+                              const stock = inv.currentStock;
+                              const unit = (inv.pricingMode || "piece") === "size" ? ((inv.itemType || "window") === "length" ? "ft" : "sqft") : "pcs";
+                              const isLow = stock < 10;
+                              const isOut = stock <= 0;
+                              const variants = [inv.color, inv.size, inv.gaze].filter(Boolean);
+                              const label = variants.length ? `${inv.name} • ${variants.join(" / ")}` : inv.name;
                               return (
-                                <SelectItem key={p.id} value={p.name} className="py-2.5">
+                                <SelectItem key={key} value={key} className="py-2.5">
                                   <div className="flex items-center justify-between gap-3 w-full">
-                                    <span className="font-medium truncate">{productLabel(p.name)}</span>
-                                    {stock !== null && (
-                                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${isOut ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400" : isLow ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"}`}>
-                                        {isOut ? <AlertTriangle className="size-2.5" /> : <Package className="size-2.5" />}
-                                        {stock} {unit}
-                                      </span>
-                                    )}
+                                    <span className="font-medium truncate">{label}</span>
+                                    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${isOut ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400" : isLow ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"}`}>
+                                      {isOut ? <AlertTriangle className="size-2.5" /> : <Package className="size-2.5" />}
+                                      {stock} {unit}
+                                    </span>
                                   </div>
                                 </SelectItem>
                               );
@@ -462,7 +466,7 @@ function OrdersPage() {
                         {item.productName && (
                           <div className="mt-1.5">
                             {(() => {
-                              const stock = getAvailableStock(item.productName);
+                              const stock = getAvailableStock(item.productName, item.color, item.size, item.gaze);
                               if (stock === null) return null;
                               const need = consumedOf(item);
                               const isLow = need > stock;
@@ -513,7 +517,7 @@ function OrdersPage() {
                           min="0"
                           value={item.quantity || ""}
                           onChange={(e) => updateItem(index, { quantity: Number(e.target.value) })}
-                          className={`h-8 ${item.productName && getAvailableStock(item.productName) !== null && consumedOf(item) > (getAvailableStock(item.productName) || 0) ? "border-rose-500 focus:ring-rose-500" : ""}`}
+                          className={`h-8 ${item.productName && getAvailableStock(item.productName, item.color, item.size, item.gaze) !== null && consumedOf(item) > (getAvailableStock(item.productName, item.color, item.size, item.gaze) || 0) ? "border-rose-500 focus:ring-rose-500" : ""}`}
                         />
                       </div>
                       <div><Label className="text-xs">Unit Price{isSizeMode(item.productName) ? (item.itemType === "length" ? " /ft" : " /sqft") : " /pc"}</Label><Input type="number" min="0" value={item.unitPrice || ""} onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })} className="h-8" /></div>
