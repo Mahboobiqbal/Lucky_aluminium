@@ -6,6 +6,9 @@ from pydantic import BaseModel, Field, field_validator
 class OrderItemBase(BaseModel):
     productId: int | None = None
     productName: str
+    color: str | None = None
+    size: str | None = None
+    gaze: str | None = None
     itemType: str = "window"
     width: float = 0
     height: float = 0
@@ -57,6 +60,7 @@ class OrderBase(BaseModel):
     deliveryDate: datetime | None = None
     subtotal: float = 0
     discountPercent: float = 0
+    hardwareCharges: float = 0
     extraCharges: float = 0
     total: float = 0
     paid: float = 0
@@ -78,6 +82,13 @@ class OrderBase(BaseModel):
     def discount_valid(cls, v):
         if float(v) < 0 or float(v) > 100:
             raise ValueError("Discount must be between 0 and 100")
+        return float(v)
+
+    @field_validator("hardwareCharges", mode="before")
+    @classmethod
+    def hardwareCharges_non_negative(cls, v):
+        if float(v) < 0:
+            raise ValueError("Hardware charges cannot be negative")
         return float(v)
 
     @field_validator("total", mode="before")

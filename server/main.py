@@ -84,18 +84,54 @@ async def lifespan(app: FastAPI):
             tables = set(inspector.get_table_names())
             if "purchase_items" in tables:
                 purchase_item_columns = {c["name"] for c in inspector.get_columns("purchase_items")}
+                if "color" not in purchase_item_columns:
+                    sync_conn.execute(text("ALTER TABLE purchase_items ADD COLUMN color VARCHAR(100) DEFAULT NULL"))
+                if "size" not in purchase_item_columns:
+                    sync_conn.execute(text("ALTER TABLE purchase_items ADD COLUMN size VARCHAR(100) DEFAULT NULL"))
+                if "gaze" not in purchase_item_columns:
+                    sync_conn.execute(text("ALTER TABLE purchase_items ADD COLUMN gaze VARCHAR(100) DEFAULT NULL"))
                 if "width_ft" not in purchase_item_columns:
                     sync_conn.execute(text("ALTER TABLE purchase_items ADD COLUMN width_ft REAL DEFAULT 0"))
                 if "height_ft" not in purchase_item_columns:
                     sync_conn.execute(text("ALTER TABLE purchase_items ADD COLUMN height_ft REAL DEFAULT 0"))
+            if "quotations" in tables:
+                quotation_columns = {c["name"] for c in inspector.get_columns("quotations")}
+                if "hardware_charges" not in quotation_columns:
+                    sync_conn.execute(text("ALTER TABLE quotations ADD COLUMN hardware_charges REAL DEFAULT 0"))
+            if "orders" in tables:
+                order_columns = {c["name"] for c in inspector.get_columns("orders")}
+                if "hardware_charges" not in order_columns:
+                    sync_conn.execute(text("ALTER TABLE orders ADD COLUMN hardware_charges REAL DEFAULT 0"))
             if "inventory" in tables:
                 inventory_columns = {c["name"] for c in inspector.get_columns("inventory")}
-                if "width_ft" not in inventory_columns:
-                    sync_conn.execute(text("ALTER TABLE inventory ADD COLUMN width_ft REAL DEFAULT 0"))
-                if "height_ft" not in inventory_columns:
-                    sync_conn.execute(text("ALTER TABLE inventory ADD COLUMN height_ft REAL DEFAULT 0"))
-                if "stock_qty" not in inventory_columns:
-                    sync_conn.execute(text("ALTER TABLE inventory ADD COLUMN stock_qty REAL DEFAULT 0"))
+                for col_name, col_sql in {
+                    "color": "VARCHAR(100) DEFAULT NULL",
+                    "size": "VARCHAR(100) DEFAULT NULL",
+                    "gaze": "VARCHAR(100) DEFAULT NULL",
+                    "width_ft": "REAL DEFAULT 0",
+                    "height_ft": "REAL DEFAULT 0",
+                    "stock_qty": "REAL DEFAULT 0",
+                }.items():
+                    if col_name not in inventory_columns:
+                        sync_conn.execute(text(f"ALTER TABLE inventory ADD COLUMN {col_name} {col_sql}"))
+            if "order_items" in tables:
+                order_item_columns = {c["name"] for c in inspector.get_columns("order_items")}
+                for col_name, col_sql in {
+                    "color": "VARCHAR(100) DEFAULT NULL",
+                    "size": "VARCHAR(100) DEFAULT NULL",
+                    "gaze": "VARCHAR(100) DEFAULT NULL",
+                }.items():
+                    if col_name not in order_item_columns:
+                        sync_conn.execute(text(f"ALTER TABLE order_items ADD COLUMN {col_name} {col_sql}"))
+            if "quotation_items" in tables:
+                quotation_item_columns = {c["name"] for c in inspector.get_columns("quotation_items")}
+                for col_name, col_sql in {
+                    "color": "VARCHAR(100) DEFAULT NULL",
+                    "size": "VARCHAR(100) DEFAULT NULL",
+                    "gaze": "VARCHAR(100) DEFAULT NULL",
+                }.items():
+                    if col_name not in quotation_item_columns:
+                        sync_conn.execute(text(f"ALTER TABLE quotation_items ADD COLUMN {col_name} {col_sql}"))
             if "orders" in tables:
                 order_columns = {c["name"] for c in inspector.get_columns("orders")}
                 if "previous_balance" not in order_columns:

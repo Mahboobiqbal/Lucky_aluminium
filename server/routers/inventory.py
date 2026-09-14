@@ -18,7 +18,9 @@ VALID_ITEM_TYPES = ("length", "window")
 
 def _to_response(i: InventoryItem) -> dict:
     return {
-        "id": i.id, "name": i.name, "category": i.category, "unit": i.unit,
+        "id": i.id, "name": i.name, "category": i.category,
+        "color": i.color, "size": i.size, "gaze": i.gaze,
+        "unit": i.unit,
         "itemType": i.item_type,
         "pricingMode": i.pricing_mode,
         "currentStock": float(i.current_stock), "minStock": float(i.min_stock),
@@ -56,8 +58,8 @@ async def create_inventory_item(body: InventoryItemCreate, db: AsyncSession = De
         raise HTTPException(status_code=400, detail="Inventory item with this name already exists")
 
     item = InventoryItem(
-        name=body.name, category=body.category, unit=body.unit,
-        item_type=body.itemType, pricing_mode=body.pricingMode,
+        name=body.name, category=body.category, color=body.color, size=body.size, gaze=body.gaze,
+        unit=body.unit, item_type=body.itemType, pricing_mode=body.pricingMode,
         current_stock=body.currentStock, min_stock=body.minStock,
         cost_price=body.costPrice, supplier=body.supplier,
         width_ft=body.widthFt, height_ft=body.heightFt, length=body.length,
@@ -89,6 +91,9 @@ async def update_inventory_item(item_id: int, body: InventoryItemUpdate, db: Asy
 
     item.name = body.name
     item.category = body.category
+    item.color = body.color
+    item.size = body.size
+    item.gaze = body.gaze
     item.unit = body.unit
     item.item_type = body.itemType
     item.pricing_mode = body.pricingMode

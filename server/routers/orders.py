@@ -103,6 +103,7 @@ def _to_response(o: Order) -> dict:
         "deliveryDate": o.delivery_date,
         "subtotal": float(o.subtotal),
         "discountPercent": float(o.discount_percent),
+        "hardwareCharges": float(o.hardware_charges),
         "extraCharges": float(o.extra_charges),
         "total": float(o.total),
         "paid": float(o.paid),
@@ -117,6 +118,9 @@ def _to_response(o: Order) -> dict:
                 "id": i.id,
                 "productId": i.product_id,
                 "productName": i.product_name,
+                "color": i.color,
+                "size": i.size,
+                "gaze": i.gaze,
                 "itemType": i.item_type,
                 "width": float(i.width),
                 "height": float(i.height),
@@ -234,6 +238,9 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
             inv_result = await db.execute(select(InventoryItem).where(InventoryItem.name == item.productName))
             inv_item = inv_result.scalar_one_or_none()
             pricing_mode = inv_item.pricing_mode if inv_item else "piece"
+            color_value = getattr(item, "color", None) or (inv_item.color if inv_item else None)
+            size_value = getattr(item, "size", None) or (inv_item.size if inv_item else None)
+            gaze_value = getattr(item, "gaze", None) or (inv_item.gaze if inv_item else None)
 
             if pricing_mode == "size":
                 if item_type == "length" and l > 0:
@@ -248,6 +255,9 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
             calculated_items.append({
                 "productId": item.productId,
                 "productName": item.productName,
+                "color": color_value,
+                "size": size_value,
+                "gaze": gaze_value,
                 "itemType": item_type,
                 "width": w,
                 "height": h,
@@ -261,8 +271,10 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
 
         subtotal = round(sum(ci["amount"] for ci in calculated_items), 2)
         discount_pct = max(0, min(float(body.discountPercent or 0), 100))
+        hardware = max(0, float(getattr(body, 'hardwareCharges', 0) or 0))
         extra = max(0, float(getattr(body, 'extraCharges', 0) or 0))
-        total = round(subtotal - (subtotal * discount_pct / 100) + extra, 2)
+        discount_amount = round(subtotal * discount_pct / 100, 2)
+        total = round(subtotal - discount_amount + hardware + extra, 2)
 
         if body.status and body.status not in VALID_ORDER_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}. Allowed: {', '.join(VALID_ORDER_STATUSES)}")
@@ -280,6 +292,7 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
             delivery_date=naive(body.deliveryDate),
             subtotal=subtotal,
             discount_percent=discount_pct,
+            hardware_charges=hardware,
             extra_charges=extra,
             total=total,
             paid=paid_val,
@@ -302,6 +315,9 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
                 order_id=order.id,
                 product_id=ci["productId"],
                 product_name=ci["productName"],
+                color=ci.get("color"),
+                size=ci.get("size"),
+                gaze=ci.get("gaze"),
                 item_type=ci["itemType"],
                 width=ci["width"],
                 height=ci["height"],
@@ -415,6 +431,9 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
             inv_result = await db.execute(select(InventoryItem).where(InventoryItem.name == item.productName))
             inv_item = inv_result.scalar_one_or_none()
             pricing_mode = inv_item.pricing_mode if inv_item else "piece"
+            color_value = getattr(item, "color", None) or (inv_item.color if inv_item else None)
+            size_value = getattr(item, "size", None) or (inv_item.size if inv_item else None)
+            gaze_value = getattr(item, "gaze", None) or (inv_item.gaze if inv_item else None)
 
             if pricing_mode == "size":
                 if item_type == "length" and l > 0:
@@ -429,6 +448,9 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
             calculated_items.append({
                 "productId": item.productId,
                 "productName": item.productName,
+                "color": color_value,
+                "size": size_value,
+                "gaze": gaze_value,
                 "itemType": item_type,
                 "width": w,
                 "height": h,
@@ -442,8 +464,10 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
 
         subtotal = round(sum(ci["amount"] for ci in calculated_items), 2)
         discount_pct = max(0, min(float(body.discountPercent or 0), 100))
+        hardware = max(0, float(getattr(body, 'hardwareCharges', 0) or 0))
         extra = max(0, float(getattr(body, 'extraCharges', 0) or 0))
-        total = round(subtotal - (subtotal * discount_pct / 100) + extra, 2)
+        discount_amount = round(subtotal * discount_pct / 100, 2)
+        total = round(subtotal - discount_amount + hardware + extra, 2)
 
         order.number = body.number
         order.customer_id = body.customerId
@@ -453,6 +477,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         order.delivery_date = naive(body.deliveryDate)
         order.subtotal = subtotal
         order.discount_percent = discount_pct
+        order.hardware_charges = hardware
         order.extra_charges = extra
         order.total = total
         new_paid = float(body.paid or 0)
@@ -478,6 +503,9 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
                 order_id=order.id,
                 product_id=ci["productId"],
                 product_name=ci["productName"],
+                color=ci.get("color"),
+                size=ci.get("size"),
+                gaze=ci.get("gaze"),
                 item_type=ci["itemType"],
                 width=ci["width"],
                 height=ci["height"],

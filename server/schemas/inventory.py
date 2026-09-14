@@ -6,6 +6,9 @@ from pydantic import BaseModel, Field
 class InventoryItemBase(BaseModel):
     name: str
     category: str
+    color: str | None = None
+    size: str | None = None
+    gaze: str | None = None
     unit: str
     itemType: str = "window"
     pricingMode: str = "piece"

@@ -25,6 +25,7 @@ def _to_response(q: Quotation) -> dict:
         "date": q.date,
         "subtotal": float(q.subtotal),
         "discountPercent": float(q.discount_percent),
+        "hardwareCharges": float(q.hardware_charges),
         "extraCharges": float(q.extra_charges),
         "total": float(q.total),
         "previousBalance": float(q.previous_balance),
@@ -36,6 +37,9 @@ def _to_response(q: Quotation) -> dict:
                 "id": i.id,
                 "productId": i.product_id,
                 "productName": i.product_name,
+                "color": i.color,
+                "size": i.size,
+                "gaze": i.gaze,
                 "itemType": i.item_type,
                 "width": float(i.width),
                 "height": float(i.height),
@@ -93,6 +97,9 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
         inv_result = await db.execute(select(InventoryItem).where(InventoryItem.name == item.productName))
         inv_item = inv_result.scalar_one_or_none()
         pricing_mode = inv_item.pricing_mode if inv_item else "piece"
+        color_value = getattr(item, "color", None) or (inv_item.color if inv_item else None)
+        size_value = getattr(item, "size", None) or (inv_item.size if inv_item else None)
+        gaze_value = getattr(item, "gaze", None) or (inv_item.gaze if inv_item else None)
 
         if pricing_mode == "size":
             if item_type == "length" and l > 0:
@@ -107,6 +114,9 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
         calculated_items.append({
             "productId": item.productId,
             "productName": item.productName,
+            "color": color_value,
+            "size": size_value,
+            "gaze": gaze_value,
             "itemType": item_type,
             "width": w,
             "height": h,
@@ -120,8 +130,10 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
 
     subtotal = round(sum(ci["amount"] for ci in calculated_items), 2)
     discount_pct = max(0, min(float(body.discountPercent or 0), 100))
+    hardware = max(0, float(body.hardwareCharges or 0))
     extra = max(0, float(body.extraCharges or 0))
-    total = round(subtotal - (subtotal * discount_pct / 100) + extra, 2)
+    discount_amount = round(subtotal * discount_pct / 100, 2)
+    total = round(subtotal - discount_amount + hardware + extra, 2)
 
     quotation = Quotation(
         number=body.number,
@@ -130,6 +142,7 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
         date=naive(body.date),
         subtotal=subtotal,
         discount_percent=discount_pct,
+        hardware_charges=hardware,
         extra_charges=extra,
         total=total,
         previous_balance=float(getattr(body, 'previousBalance', 0) or 0),
@@ -145,6 +158,9 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
             quotation_id=quotation.id,
             product_id=ci["productId"],
             product_name=ci["productName"],
+            color=ci.get("color"),
+            size=ci.get("size"),
+            gaze=ci.get("gaze"),
             item_type=ci["itemType"],
             width=ci["width"],
             height=ci["height"],
@@ -202,6 +218,9 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
         inv_result = await db.execute(select(InventoryItem).where(InventoryItem.name == item.productName))
         inv_item = inv_result.scalar_one_or_none()
         pricing_mode = inv_item.pricing_mode if inv_item else "piece"
+        color_value = getattr(item, "color", None) or (inv_item.color if inv_item else None)
+        size_value = getattr(item, "size", None) or (inv_item.size if inv_item else None)
+        gaze_value = getattr(item, "gaze", None) or (inv_item.gaze if inv_item else None)
 
         if pricing_mode == "size":
             if item_type == "length" and l > 0:
@@ -216,6 +235,9 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
         calculated_items.append({
             "productId": item.productId,
             "productName": item.productName,
+            "color": color_value,
+            "size": size_value,
+            "gaze": gaze_value,
             "itemType": item_type,
             "width": w,
             "height": h,
@@ -229,11 +251,14 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
 
     subtotal = round(sum(ci["amount"] for ci in calculated_items), 2)
     discount_pct = max(0, min(float(body.discountPercent or 0), 100))
+    hardware = max(0, float(body.hardwareCharges or 0))
     extra = max(0, float(body.extraCharges or 0))
-    total = round(subtotal - (subtotal * discount_pct / 100) + extra, 2)
+    discount_amount = round(subtotal * discount_pct / 100, 2)
+    total = round(subtotal - discount_amount + hardware + extra, 2)
 
     quotation.subtotal = subtotal
     quotation.discount_percent = discount_pct
+    quotation.hardware_charges = hardware
     quotation.extra_charges = extra
     quotation.total = total
     quotation.previous_balance = float(getattr(body, 'previousBalance', 0) or 0)
@@ -243,6 +268,9 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
             quotation_id=quotation.id,
             product_id=ci["productId"],
             product_name=ci["productName"],
+            color=ci.get("color"),
+            size=ci.get("size"),
+            gaze=ci.get("gaze"),
             item_type=ci["itemType"],
             width=ci["width"],
             height=ci["height"],

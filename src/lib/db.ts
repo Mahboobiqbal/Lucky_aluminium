@@ -89,6 +89,7 @@ export interface Invoice {
   items: QuotationItem[];
   subtotal: number;
   discountPercent: number;
+  hardwareCharges: number;
   extraCharges: number;
   total: number;
   paid: number;

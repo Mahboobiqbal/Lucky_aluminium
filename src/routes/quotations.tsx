@@ -28,6 +28,9 @@ export const Route = createFileRoute("/quotations")({
 type QuotationItem = {
   productId?: number;
   productName: string;
+  color: string;
+  size: string;
+  gaze: string;
   itemType: "length" | "window";
   width: number;
   height: number;
@@ -38,6 +41,8 @@ type QuotationItem = {
   amount: number;
   notes?: string;
 };
+
+const emptyQuotationItem: QuotationItem = { productName: "", color: "", size: "", gaze: "", itemType: "length", width: 0, height: 0, length: 0, sqft: 0, quantity: 0, unitPrice: 0, amount: 0, notes: "" };
 
 type Quotation = {
   id: number;
@@ -65,6 +70,7 @@ function QuotationsPage() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [discountPercent, setDiscountPercent] = useState(0);
+  const [hardwareCharges, setHardwareCharges] = useState(0);
   const [extra, setExtra] = useState(0);
   const [previousBalance, setPreviousBalance] = useState(0);
   const [items, setItems] = useState<QuotationItem[]>([]);
@@ -100,12 +106,12 @@ function QuotationsPage() {
 
   const subtotal = items.reduce((s, it) => s + it.amount, 0);
   const discountAmount = subtotal * discountPercent / 100;
-  const total = Math.max(0, subtotal - discountAmount + extra);
+  const total = Math.max(0, subtotal - discountAmount + hardwareCharges + extra);
 
   const invOf = (productName: string) => (Array.isArray(inventory) ? inventory : []).find((i) => i.name.toLowerCase() === productName.toLowerCase());
   const isSizeMode = (productName: string) => invOf(productName)?.pricingMode === "size";
 
-  const addItem = () => setItems([...items, { productName: "", itemType: "window", width: 0, height: 0, length: 0, sqft: 0, quantity: 0, unitPrice: 0, amount: 0, notes: "" }]);
+  const addItem = () => setItems([...items, { ...emptyQuotationItem }]);
   const updateItem = (i: number, patch: Partial<QuotationItem>) => {
     setItems((prev) => prev.map((it, idx) => {
       if (idx !== i) return it;
@@ -124,12 +130,13 @@ function QuotationsPage() {
   };
   const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i));
 
-  const reset = () => { setEditingId(null); setCustomerName(""); setDiscountPercent(0); setExtra(0); setPreviousBalance(0); setItems([]); };
+  const reset = () => { setEditingId(null); setCustomerName(""); setDiscountPercent(0); setHardwareCharges(0); setExtra(0); setPreviousBalance(0); setItems([]); };
   const openNew = () => { reset(); setOpen(true); };
   const openEdit = (qt: Quotation) => {
     setEditingId(qt.id);
     setCustomerName(qt.customerName);
     setDiscountPercent(qt.discountPercent);
+    setHardwareCharges((qt as any).hardwareCharges ?? 0);
     setExtra(qt.extraCharges);
     setPreviousBalance((qt as any).previousBalance ?? 0);
     setItems(qt.items.map((it) => ({ ...it })));
@@ -154,7 +161,15 @@ function QuotationsPage() {
           customerId: 0,
           customerName: customerName.trim(),
           date: (Array.isArray(list) ? list : []).find((x) => x.id === editingId)?.date || new Date().toISOString(),
-          items, subtotal, discountPercent, extraCharges: extra, total, previousBalance, status: "draft", notes: "",
+          items,
+          subtotal,
+          discountPercent,
+          hardwareCharges,
+          extraCharges: extra,
+          total,
+          previousBalance,
+          status: "draft",
+          notes: "",
         });
         toast.success("Quotation updated");
       } else {
@@ -163,7 +178,15 @@ function QuotationsPage() {
           customerId: 0,
           customerName: customerName.trim(),
           date: new Date().toISOString(),
-          items, subtotal, discountPercent, extraCharges: extra, total, previousBalance, status: "draft", notes: "",
+          items,
+          subtotal,
+          discountPercent,
+          hardwareCharges,
+          extraCharges: extra,
+          total,
+          previousBalance,
+          status: "draft",
+          notes: "",
         });
         toast.success("Quotation created");
       }
@@ -315,8 +338,11 @@ function QuotationsPage() {
               const measTotal = isWindow ? it.length * (it.quantity || 1) : sqftVal * (it.quantity || 1);
               return (
                 <div key={i} className="border border-border rounded-md bg-card">
-                  <div className={`grid grid-cols-1 sm:grid-cols-2 ${isWindow ? "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]" : "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]"} gap-1.5 p-2 items-end`}>
+                  <div className={`grid grid-cols-1 sm:grid-cols-2 ${isWindow ? "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]" : "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]"} gap-1.5 p-2 items-end`}>
                     <div><Label className="text-[10px]">Product</Label><Input className={inputClass} type="text" value={it.productName} onChange={(e) => updateItem(i, { productName: e.target.value })} placeholder="Product name" /></div>
+                    <div><Label className="text-[10px]">Color</Label><Input className={inputClass} type="text" value={it.color || ""} onChange={(e) => updateItem(i, { color: e.target.value })} placeholder="Color" /></div>
+                    <div><Label className="text-[10px]">Size</Label><Input className={inputClass} type="text" value={it.size || ""} onChange={(e) => updateItem(i, { size: e.target.value })} placeholder="Size" /></div>
+                    <div><Label className="text-[10px]">Gaze</Label><Input className={inputClass} type="text" value={it.gaze || ""} onChange={(e) => updateItem(i, { gaze: e.target.value })} placeholder="Gaze" /></div>
                     <div>
                       <Label className="text-[10px]">Type</Label>
                       <Select value={it.itemType || "window"} onValueChange={(v) => updateItem(i, { itemType: v as "length" | "window" })}>
@@ -356,18 +382,19 @@ function QuotationsPage() {
             <div className="w-72 space-y-1">
               <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums font-medium">{currency(subtotal)}</span></div>
               {discountPercent > 0 && <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Discount ({discountPercent}%)</span><span className="tabular-nums text-destructive">− {currency(discountAmount)}</span></div>}
-              <div className="flex justify-between items-center py-1.5 text-sm font-bold border-t border-border pt-1.5"><span>Order Total</span><span className="tabular-nums">{currency(total)}</span></div>
+              {hardwareCharges > 0 && <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Hardware Charges</span><span className="tabular-nums font-medium">{currency(hardwareCharges)}</span></div>}
               {extra > 0 && <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-muted-foreground">Extra Charges</span><span className="tabular-nums font-medium">{currency(extra)}</span></div>}
+              <div className="flex justify-between items-center py-1.5 text-sm font-bold border-t border-border pt-1.5"><span>Order Total</span><span className="tabular-nums">{currency(total)}</span></div>
               {previousBalance > 0 && <>
-                <div className="flex justify-between items-center py-1.5 text-sm border-t border-dashed border-border pt-1.5"><span className="text-muted-foreground">Remaining Balance</span><span className="tabular-nums font-semibold">{currency(total + extra)}</span></div>
-                <div className="flex justify-between items-center py-1.5 text-sm"><span className="text-blue-600">Previous Balance</span><span className="tabular-nums text-blue-600">{currency(previousBalance)}</span></div>
+                <div className="flex justify-between items-center py-1.5 text-sm border-t border-dashed border-border pt-1.5"><span className="text-muted-foreground">Previous Balance</span><span className="tabular-nums text-blue-600">{currency(previousBalance)}</span></div>
               </>}
               <Separator />
-              <div className="flex justify-between items-center py-2"><span className="text-base font-bold text-rose-600">Grand Total</span><span className="text-lg font-bold tabular-nums text-rose-600">{currency(total + extra + previousBalance)}</span></div>
+              <div className="flex justify-between items-center py-2"><span className="text-base font-bold text-rose-600">Grand Total</span><span className="text-lg font-bold tabular-nums text-rose-600">{currency(total + previousBalance)}</span></div>
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
                 <div><Label className="text-[10px] text-muted-foreground">Discount %</Label><Input type="number" min="0" max="100" value={discountPercent || ""} onChange={(e) => setDiscountPercent(Number(e.target.value))} className="h-7 text-xs" /></div>
+                <div><Label className="text-[10px] text-muted-foreground">Hardware</Label><Input type="number" min="0" value={hardwareCharges || ""} onChange={(e) => setHardwareCharges(Number(e.target.value))} className="h-7 text-xs" /></div>
                 <div><Label className="text-[10px] text-muted-foreground">Extra charges</Label><Input type="number" min="0" value={extra || ""} onChange={(e) => setExtra(Number(e.target.value))} className="h-7 text-xs" /></div>
-                <div className="col-span-2"><Label className="text-[10px] text-muted-foreground">Previous Balance</Label><Input type="number" min="0" value={previousBalance || ""} onChange={(e) => setPreviousBalance(Number(e.target.value))} className="h-7 text-xs" placeholder="0" /></div>
+                <div><Label className="text-[10px] text-muted-foreground">Previous Balance</Label><Input type="number" min="0" value={previousBalance || ""} onChange={(e) => setPreviousBalance(Number(e.target.value))} className="h-7 text-xs" placeholder="0" /></div>
               </div>
             </div>
           </div>

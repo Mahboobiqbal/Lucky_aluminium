@@ -24,7 +24,7 @@ export const Route = createFileRoute("/stock-report")({
 });
 
 type InventoryItem = {
-  id: number; name: string; category: string; unit: string; itemType: string; pricingMode?: string;
+  id: number; name: string; category: string; color?: string; size?: string; gaze?: string; unit: string; itemType: string; pricingMode?: string;
   currentStock: number; minStock: number; costPrice: number;
   supplier?: string; widthFt?: number; heightFt?: number; length?: number; stockQty?: number;
   createdAt: string;
@@ -181,6 +181,9 @@ function StockReportPage() {
                 <tr>
                   <th className="w-8 text-center">#</th>
                   <th>Item</th>
+                  <th>Color</th>
+                  <th>Size</th>
+                  <th>Gaze</th>
                   <th>Type</th>
                   <th>Category</th>
                   <th>Supplier</th>
@@ -207,6 +210,9 @@ function StockReportPage() {
                     <tr key={item.id} className={`${out ? "bg-rose-500/5" : low ? "bg-amber-500/5" : ""} hover:bg-muted/30 transition-colors`}>
                       <td className="text-center text-muted-foreground">{idx + 1}</td>
                       <td className="font-medium">{item.name}</td>
+                      <td className="text-muted-foreground text-xs">{item.color || "-"}</td>
+                      <td className="text-muted-foreground text-xs">{item.size || "-"}</td>
+                      <td className="text-muted-foreground text-xs">{item.gaze || "-"}</td>
                       <td><span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] border ${isWindow ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30" : "bg-muted/50 text-muted-foreground border-border"}`}>{isWindow ? "Length-based" : "Window"}</span></td>
                       <td>{item.category || "-"}</td>
                       <td className="text-muted-foreground">{item.supplier || "-"}</td>

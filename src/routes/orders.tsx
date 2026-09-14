@@ -31,6 +31,9 @@ const STATUSES = ["pending", "confirmed", "in_production", "ready", "delivered",
 type OrderItem = {
   productId?: number;
   productName: string;
+  color?: string;
+  size?: string;
+  gaze?: string;
   itemType: "length" | "window";
   width: number;
   height: number;
@@ -66,9 +69,9 @@ type Order = {
 
 type Customer = { id: number; name: string };
 type Product = { id: number; name: string; basePrice: number; active: boolean };
-type InventoryItem = { id: number; name: string; itemType?: string; pricingMode?: string; currentStock: number; widthFt?: number; heightFt?: number; length?: number };
+type InventoryItem = { id: number; name: string; color?: string; size?: string; gaze?: string; itemType?: string; pricingMode?: string; currentStock: number; widthFt?: number; heightFt?: number; length?: number };
 
-const emptyItem: OrderItem = { productName: "", itemType: "window", width: 0, height: 0, length: 0, quantity: 0, unitPrice: 0, amount: 0 };
+const emptyItem: OrderItem = { productName: "", color: "", size: "", gaze: "", itemType: "length", width: 0, height: 0, length: 0, quantity: 0, unitPrice: 0, amount: 0 };
 
 function OrdersPage() {
   const { can } = useAuth();
@@ -93,6 +96,7 @@ function OrdersPage() {
     items: [emptyItem] as OrderItem[],
     subtotal: 0,
     discountPercent: 0,
+    hardwareCharges: 0,
     extraCharges: 0,
     total: 0,
     paid: 0,
@@ -130,6 +134,11 @@ function OrdersPage() {
   };
 
   const invOf = (productName: string) => (Array.isArray(inventory) ? inventory : []).find((i) => i.name.toLowerCase() === productName.toLowerCase());
+  const productLabel = (productName: string) => {
+    const inv = invOf(productName);
+    const variants = [inv?.color, inv?.size, inv?.gaze].filter(Boolean);
+    return variants.length ? `${productName} • ${variants.join(" / ")}` : productName;
+  };
 
   const isSizeMode = (productName: string) => invOf(productName)?.pricingMode === "size";
 
@@ -165,14 +174,21 @@ function OrdersPage() {
   const recalc = (items: OrderItem[], discountPercent?: number) => {
     const subtotal = items.reduce((s, item) => s + item.amount, 0);
     const dp = discountPercent ?? form.discountPercent;
+    const hardwareVal = form.hardwareCharges || 0;
     const extraVal = form.extraCharges || 0;
-    const total = subtotal - (subtotal * dp / 100) + extraVal;
+    const total = subtotal - (subtotal * dp / 100) + hardwareVal + extraVal;
     return { subtotal, total };
   };
 
   const updateItem = (index: number, patch: Partial<OrderItem>) => {
     const items = [...form.items];
     const next = { ...items[index], ...patch };
+    if (next.productName) {
+      const inv = invOf(next.productName);
+      next.color = next.color || inv?.color || "";
+      next.size = next.size || inv?.size || "";
+      next.gaze = next.gaze || inv?.gaze || "";
+    }
     if (isSizeMode(next.productName)) {
       if (next.itemType === "length") {
         next.amount = next.length * next.quantity * next.unitPrice;
@@ -193,7 +209,7 @@ function OrdersPage() {
       number: `ORD-${String((Array.isArray(list) ? list : []).length + 1).padStart(4, "0")}`,
       customerId: 0, customerName: "",
       orderDate: Date.now(), deliveryDate: Date.now() + 86400000 * 7,
-      items: [{ ...emptyItem }], subtotal: 0, discountPercent: 0, extraCharges: 0, total: 0, paid: 0, previousBalance: 0, status: "pending", notes: "",
+      items: [{ ...emptyItem }], subtotal: 0, discountPercent: 0, hardwareCharges: 0, extraCharges: 0, total: 0, paid: 0, previousBalance: 0, status: "pending", notes: "",
     });
     setOpen(true);
   };
@@ -203,7 +219,7 @@ function OrdersPage() {
     setForm({
       number: o.number, customerId: o.customerId, customerName: o.customerName,
       orderDate: new Date(o.orderDate).getTime(), deliveryDate: o.deliveryDate ? new Date(o.deliveryDate).getTime() : Date.now() + 86400000 * 7,
-      items: o.items.map((i) => ({ ...i })), subtotal: o.subtotal ?? o.total, discountPercent: o.discountPercent ?? 0, extraCharges: o.extraCharges ?? 0, total: o.total, paid: o.paid, previousBalance: (o as any).previousBalance ?? 0, status: o.status, notes: o.notes ?? "",
+      items: o.items.map((i) => ({ ...i })), subtotal: o.subtotal ?? o.total, discountPercent: o.discountPercent ?? 0, hardwareCharges: (o as any).hardwareCharges ?? 0, extraCharges: o.extraCharges ?? 0, total: o.total, paid: o.paid, previousBalance: (o as any).previousBalance ?? 0, status: o.status, notes: o.notes ?? "",
     });
     setOpen(true);
   };
@@ -233,6 +249,9 @@ function OrdersPage() {
       }
       const items = form.items.map((i) => ({
         ...i,
+        color: i.color || invOf(i.productName)?.color || "",
+        size: i.size || invOf(i.productName)?.size || "",
+        gaze: i.gaze || invOf(i.productName)?.gaze || "",
         width: i.width || 0,
         height: i.height || 0,
         length: i.length || 0,
@@ -245,7 +264,7 @@ function OrdersPage() {
         number: form.number, customerId, customerName: form.customerName,
         orderDate: new Date(form.orderDate).toISOString(),
         deliveryDate: form.deliveryDate ? new Date(form.deliveryDate).toISOString() : null,
-        subtotal: form.subtotal, discountPercent: form.discountPercent, extraCharges: form.extraCharges,
+        subtotal: form.subtotal, discountPercent: form.discountPercent, hardwareCharges: form.hardwareCharges, extraCharges: form.extraCharges,
         items, total: form.total, paid: form.paid, previousBalance: form.previousBalance, status: form.status, notes: form.notes,
       };
       if (editingId) {
@@ -400,14 +419,21 @@ function OrdersPage() {
               <div className="divide-y divide-border">
                 {form.items.map((item, index) => (
                   <div key={index} className="p-3 space-y-2">
-                    <div className="grid gap-2 items-end" style={{ gridTemplateColumns: item.itemType === "length" ? "minmax(0,1fr) 140px 70px 70px 90px 90px 36px" : "minmax(0,1fr) 140px 70px 70px 70px 90px 90px 36px" }}>
+                    <div className="grid gap-2 items-end" style={{ gridTemplateColumns: item.itemType === "length" ? "minmax(0,1fr) 90px 90px 90px 140px 70px 70px 90px 90px 36px" : "minmax(0,1fr) 90px 90px 90px 140px 70px 70px 70px 90px 90px 36px" }}>
                       <div className="min-w-0">
                         <Label className="text-xs">Product</Label>
                         <Select value={item.productName || "__none__"} onValueChange={(v) => {
                           if (v === "__none__") return updateItem(index, { productName: "" });
                           const prod = products.find((p) => p.name === v);
                           const inv = invOf(v);
-                          updateItem(index, { productName: v, itemType: inv ? (inv.itemType === "length" ? "length" : "window") : item.itemType, unitPrice: prod?.basePrice || item.unitPrice });
+                          updateItem(index, {
+                            productName: v,
+                            color: inv?.color || "",
+                            size: inv?.size || "",
+                            gaze: inv?.gaze || "",
+                            itemType: inv ? (inv.itemType === "length" ? "length" : "window") : item.itemType,
+                            unitPrice: prod?.basePrice || item.unitPrice,
+                          });
                         }}>
                           <SelectTrigger className="h-8 overflow-hidden"><SelectValue placeholder="Select product" /></SelectTrigger>
                           <SelectContent className="max-h-[280px]">
@@ -420,7 +446,7 @@ function OrdersPage() {
                               return (
                                 <SelectItem key={p.id} value={p.name} className="py-2.5">
                                   <div className="flex items-center justify-between gap-3 w-full">
-                                    <span className="font-medium truncate">{p.name}</span>
+                                    <span className="font-medium truncate">{productLabel(p.name)}</span>
                                     {stock !== null && (
                                       <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${isOut ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400" : isLow ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"}`}>
                                         {isOut ? <AlertTriangle className="size-2.5" /> : <Package className="size-2.5" />}
@@ -459,6 +485,9 @@ function OrdersPage() {
                           </div>
                         )}
                       </div>
+                      <div><Label className="text-xs">Color</Label><Input value={item.color || ""} onChange={(e) => updateItem(index, { color: e.target.value })} className="h-8" /></div>
+                      <div><Label className="text-xs">Size</Label><Input value={item.size || ""} onChange={(e) => updateItem(index, { size: e.target.value })} className="h-8" /></div>
+                      <div><Label className="text-xs">Gaze</Label><Input value={item.gaze || ""} onChange={(e) => updateItem(index, { gaze: e.target.value })} className="h-8" /></div>
                       <div>
                         <Label className="text-xs">Type</Label>
                         <Select value={item.itemType || "window"} onValueChange={(v) => updateItem(index, { itemType: v as "length" | "window" })}>
@@ -509,13 +538,19 @@ function OrdersPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label className="text-xs">Discount %</Label><Input type="number" min="0" max="100" value={form.discountPercent || ""} onChange={(e) => {
                     const dp = Number(e.target.value);
+                    const hardwareVal = form.hardwareCharges || 0;
                     const extraVal = form.extraCharges || 0;
-                    const total = form.subtotal - (form.subtotal * dp / 100) + extraVal;
+                    const total = Math.max(0, form.subtotal - (form.subtotal * dp / 100) + hardwareVal + extraVal);
                     setForm({ ...form, discountPercent: dp, total });
+                  }} className="h-8" /></div>
+                  <div><Label className="text-xs">Hardware Charges</Label><Input type="number" min="0" value={form.hardwareCharges || ""} onChange={(e) => {
+                    const hardwareVal = Number(e.target.value);
+                    const total = Math.max(0, form.subtotal - (form.subtotal * form.discountPercent / 100) + hardwareVal + (form.extraCharges || 0));
+                    setForm({ ...form, hardwareCharges: hardwareVal, total });
                   }} className="h-8" /></div>
                   <div><Label className="text-xs">Extra Charges</Label><Input type="number" min="0" value={form.extraCharges || ""} onChange={(e) => {
                     const extraVal = Number(e.target.value);
-                    const total = form.subtotal - (form.subtotal * form.discountPercent / 100) + extraVal;
+                    const total = Math.max(0, form.subtotal - (form.subtotal * form.discountPercent / 100) + (form.hardwareCharges || 0) + extraVal);
                     setForm({ ...form, extraCharges: extraVal, total });
                   }} className="h-8" /></div>
                   <div><Label className="text-xs">Paid amount</Label><Input type="number" min="0" value={form.paid || ""} onChange={(e) => setForm({ ...form, paid: Number(e.target.value) })} className="h-8" /></div>
@@ -526,6 +561,7 @@ function OrdersPage() {
               <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-1.5">
                 <div className="flex justify-between text-xs"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">{currency(form.subtotal)}</span></div>
                 {form.discountPercent > 0 && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Discount ({form.discountPercent}%)</span><span className="tabular-nums text-destructive">−{currency(form.subtotal * form.discountPercent / 100)}</span></div>}
+                {(form.hardwareCharges ?? 0) > 0 && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Hardware Charges</span><span className="tabular-nums">{currency(form.hardwareCharges)}</span></div>}
                 {(form.extraCharges ?? 0) > 0 && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Extra Charges</span><span className="tabular-nums">{currency(form.extraCharges)}</span></div>}
                 <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5"><span>Order Total</span><span className="tabular-nums">{currency(form.total)}</span></div>
                 <div className="flex justify-between text-xs"><span className="text-muted-foreground">Paid / Advance</span><span className="tabular-nums">{currency(form.paid)}</span></div>

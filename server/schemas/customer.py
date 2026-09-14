@@ -26,5 +26,6 @@ class CustomerUpdate(CustomerBase):
 class CustomerResponse(CustomerBase):
     id: int
     createdAt: datetime = Field(alias="created_at")
+    previousBalance: float = Field(default=0, validation_alias="previous_balance", serialization_alias="previousBalance")
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}

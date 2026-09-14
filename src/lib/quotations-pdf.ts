@@ -180,19 +180,18 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
   }, 0);
 
   const discountAmount = data.subtotal * data.discountPercent / 100;
+  const hardwareCharges = (data as any).hardwareCharges || 0;
 
   const hasPrevious = (data as any).previousBalance > 0;
   const totalsRows: Array<[string, string]> = [
     ["Total Measurement", totalMeasurement.toFixed(2)],
-    ...(data.discountPercent > 0 || data.extraCharges > 0 ? [["Subtotal", currency(data.subtotal)]] as [string, string][] : []),
+    [["Subtotal", currency(data.subtotal)] as [string, string]],
     ...(data.discountPercent > 0 ? [["Discount (" + data.discountPercent + "%)", "- " + currency(discountAmount)]] as [string, string][] : []),
-    ["Order Total", currency(data.total)],
+    ...(hardwareCharges > 0 ? [["Hardware Charges", currency(hardwareCharges)]] as [string, string][] : []),
     ...(data.extraCharges > 0 ? [["Extra Charges", currency(data.extraCharges)]] as [string, string][] : []),
-    ...(!hasPrevious && data.extraCharges > 0 ? [["Total", currency(data.total + data.extraCharges)]] as [string, string][] : []),
-    ...(!hasPrevious && data.extraCharges <= 0 ? [] : []),
-    ...(hasPrevious ? [["Remaining Balance", currency(data.total + data.extraCharges)]] as [string, string][] : []),
+    ["Order Total", currency(data.total)],
     ...(hasPrevious ? [["Previous Balance", currency((data as any).previousBalance)]] as [string, string][] : []),
-    ["Grand Total", currency(data.total + data.extraCharges + (hasPrevious ? (data as any).previousBalance : 0))],
+    ["Grand Total", currency(data.total + (hasPrevious ? (data as any).previousBalance : 0))],
   ];
 
   // Calculate the totals box width to align with the right edge of the items table

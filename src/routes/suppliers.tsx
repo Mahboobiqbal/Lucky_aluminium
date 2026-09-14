@@ -27,13 +27,13 @@ export const Route = createFileRoute("/suppliers")({
 });
 
 type Supplier = { id: number; name: string; company?: string; contact: string; mobile?: string; city?: string; email?: string; address?: string; products?: string; notes?: string; createdAt: string };
-type Purchase = { id: number; invoiceNumber: string; supplierId: number; supplierName: string;   items: { productName: string; itemType?: string; pricingMode?: string; widthFt?: number; heightFt?: number; length?: number; quantity: number; purchasePrice: number; salePrice: number; amount: number }[]; paymentType: string; totalAmount: number; date: string; notes?: string; createdAt: string };
+type Purchase = { id: number; invoiceNumber: string; supplierId: number; supplierName: string; items: { productName: string; color?: string; size?: string; gaze?: string; itemType?: string; pricingMode?: string; widthFt?: number; heightFt?: number; length?: number; quantity: number; purchasePrice: number; salePrice: number; amount: number }[]; paymentType: string; totalAmount: number; date: string; notes?: string; createdAt: string };
 
 type PaymentRec = { id: number; invoiceId?: number; supplierId?: number; supplierName?: string; amount: number; method: string; date: string; notes?: string; createdAt: string };
 type Setting = { key: string; value: string };
 
 const emptySupplier = { name: "", company: "", contact: "", address: "", products: "", notes: "" };
-type PurchaseFormItem = { productName: string; itemType: "length" | "window"; pricingMode: "piece" | "size"; widthFt?: number; heightFt?: number; length: number; quantity: number; purchasePrice: number; salePrice: number; amount: number };
+type PurchaseFormItem = { productName: string; color: string; size: string; gaze: string; itemType: "length" | "window"; pricingMode: "piece" | "size"; widthFt?: number; heightFt?: number; length: number; quantity: number; purchasePrice: number; salePrice: number; amount: number };
 
 function SuppliersPage() {
   const { can } = useAuth();
@@ -124,7 +124,7 @@ function SuppliersPage() {
 
   const openPurchase = (supplierId?: number) => {
     const supplier = supplierId ? (Array.isArray(list) ? list : []).find((s) => s.id === supplierId) : undefined;
-    setPurchaseForm({ invoiceNumber: `PUR-${String((Array.isArray(purchases) ? purchases : []).length + 1).padStart(4, "0")}`, supplierId: supplier?.id ?? 0, supplierName: supplier?.name ?? "", items: [{ productName: "", itemType: "window", pricingMode: "piece", widthFt: undefined, heightFt: undefined, length: 0, quantity: 0, purchasePrice: 0, salePrice: 0, amount: 0 }] as PurchaseFormItem[], paymentType: "cash", totalAmount: 0, date: Date.now() });
+    setPurchaseForm({ invoiceNumber: `PUR-${String((Array.isArray(purchases) ? purchases : []).length + 1).padStart(4, "0")}`, supplierId: supplier?.id ?? 0, supplierName: supplier?.name ?? "", items: [{ productName: "", color: "", size: "", gaze: "", itemType: "window", pricingMode: "piece", widthFt: undefined, heightFt: undefined, length: 0, quantity: 0, purchasePrice: 0, salePrice: 0, amount: 0 }] as PurchaseFormItem[], paymentType: "cash", totalAmount: 0, date: Date.now() });
     setPurchaseOpen(true);
   };
 
@@ -159,9 +159,9 @@ function SuppliersPage() {
           code: existing?.code || `PRD-${String((products?.length || 0) + 1).padStart(4, "0")}`,
           name: item.productName.trim(),
           category: "Purchased",
-          color: existing?.color || "",
-          size: existing?.size || "",
-          gaze: existing?.gaze || "",
+          color: item.color || existing?.color || "",
+          size: item.size || existing?.size || "",
+          gaze: item.gaze || existing?.gaze || "",
           unit: existing?.unit || "pcs",
           basePrice: existing?.basePrice || item.purchasePrice || 0,
           description: existing?.description
@@ -260,17 +260,19 @@ function SuppliersPage() {
       </Dialog>
 
       <Dialog open={purchaseOpen} onOpenChange={setPurchaseOpen}>
-        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>New Purchase</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div><Label className="text-xs">Invoice Number *</Label><Input value={purchaseForm.invoiceNumber} onChange={(e) => setPurchaseForm({ ...purchaseForm, invoiceNumber: e.target.value })} className="h-8" /></div>
-              <div><Label className="text-xs">Supplier *</Label><Select value={purchaseForm.supplierId ? String(purchaseForm.supplierId) : ""} onValueChange={(v) => { const s = list.find((x) => x.id === Number(v)); setPurchaseForm({ ...purchaseForm, supplierId: Number(v), supplierName: s?.name || "" }); }}><SelectTrigger className="h-8"><SelectValue placeholder="Select supplier" /></SelectTrigger><SelectContent>                {(Array.isArray(list) ? list : []).map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent></Select></div>
+        <DialogContent className="max-w-[calc(100vw-1.5rem)] sm:max-w-7xl lg:max-w-[96vw] max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border bg-card shadow-2xl">
+          <DialogHeader className="pb-2 border-b border-border/80">
+            <DialogTitle className="text-2xl font-semibold tracking-tight">New Purchase</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5 pt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 rounded-xl bg-muted/30 p-3 border border-border/80">
+              <div><Label className="text-xs font-medium mb-1.5 block">Invoice Number *</Label><Input value={purchaseForm.invoiceNumber} onChange={(e) => setPurchaseForm({ ...purchaseForm, invoiceNumber: e.target.value })} className="h-10 text-sm" /></div>
+              <div><Label className="text-xs font-medium mb-1.5 block">Supplier *</Label><Select value={purchaseForm.supplierId ? String(purchaseForm.supplierId) : ""} onValueChange={(v) => { const s = list.find((x) => x.id === Number(v)); setPurchaseForm({ ...purchaseForm, supplierId: Number(v), supplierName: s?.name || "" }); }}><SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger><SelectContent>                {(Array.isArray(list) ? list : []).map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent></Select></div>
               <DateField label="Date" value={purchaseForm.date} onChange={(v) => setPurchaseForm({ ...purchaseForm, date: v })} />
-              <div><Label className="text-xs">Payment Type</Label><select value={purchaseForm.paymentType} onChange={(e) => setPurchaseForm({ ...purchaseForm, paymentType: e.target.value })} className="h-9 px-2 rounded-lg border border-border bg-background text-sm w-full"><option value="cash">Cash</option><option value="credit">Credit</option><option value="cheque">Cheque</option><option value="bank_transfer">Bank Transfer</option></select></div>
+              <div><Label className="text-xs font-medium mb-1.5 block">Payment Type</Label><select value={purchaseForm.paymentType} onChange={(e) => setPurchaseForm({ ...purchaseForm, paymentType: e.target.value })} className="h-10 px-2 rounded-lg border border-border bg-background text-sm w-full"><option value="cash">Cash</option><option value="credit">Credit</option><option value="cheque">Cheque</option><option value="bank_transfer">Bank Transfer</option></select></div>
             </div>
-            <div className="border rounded-md">
-              <div className="bg-muted/50 px-4 py-2 border-b"><div className="text-sm font-semibold">Products</div></div>
+            <div className="border rounded-xl overflow-hidden bg-background shadow-sm">
+              <div className="bg-muted/70 px-4 py-2.5 border-b"><div className="text-sm font-semibold">Products</div></div>
               {(() => {
                 const grouped: Record<number, { items: PurchaseFormItem[]; indices: number[] }> = {};
                 purchaseForm.items.forEach((item, idx) => {
@@ -294,8 +296,11 @@ function SuppliersPage() {
                         const isWindow = item.itemType === "length";
                         return (
                           <div key={idx} className="p-3 space-y-2">
-                            <div className={`grid grid-cols-1 sm:grid-cols-2 ${isWindow ? "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]" : "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]"} gap-2 items-end`}>
+                            <div className={`grid grid-cols-1 sm:grid-cols-2 ${isWindow ? "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]" : "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]"} gap-2 items-end`}>
                               <div><Label className="text-xs">Product</Label><Input value={item.productName} onChange={(e) => updatePurchaseItem(idx, "productName", e.target.value)} className="h-8" /></div>
+                              <div><Label className="text-xs">Color</Label><Input value={item.color} onChange={(e) => updatePurchaseItem(idx, "color", e.target.value)} className="h-8" /></div>
+                              <div><Label className="text-xs">Size</Label><Input value={item.size} onChange={(e) => updatePurchaseItem(idx, "size", e.target.value)} className="h-8" /></div>
+                              <div><Label className="text-xs">Gaze</Label><Input value={item.gaze} onChange={(e) => updatePurchaseItem(idx, "gaze", e.target.value)} className="h-8" /></div>
                               <div>
                                 <Label className="text-xs">Type</Label>
                                 <Select value={item.itemType || "window"} onValueChange={(v) => updatePurchaseItem(idx, "itemType", v)}>
@@ -336,7 +341,7 @@ function SuppliersPage() {
                   </div>
                 ));
               })()}
-              <div className="p-3 border-t"><Button variant="outline" size="sm" onClick={() => setPurchaseForm({ ...purchaseForm, items: [...purchaseForm.items, { productName: "", itemType: "window", pricingMode: "piece", widthFt: undefined, heightFt: undefined, length: 0, quantity: 0, purchasePrice: 0, salePrice: 0, amount: 0 } as PurchaseFormItem] })} className="w-full"><Plus className="size-3.5 mr-1" />Add Product</Button></div>
+              <div className="p-3 border-t"><Button variant="outline" size="sm" onClick={() => setPurchaseForm({ ...purchaseForm, items: [...purchaseForm.items, { productName: "", color: "", size: "", gaze: "", itemType: "window", pricingMode: "piece", widthFt: undefined, heightFt: undefined, length: 0, quantity: 0, purchasePrice: 0, salePrice: 0, amount: 0 } as PurchaseFormItem] })} className="w-full"><Plus className="size-3.5 mr-1" />Add Product</Button></div>
             </div>
             <div className="flex justify-end pt-4 border-t"><div className="flex items-center justify-between w-64"><span className="font-semibold">Total:</span><span className="text-lg font-bold text-primary">{currency(purchaseForm.totalAmount)}</span></div></div>
           </div>

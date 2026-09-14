@@ -37,14 +37,18 @@ async def _sync_purchase_products(purchase: Purchase, items: list, db: AsyncSess
         existing_result = await db.execute(select(Product).where(func.lower(Product.name) == normalized_name))
         product = existing_result.scalar_one_or_none()
 
+        item_color = (getattr(item, "color", "") or "").strip() or None
+        item_size = (getattr(item, "size", "") or "").strip() or None
+        item_gaze = (getattr(item, "gaze", "") or "").strip() or None
+
         if product is None:
             product = Product(
                 code=_build_product_code(product_name, purchase.id, index),
                 name=product_name,
                 category="Purchased",
-                color=None,
-                size=None,
-                gaze=None,
+                color=item_color,
+                size=item_size,
+                gaze=item_gaze,
                 unit="pcs",
                 base_price=float(getattr(item, "salePrice", 0) or getattr(item, "purchasePrice", 0) or 0),
                 description=f"Added from purchase {purchase.invoice_number} ({purchase.supplier_name})",
@@ -59,6 +63,9 @@ async def _sync_purchase_products(purchase: Purchase, items: list, db: AsyncSess
                 product.name = product_name
             product.category = product.category or "Purchased"
             product.unit = product.unit or "pcs"
+            product.color = item_color or product.color
+            product.size = item_size or product.size
+            product.gaze = item_gaze or product.gaze
             sale_price = float(getattr(item, "salePrice", 0) or 0)
             purchase_price = float(getattr(item, "purchasePrice", 0) or 0)
             if sale_price > 0:
@@ -93,10 +100,17 @@ async def _sync_purchase_inventory(purchase: Purchase, items: list, db: AsyncSes
         else:
             total_stock = quantity
 
+        item_color = (getattr(item, "color", "") or "").strip() or None
+        item_size = (getattr(item, "size", "") or "").strip() or None
+        item_gaze = (getattr(item, "gaze", "") or "").strip() or None
+
         if inventory is None:
             inventory = InventoryItem(
                 name=product_name,
                 category="Purchased",
+                color=item_color,
+                size=item_size,
+                gaze=item_gaze,
                 unit="pcs",
                 item_type=item_type,
                 pricing_mode=pricing_mode,
@@ -113,6 +127,9 @@ async def _sync_purchase_inventory(purchase: Purchase, items: list, db: AsyncSes
             db.add(inventory)
         else:
             inventory.category = inventory.category or "Purchased"
+            inventory.color = item_color or inventory.color
+            inventory.size = item_size or inventory.size
+            inventory.gaze = item_gaze or inventory.gaze
             inventory.unit = inventory.unit or "pcs"
             inventory.item_type = item_type
             inventory.pricing_mode = pricing_mode
@@ -144,6 +161,9 @@ def _to_response(p: Purchase) -> dict:
             {
                 "id": i.id,
                 "productName": i.product_name,
+                "color": i.color,
+                "size": i.size,
+                "gaze": i.gaze,
                 "itemType": i.item_type,
                 "pricingMode": i.pricing_mode,
                 "widthFt": float(i.width_ft or 0),
@@ -231,6 +251,9 @@ async def create_purchase(body: PurchaseCreate, db: AsyncSession = Depends(get_d
             db.add(PurchaseItem(
                 purchase_id=purchase.id,
                 product_name=item.productName,
+                color=item.color,
+                size=item.size,
+                gaze=item.gaze,
                 item_type=item.itemType,
                 pricing_mode=item.pricingMode,
                 width_ft=item.widthFt,

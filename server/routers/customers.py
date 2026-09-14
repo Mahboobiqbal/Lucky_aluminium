@@ -46,7 +46,23 @@ async def create_customer(body: CustomerCreate, db: AsyncSession = Depends(get_d
             next_num += 1
             data["code"] = f"CUS-{str(next_num).zfill(4)}"
             existing = await db.execute(select(Customer).where(Customer.code == data["code"]))
-    customer = Customer(**data, created_at=datetime.utcnow())
+    else:
+        existing = await db.execute(select(Customer).where(Customer.code == data["code"]))
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Customer code already exists")
+
+    customer = Customer(
+        code=data["code"],
+        name=data["name"],
+        mobile=data.get("mobile", ""),
+        whatsapp=data.get("whatsapp"),
+        email=data.get("email"),
+        address=data.get("address"),
+        city=data.get("city"),
+        notes=data.get("notes"),
+        previous_balance=data.get("previousBalance", 0),
+        created_at=datetime.utcnow(),
+    )
     db.add(customer)
     await db.commit()
     await db.refresh(customer)
@@ -61,8 +77,21 @@ async def update_customer(customer_id: int, body: CustomerUpdate, db: AsyncSessi
         raise HTTPException(status_code=404, detail="Customer not found")
 
     data = body.model_dump(exclude={"id"})
-    for key, value in data.items():
-        setattr(customer, key, value)
+    
+    if "code" in data and data["code"]:
+        existing = await db.execute(select(Customer).where(Customer.code == data["code"], Customer.id != customer_id))
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Customer code already exists")
+    
+    customer.code = data.get("code", customer.code)
+    customer.name = data.get("name", customer.name)
+    customer.mobile = data.get("mobile", customer.mobile)
+    customer.whatsapp = data.get("whatsapp", customer.whatsapp)
+    customer.email = data.get("email", customer.email)
+    customer.address = data.get("address", customer.address)
+    customer.city = data.get("city", customer.city)
+    customer.notes = data.get("notes", customer.notes)
+    customer.previous_balance = data.get("previousBalance", customer.previous_balance)
 
     await db.commit()
     await db.refresh(customer)

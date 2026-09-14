@@ -5,6 +5,9 @@ from pydantic import BaseModel, Field, field_validator
 
 class PurchaseItemBase(BaseModel):
     productName: str
+    color: str | None = None
+    size: str | None = None
+    gaze: str | None = None
     itemType: str = "window"
     pricingMode: str = "piece"
     widthFt: float = 0
