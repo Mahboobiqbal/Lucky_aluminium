@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,7 +21,12 @@ from utils.deps import require_permission, require_role
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
-ALLOWED_SETTING_KEYS = ("company_name", "currency", "tax_rate", "low_stock_threshold", "date_format")
+ALLOWED_SETTING_KEYS = (
+    "companyName", "address", "email", "currency", "invoicePrefix", "phone",
+    "bankName", "accountTitle", "accountNumber", "iban", "branchName",
+    "easypaisaAccountTitle", "easypaisaAccountNumber",
+    "company_name", "tax_rate", "low_stock_threshold", "date_format",
+)
 
 RESET_TABLES = [
     Backup,

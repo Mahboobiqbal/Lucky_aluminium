@@ -12,7 +12,7 @@ export const Route = createFileRoute("/measurements")({
   component: MeasurementsPage,
 });
 
-type Order = { id: number; number: string; customerName: string; items: { productName: string; color?: string; size?: string; gaze?: string; width: number; height: number; quantity: number }[]; createdAt: string };
+type Order = { id: number; number: string; customerName: string; items: { productName: string; color?: string; size?: string; gaze?: string; itemType?: string; width: number; height: number; length?: number; quantity: number }[]; createdAt: string };
 
 function MeasurementsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -31,22 +31,31 @@ function MeasurementsPage() {
       <PageContainer>
         <TableShell>
           <table className="data-table">
-            <thead><tr><th>Order #</th><th>Customer</th><th>Product</th><th>Color</th><th>Size</th><th>Gaze</th><th>W (ft)</th><th>H (ft)</th><th>Qty</th><th>Area (sqft)</th></tr></thead>
+            <thead><tr><th>Order #</th><th>Customer</th><th>Product</th><th>Color</th><th>Size</th><th>Gaze</th><th>Type</th><th>W (ft)</th><th>H (ft)</th><th>Length (ft)</th><th>Qty</th><th>Area</th></tr></thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.key}>
-                  <td className="font-medium">{r.order}</td>
-                  <td>{r.customer}</td>
-                  <td>{r.productName}</td>
-                  <td className="text-muted-foreground text-xs">{r.color || "-"}</td>
-                  <td className="text-muted-foreground text-xs">{r.size || "-"}</td>
-                  <td className="text-muted-foreground text-xs">{r.gaze || "-"}</td>
-                  <td className="tabular-nums">{r.width}</td>
-                  <td className="tabular-nums">{r.height}</td>
-                  <td className="tabular-nums">{r.quantity}</td>
-                  <td className="tabular-nums font-medium">{(r.width * r.height * r.quantity).toFixed(1)}</td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const isLength = r.itemType === "length";
+                const area = isLength
+                  ? (r.length || 0) * r.quantity
+                  : r.width * r.height * r.quantity;
+                const unit = isLength ? "ft" : "sqft";
+                return (
+                  <tr key={r.key}>
+                    <td className="font-medium">{r.order}</td>
+                    <td>{r.customer}</td>
+                    <td>{r.productName}</td>
+                    <td className="text-muted-foreground text-xs">{r.color || "-"}</td>
+                    <td className="text-muted-foreground text-xs">{r.size || "-"}</td>
+                    <td className="text-muted-foreground text-xs">{r.gaze || "-"}</td>
+                    <td className="text-xs">{isLength ? "Length" : "Window"}</td>
+                    <td className="tabular-nums">{isLength ? "-" : r.width}</td>
+                    <td className="tabular-nums">{isLength ? "-" : r.height}</td>
+                    <td className="tabular-nums">{isLength ? (r.length || 0) : "-"}</td>
+                    <td className="tabular-nums">{r.quantity}</td>
+                    <td className="tabular-nums font-medium">{area.toFixed(1)} {unit}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {!rows.length && <EmptyState icon={Ruler} title={loading ? "Loading..." : "No measurements recorded"} hint={loading ? "Please wait" : "Measurements come from orders"} />}
