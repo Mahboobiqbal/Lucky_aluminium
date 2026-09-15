@@ -166,12 +166,6 @@ function ProductsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div><Label className="text-xs">Code</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className="h-8" /></div>
             <div className="col-span-2"><Label className="text-xs">Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-8" /></div>
-            <div className="col-span-2"><Label className="text-xs">Category</Label>
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
             <div><Label className="text-xs">Color</Label><Input value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-8" placeholder="e.g. White, Black" /></div>
             <div><Label className="text-xs">Size</Label><Input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} className="h-8" placeholder="e.g. 4x6 ft" /></div>
             <div><Label className="text-xs">Gaze (Glass)</Label><Input value={form.gaze} onChange={(e) => setForm({ ...form, gaze: e.target.value })} className="h-8" placeholder="e.g. Toughened, Mirror" /></div>

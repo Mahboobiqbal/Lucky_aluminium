@@ -76,6 +76,9 @@ type CustomerInvoiceCustomer = {
 type CustomerInvoiceItem = {
   productName: string;
   itemType?: "length" | "window";
+  color?: string;
+  size?: string;
+  gaze?: string;
   width: number;
   height: number;
   length?: number;
@@ -95,10 +98,13 @@ export type CustomerInvoiceData = {
   items: CustomerInvoiceItem[];
   subtotal: number;
   discountPercent: number;
+  hardwareCharges?: number;
+  extraCharges?: number;
   total: number;
   paid: number;
   balance: number;
   previousBalance?: number;
+  grandTotal?: number;
   notes?: string;
 };
 
@@ -353,11 +359,14 @@ export function createCustomerInvoicePdf(data: CustomerInvoiceData, company: Com
   const tableStartY = headerBottom + 84 + 26;
 
   const body = data.items.map((item, index) => {
-    const isWindow = item.itemType === "length";
-    const dimensions = isWindow ? `${item.length || 0} Length` : `${item.width} × ${item.height} = ${formatNumber(item.width * item.height)} Sq Ft`;
+    const isLength = item.itemType === "length";
+    const dimensions = isLength ? `${item.length || 0} ft` : `${item.width} x ${item.height} = ${formatNumber(item.width * item.height)} sqft`;
     return [
       String(index + 1),
       item.productName,
+      item.color || "-",
+      item.size || "-",
+      item.gaze || "-",
       item.notes || "",
       dimensions,
       formatNumber(item.quantity),
@@ -368,7 +377,7 @@ export function createCustomerInvoicePdf(data: CustomerInvoiceData, company: Com
 
   addAutoTable(doc, {
     startY: tableStartY,
-    head: [["#", "Item", "Description", "Dimensions", "Qty", "Price", "Amount"]],
+    head: [["#", "Item", "Color", "Size", "Gaze", "Description", "Dimensions", "Qty", "Price", "Amount"]],
     body,
     theme: "grid",
     margin: { left, right: 30, bottom: 54 },
@@ -376,24 +385,27 @@ export function createCustomerInvoicePdf(data: CustomerInvoiceData, company: Com
       fillColor: [240, 240, 245],
       textColor: [30, 30, 40],
       fontStyle: "bold",
-      fontSize: 8,
+      fontSize: 7.5,
       halign: "center",
     },
     styles: {
-      fontSize: 8.5,
-      cellPadding: 5,
+      fontSize: 8,
+      cellPadding: 4,
       lineColor: [203, 213, 225],
       lineWidth: 0.6,
       valign: "middle",
     },
     columnStyles: {
-      0: { halign: "center", cellWidth: 20 },
-      1: { cellWidth: 80 },
-      2: { cellWidth: 100 },
-      3: { cellWidth: 155 },
-      4: { halign: "center", cellWidth: 35 },
-      5: { halign: "right", cellWidth: 60 },
-      6: { halign: "right", cellWidth: 70 },
+      0: { halign: "center", cellWidth: 18 },
+      1: { cellWidth: 72 },
+      2: { cellWidth: 42 },
+      3: { cellWidth: 42 },
+      4: { cellWidth: 42 },
+      5: { cellWidth: 72 },
+      6: { cellWidth: 90 },
+      7: { halign: "center", cellWidth: 30 },
+      8: { halign: "right", cellWidth: 50 },
+      9: { halign: "right", cellWidth: 55 },
     },
   });
 
@@ -407,12 +419,14 @@ export function createCustomerInvoicePdf(data: CustomerInvoiceData, company: Com
   const totalLeft = right - totalWidth;
   const rowH = 24;
   const hasPrevious = data.previousBalance && data.previousBalance > 0;
-  const grandTotal = data.balance + (data.previousBalance || 0);
+  const grandTotal = data.total + (data.previousBalance || 0);
 
   // --- ORDER TOTALS ---
   const orderTotals: Array<[string, string, string]> = [
     ["Subtotal", currency(data.subtotal), "normal"],
     ...(data.discountPercent > 0 ? [["Discount (" + data.discountPercent + "%)", "-" + currency(data.subtotal * data.discountPercent / 100), "normal"] as [string, string, string]] : []),
+    ...((data.hardwareCharges ?? 0) > 0 ? [["Hardware Charges", currency(data.hardwareCharges!), "normal"] as [string, string, string]] : []),
+    ...((data.extraCharges ?? 0) > 0 ? [["Extra Charges", currency(data.extraCharges!), "normal"] as [string, string, string]] : []),
     ["Order Total", currency(data.total), "bold"],
     ["Paid / Advance", currency(data.paid), "normal"],
     ["Remaining Balance", currency(data.balance), "normal"],

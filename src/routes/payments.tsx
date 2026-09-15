@@ -60,7 +60,7 @@ function sameMonth(dateStr: string, month: string, year: string) {
 }
 
 function pendingBalance(order: Order) {
-  return (order as any).grandTotal ?? (Math.max(0, order.total - order.paid) + Number(order.previousBalance ?? 0));
+  return Number((order as any).balance ?? 0);
 }
 
 function monthLabel(month: string, year: string) {

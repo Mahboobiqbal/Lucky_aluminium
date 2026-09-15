@@ -280,8 +280,8 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
             raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}. Allowed: {', '.join(VALID_ORDER_STATUSES)}")
         paid_val = float(body.paid or 0)
         prev_bal = float(getattr(body, 'previousBalance', 0) or 0)
-        balance_val = round(max(0, total - paid_val), 2)
-        grand_total_val = round(balance_val + prev_bal, 2)
+        balance_val = round(max(0, total + prev_bal - paid_val), 2)
+        grand_total_val = round(total + prev_bal, 2)
 
         order = Order(
             number=body.number,
@@ -484,8 +484,8 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         order.paid = new_paid
         new_previous = float(getattr(body, 'previousBalance', 0) or 0)
         order.previous_balance = new_previous
-        order.balance = round(max(0, total - new_paid), 2)
-        order.grand_total = round(order.balance + new_previous, 2)
+        order.balance = round(max(0, total + new_previous - new_paid), 2)
+        order.grand_total = round(total + new_previous, 2)
         order.status = body.status
         order.notes = body.notes
 

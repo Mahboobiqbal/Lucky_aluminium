@@ -99,9 +99,8 @@ function Dashboard() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const totalSales = (Array.isArray(orders) ? orders : []).reduce((s, o) => s + (o.total || 0), 0);
-  // Pending payments = sum of per-order balance + sum of customer-level previous balance.
-  const customerPrevTotal = (Array.isArray(customers) ? customers : []).reduce((s, c) => s + Number(c.previousBalance ?? 0), 0);
-  const pendingPayments = (Array.isArray(orders) ? orders : []).reduce((s, o) => s + Math.max(0, (o.total || 0) - (o.paid || 0)), 0) + customerPrevTotal;
+  // Pending payments = sum of order balances (grandTotal - paid, which includes previousBalance).
+  const pendingPayments = (Array.isArray(orders) ? orders : []).reduce((s, o) => s + Number((o as any).balance ?? Math.max(0, (o.total || 0) - (o.paid || 0))), 0);
   const byStatus = (Array.isArray(orders) ? orders : []).reduce<Record<string, number>>((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {});
   const totalExpenses = (Array.isArray(expenses) ? expenses : []).reduce((s, e) => s + (e.amount || 0), 0);
   const today = new Date().toDateString();
@@ -167,7 +166,7 @@ function Dashboard() {
             <StatCard icon={Users} label="Customers" value={String(customerCount)} tone="primary" onClick={() => navigate({ to: "/customers" })} subtitle={`${orders.length} total orders`} />
             <StatCard icon={ClipboardList} label="Total Orders" value={String(orders.length)} tone="violet" onClick={() => navigate({ to: "/orders" })} subtitle={`${byStatus["pending"] || 0} pending`} />
             <StatCard icon={Wallet} label="Total Revenue" value={currency(totalSales)} tone="emerald" subtitle={`${currency(totalExpenses)} expenses`} />
-            <StatCard icon={CreditCard} label="Pending Payments" value={currency(pendingPayments)} tone="rose" onClick={() => navigate({ to: "/payments" })} subtitle={`${orders.filter((o) => o.paid < o.total && o.total > 0).length} orders · prev. balance ${currency(customerPrevTotal)}`} />
+            <StatCard icon={CreditCard} label="Pending Payments" value={currency(pendingPayments)} tone="rose" onClick={() => navigate({ to: "/payments" })} subtitle={`${orders.filter((o) => Number((o as any).balance ?? Math.max(0, (o.total || 0) - (o.paid || 0))) > 0).length} orders outstanding`} />
           </div>
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
             <div className="space-y-5">

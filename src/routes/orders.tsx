@@ -365,7 +365,7 @@ function OrdersPage() {
       </PageContainer>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) setEditingId(null); setOpen(v); }}>
-        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-5xl max-h-[84vh] overflow-y-auto">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingId ? "Edit order" : "New order"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -421,8 +421,8 @@ function OrdersPage() {
               <div className="divide-y divide-border">
                 {form.items.map((item, index) => (
                   <div key={index} className="p-3 space-y-2">
-                    <div className="grid gap-2 items-end" style={{ gridTemplateColumns: item.itemType === "length" ? "minmax(0,1fr) 90px 90px 90px 140px 70px 70px 90px 90px 36px" : "minmax(0,1fr) 90px 90px 90px 140px 70px 70px 70px 90px 90px 36px" }}>
-                      <div className="min-w-0">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 items-end">
+                      <div className="col-span-2 sm:col-span-4 lg:col-span-2 min-w-0">
                         <Label className="text-xs">Product</Label>
                         <Select value={item.productName ? `inv-${item.productName}|${item.color || ""}|${item.size || ""}|${item.gaze || ""}` : "__none__"} onValueChange={(v) => {
                           if (v === "__none__") return updateItem(index, { productName: "" });
@@ -492,6 +492,8 @@ function OrdersPage() {
                       <div><Label className="text-xs">Color</Label><Input value={item.color || ""} onChange={(e) => updateItem(index, { color: e.target.value })} className="h-8" /></div>
                       <div><Label className="text-xs">Size</Label><Input value={item.size || ""} onChange={(e) => updateItem(index, { size: e.target.value })} className="h-8" /></div>
                       <div><Label className="text-xs">Gaze</Label><Input value={item.gaze || ""} onChange={(e) => updateItem(index, { gaze: e.target.value })} className="h-8" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 items-end">
                       <div>
                         <Label className="text-xs">Type</Label>
                         <Select value={item.itemType || "window"} onValueChange={(v) => updateItem(index, { itemType: v as "length" | "window" })}>
@@ -521,7 +523,7 @@ function OrdersPage() {
                         />
                       </div>
                       <div><Label className="text-xs">Unit Price{isSizeMode(item.productName) ? (item.itemType === "length" ? " /ft" : " /sqft") : " /pc"}</Label><Input type="number" min="0" value={item.unitPrice || ""} onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })} className="h-8" /></div>
-                      <div><Label className="text-xs">Amount</Label><div className="h-8 px-2 rounded border bg-muted/40 flex items-center text-sm font-semibold truncate">{currency(item.amount)}</div></div>
+                      <div><Label className="text-xs">Amount</Label><div className="h-8 px-3 rounded border bg-muted/40 flex items-center text-sm font-semibold">{currency(item.amount)}</div></div>
                       <div className="flex items-end justify-center pb-0.5"><Button variant="ghost" size="sm" className="h-8 w-8 px-0 text-destructive" onClick={() => { const items = form.items.filter((_, i) => i !== index); const { subtotal, total } = recalc(items); setForm({ ...form, items, subtotal, total }); }} disabled={form.items.length === 1}><Trash2 className="size-3.5" /></Button></div>
                     </div>
                     <div><Label className="text-xs">Description</Label><Input value={item.notes ?? ""} onChange={(e) => updateItem(index, { notes: e.target.value })} placeholder="Item description, specs, color, etc." className="h-8" /></div>
@@ -574,7 +576,7 @@ function OrdersPage() {
                   <div className="border-t border-dashed border-border pt-1.5" />
                   <div className="flex justify-between text-xs"><span className="text-blue-600">Previous Balance</span><span className="tabular-nums text-blue-600">{currency(form.previousBalance)}</span></div>
                 </>}
-                <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5"><span className="text-rose-600">Grand Total</span><span className="tabular-nums text-rose-600">{currency(editingId ? (form as any).grandTotal ?? Math.max(0, form.total - form.paid) + form.previousBalance : Math.max(0, form.total - form.paid) + form.previousBalance)}</span></div>
+                <div className="flex justify-between text-sm font-bold border-t border-border pt-1.5"><span className="text-rose-600">Grand Total</span><span className="tabular-nums text-rose-600">{currency(form.total + form.previousBalance)}</span></div>
               </div>
             </div>
           </div>
