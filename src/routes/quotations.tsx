@@ -31,6 +31,7 @@ type QuotationItem = {
   color: string;
   size: string;
   gaze: string;
+  pricingMode: "piece" | "size";
   itemType: "length" | "window";
   width: number;
   height: number;
@@ -42,7 +43,7 @@ type QuotationItem = {
   notes?: string;
 };
 
-const emptyQuotationItem: QuotationItem = { productName: "", color: "", size: "", gaze: "", itemType: "length", width: 0, height: 0, length: 0, sqft: 0, quantity: 0, unitPrice: 0, amount: 0, notes: "" };
+const emptyQuotationItem: QuotationItem = { productName: "", color: "", size: "", gaze: "", pricingMode: "piece", itemType: "length", width: 0, height: 0, length: 0, sqft: 0, quantity: 0, unitPrice: 0, amount: 0, notes: "" };
 
 type Quotation = {
   id: number;
@@ -77,21 +78,18 @@ function QuotationsPage() {
 
   const [list, setList] = useState<Quotation[]>([]);
   const [settings, setSettings] = useState<Setting[]>([]);
-  const [inventory, setInventory] = useState<{ id: number; name: string; pricingMode?: string; itemType?: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   const company = companyFromSettings(settings);
 
   const fetchData = useCallback(async () => {
     try {
-      const [quotations, settingsData, invData] = await Promise.all([
+      const [quotations, settingsData] = await Promise.all([
         api.safeGet<Quotation[]>("/api/quotations"),
         api.safeGet<Setting[]>("/api/settings"),
-        api.safeGet<{ id: number; name: string; pricingMode?: string; itemType?: string }[]>("/api/inventory"),
       ]);
       setList(Array.isArray(quotations) ? quotations : []);
       setSettings(Array.isArray(settingsData) ? settingsData : []);
-      setInventory(Array.isArray(invData) ? invData : []);
     } catch { toast.error("Failed to load quotations"); } finally {
       setLoading(false);
     }
@@ -108,15 +106,12 @@ function QuotationsPage() {
   const discountAmount = subtotal * discountPercent / 100;
   const total = Math.max(0, subtotal - discountAmount + hardwareCharges + extra);
 
-  const invOf = (productName: string) => (Array.isArray(inventory) ? inventory : []).find((i) => i.name.toLowerCase() === productName.toLowerCase());
-  const isSizeMode = (productName: string) => invOf(productName)?.pricingMode === "size";
-
   const addItem = () => setItems([...items, { ...emptyQuotationItem }]);
   const updateItem = (i: number, patch: Partial<QuotationItem>) => {
     setItems((prev) => prev.map((it, idx) => {
       if (idx !== i) return it;
       const next = { ...it, ...patch };
-      if (isSizeMode(next.productName)) {
+      if (next.pricingMode === "size") {
         if (next.itemType === "length") {
           next.amount = next.length * next.quantity * next.unitPrice;
         } else {
@@ -331,44 +326,71 @@ function QuotationsPage() {
           <Separator className="mx-6 w-auto" />
 
           <div className="px-6 pt-3 pb-1 space-y-3">
+            <div className="px-3 py-2 bg-muted/60 text-sm font-semibold rounded-md">Items</div>
             {items.map((it, i) => {
-              const isWindow = it.itemType === "length";
+              const isSize = it.pricingMode === "size";
+              const isLength = it.itemType === "length";
               const s = it.sqft || 0;
               const sqftVal = s > 0 ? s : (it.width || 0) * (it.height || 0);
-              const measTotal = isWindow ? it.length * (it.quantity || 1) : sqftVal * (it.quantity || 1);
+              const measTotal = isSize ? (isLength ? it.length * (it.quantity || 1) : sqftVal * (it.quantity || 1)) : 0;
+              const modeLabel = isSize ? (isLength ? " /ft" : " /sqft") : " /pc";
               return (
-                <div key={i} className="border border-border rounded-md bg-card">
-                  <div className={`grid grid-cols-1 sm:grid-cols-2 ${isWindow ? "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]" : "xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto]"} gap-1.5 p-2 items-end`}>
-                    <div><Label className="text-[10px]">Product</Label><Input className={inputClass} type="text" value={it.productName} onChange={(e) => updateItem(i, { productName: e.target.value })} placeholder="Product name" /></div>
+                <div key={i} className="border border-border rounded-md bg-card p-3 space-y-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 items-end">
+                    <div className="col-span-2 sm:col-span-4 lg:col-span-2 min-w-0">
+                      <Label className="text-[10px]">Product</Label>
+                      <Input className={inputClass} type="text" value={it.productName} onChange={(e) => updateItem(i, { productName: e.target.value })} placeholder="Product name" />
+                    </div>
                     <div><Label className="text-[10px]">Color</Label><Input className={inputClass} type="text" value={it.color || ""} onChange={(e) => updateItem(i, { color: e.target.value })} placeholder="Color" /></div>
                     <div><Label className="text-[10px]">Size</Label><Input className={inputClass} type="text" value={it.size || ""} onChange={(e) => updateItem(i, { size: e.target.value })} placeholder="Size" /></div>
                     <div><Label className="text-[10px]">Gaze</Label><Input className={inputClass} type="text" value={it.gaze || ""} onChange={(e) => updateItem(i, { gaze: e.target.value })} placeholder="Gaze" /></div>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 items-end">
                     <div>
-                      <Label className="text-[10px]">Type</Label>
-                      <Select value={it.itemType || "window"} onValueChange={(v) => updateItem(i, { itemType: v as "length" | "window" })}>
+                      <Label className="text-[10px]">Pricing</Label>
+                      <Select value={it.pricingMode} onValueChange={(v) => updateItem(i, { pricingMode: v as "piece" | "size" })}>
                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="window">Other</SelectItem>
-                          <SelectItem value="length">Length-based</SelectItem>
+                          <SelectItem value="piece">Per Piece</SelectItem>
+                          <SelectItem value="size">Per Size</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    {isWindow ? (
-                      <div><Label className="text-[10px]">Length (ft)</Label><Input className={inputClass} type="number" min="0" value={it.length || ""} onChange={(e) => updateItem(i, { length: Number(e.target.value) })} /></div>
+                    {isSize && (
+                      <div>
+                        <Label className="text-[10px]">Type</Label>
+                        <Select value={it.itemType || "window"} onValueChange={(v) => updateItem(i, { itemType: v as "length" | "window" })}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="window">Other Items</SelectItem>
+                            <SelectItem value="length">Length-based</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {isSize && (isLength ? (
+                      <div><Label className="text-[10px]">Length</Label><Input className={inputClass} type="number" min="0" value={it.length || ""} onChange={(e) => updateItem(i, { length: Number(e.target.value) })} /></div>
                     ) : (
                       <>
-                        <div><Label className="text-[10px]">W</Label><Input className={inputClass} type="number" min="0" value={it.width || ""} onChange={(e) => updateItem(i, { width: Number(e.target.value) })} /></div>
-                        <div><Label className="text-[10px]">H</Label><Input className={inputClass} type="number" min="0" value={it.height || ""} onChange={(e) => updateItem(i, { height: Number(e.target.value) })} /></div>
-                        <div><Label className="text-[10px]">Sq Ft</Label><Input className={inputClass} type="number" min="0" value={it.sqft || ""} onChange={(e) => updateItem(i, { sqft: Number(e.target.value) })} /></div>
+                        <div><Label className="text-[10px]">Width</Label><Input className={inputClass} type="number" min="0" value={it.width || ""} onChange={(e) => updateItem(i, { width: Number(e.target.value) })} /></div>
+                        <div><Label className="text-[10px]">Height</Label><Input className={inputClass} type="number" min="0" value={it.height || ""} onChange={(e) => updateItem(i, { height: Number(e.target.value) })} /></div>
                       </>
-                    )}
-                    <div><Label className="text-[10px]">Meas.</Label><div className="h-8 px-2 rounded border bg-muted/30 flex items-center text-sm font-semibold tabular-nums">{measTotal.toFixed(2)}</div></div>
+                    ))}
+                    {isSize && <div><Label className="text-[10px]">Meas.</Label><div className="h-8 px-2 rounded border bg-muted/30 flex items-center text-xs font-semibold tabular-nums">{measTotal.toFixed(2)}</div></div>}
                     <div><Label className="text-[10px]">Qty</Label><Input className={inputClass} type="number" min="0" value={it.quantity || ""} onChange={(e) => updateItem(i, { quantity: Number(e.target.value) })} /></div>
-                    <div><Label className="text-[10px]">Rate</Label><Input className={inputClass} type="number" min="0" value={it.unitPrice || ""} onChange={(e) => updateItem(i, { unitPrice: Number(e.target.value) })} /></div>
-                    <div><Label className="text-[10px]">Amount</Label><div className="h-8 px-2 rounded border bg-muted/30 flex items-center text-sm font-semibold tabular-nums">{currency(it.amount)}</div></div>
-                    <Button type="button" variant="ghost" size="sm" className="h-8 px-1.5 text-destructive" onClick={() => removeItem(i)} disabled={items.length === 1} title="Remove item"><Trash2 className="size-3.5" /></Button>
+                    <div><Label className="text-[10px]">Unit Price{modeLabel}</Label><Input className={inputClass} type="number" min="0" value={it.unitPrice || ""} onChange={(e) => updateItem(i, { unitPrice: Number(e.target.value) })} /></div>
+                    <div><Label className="text-[10px]">Amount</Label><div className="h-8 px-2 rounded border bg-muted/30 flex items-center text-xs font-semibold tabular-nums">{currency(it.amount)}</div></div>
                   </div>
-                  <div className="px-2 pb-2"><Label className="text-[10px]">Description</Label><Input className={inputClass} type="text" value={it.notes ?? ""} onChange={(e) => updateItem(i, { notes: e.target.value })} placeholder="Item description, specs, color, etc." /></div>
+                  <div className="flex items-end justify-between gap-2">
+                    <div className="flex-1">
+                      <Label className="text-[10px]">Description</Label>
+                      <Input className={inputClass} type="text" value={it.notes ?? ""} onChange={(e) => updateItem(i, { notes: e.target.value })} placeholder="Item description, specs, etc." />
+                    </div>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium mb-1 shrink-0 ${isSize ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"}`}>
+                      {isSize ? "Per Size" : "Per Piece"}
+                    </span>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 px-1.5 text-destructive mb-0.5" onClick={() => removeItem(i)} disabled={items.length === 1} title="Remove item"><Trash2 className="size-3.5" /></Button>
+                  </div>
                 </div>
               );
             })}

@@ -8,7 +8,6 @@ from sqlalchemy.orm import selectinload
 from database import get_db
 from models.quotation import Quotation, QuotationItem
 from models.product import Product
-from models.inventory import InventoryItem
 from schemas.quotation import QuotationCreate, QuotationResponse, QuotationUpdate
 from utils.dates import naive
 from utils.deps import require_permission
@@ -49,6 +48,7 @@ def _to_response(q: Quotation) -> dict:
                 "unitPrice": float(i.unit_price),
                 "amount": float(i.amount),
                 "notes": i.notes,
+                "pricingMode": i.pricing_mode or "piece",
             }
             for i in q.items
         ],
@@ -89,17 +89,15 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
         product = product_cache.get(item.productName)
         server_price = float(product.base_price) if product else float(item.unitPrice)
         item_type = item.itemType or "window"
+        pricing_mode = item.pricingMode or "piece"
         qty = item.quantity
         w = float(item.width or 0)
         h = float(item.height or 0)
         l = float(item.length or 0)
 
-        inv_result = await db.execute(select(InventoryItem).where(InventoryItem.name == item.productName))
-        inv_item = inv_result.scalar_one_or_none()
-        pricing_mode = inv_item.pricing_mode if inv_item else "piece"
-        color_value = getattr(item, "color", None) or (inv_item.color if inv_item else None)
-        size_value = getattr(item, "size", None) or (inv_item.size if inv_item else None)
-        gaze_value = getattr(item, "gaze", None) or (inv_item.gaze if inv_item else None)
+        color_value = getattr(item, "color", None)
+        size_value = getattr(item, "size", None)
+        gaze_value = getattr(item, "gaze", None)
 
         if pricing_mode == "size":
             if item_type == "length" and l > 0:
@@ -126,6 +124,7 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
             "unitPrice": server_price,
             "amount": round(amount, 2),
             "notes": item.notes,
+            "pricingMode": pricing_mode,
         })
 
     subtotal = round(sum(ci["amount"] for ci in calculated_items), 2)
@@ -170,6 +169,7 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
             unit_price=ci["unitPrice"],
             amount=ci["amount"],
             notes=ci["notes"],
+            pricing_mode=ci["pricingMode"],
         ))
 
     await db.commit()
@@ -210,17 +210,15 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
         product = product_cache.get(item.productName)
         server_price = float(product.base_price) if product else float(item.unitPrice)
         item_type = item.itemType or "window"
+        pricing_mode = item.pricingMode or "piece"
         qty = item.quantity
         w = float(item.width or 0)
         h = float(item.height or 0)
         l = float(item.length or 0)
 
-        inv_result = await db.execute(select(InventoryItem).where(InventoryItem.name == item.productName))
-        inv_item = inv_result.scalar_one_or_none()
-        pricing_mode = inv_item.pricing_mode if inv_item else "piece"
-        color_value = getattr(item, "color", None) or (inv_item.color if inv_item else None)
-        size_value = getattr(item, "size", None) or (inv_item.size if inv_item else None)
-        gaze_value = getattr(item, "gaze", None) or (inv_item.gaze if inv_item else None)
+        color_value = getattr(item, "color", None)
+        size_value = getattr(item, "size", None)
+        gaze_value = getattr(item, "gaze", None)
 
         if pricing_mode == "size":
             if item_type == "length" and l > 0:
@@ -247,6 +245,7 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
             "unitPrice": server_price,
             "amount": round(amount, 2),
             "notes": item.notes,
+            "pricingMode": pricing_mode,
         })
 
     subtotal = round(sum(ci["amount"] for ci in calculated_items), 2)
@@ -280,6 +279,7 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
             unit_price=ci["unitPrice"],
             amount=ci["amount"],
             notes=ci["notes"],
+            pricing_mode=ci["pricingMode"],
         ))
 
     await db.commit()

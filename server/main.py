@@ -129,6 +129,7 @@ async def lifespan(app: FastAPI):
                     "color": "VARCHAR(100) DEFAULT NULL",
                     "size": "VARCHAR(100) DEFAULT NULL",
                     "gaze": "VARCHAR(100) DEFAULT NULL",
+                    "pricing_mode": "VARCHAR(20) DEFAULT NULL",
                 }.items():
                     if col_name not in quotation_item_columns:
                         sync_conn.execute(text(f"ALTER TABLE quotation_items ADD COLUMN {col_name} {col_sql}"))

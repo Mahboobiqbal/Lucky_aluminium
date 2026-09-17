@@ -46,5 +46,6 @@ class QuotationItem(Base):
     unit_price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
+    pricing_mode: Mapped[str | None] = mapped_column(String(20), default=None)
 
     quotation: Mapped["Quotation"] = relationship(back_populates="items")

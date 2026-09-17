@@ -9,6 +9,7 @@ class QuotationItemBase(BaseModel):
     color: str | None = None
     size: str | None = None
     gaze: str | None = None
+    pricingMode: str = "piece"
     itemType: str = "window"
     width: float = 0
     height: float = 0

@@ -108,17 +108,21 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
   y += 4;
 
   // --- ITEMS TABLE ---
-  const thead = [["#", "Product", "Description", "Type", "Measurement", "Qty", "Rate", "Amount"]];
+  const thead = [["#", "Product", "Color", "Size", "Gaze", "Type", "Mode", "Measurement", "Qty", "Rate", "Amount"]];
   const tbody = data.items.map((item, i) => {
     const isWindow = (item as any).itemType === "length";
+    const isSizeMode = (item as any).pricingMode === "size";
     const measurement = isWindow
       ? `${(item as any).length || 0} ft`
-      : (item.sqft && item.sqft > 0) ? `${item.sqft} sqft` : (item.width && item.height ? `${item.width}x${item.height} = ${(item.width * item.height).toFixed(2)} sqft` : "-");
+      : (item.sqft && item.sqft > 0) ? `${item.sqft} sqft` : ((item as any).width && (item as any).height ? `${(item as any).width}x${(item as any).height} = ${((item as any).width * (item as any).height).toFixed(2)} sqft` : "-");
     return [
       String(i + 1),
       item.productName || "-",
-      item.notes || "-",
-      isWindow ? "Window" : "Other",
+      (item as any).color || "-",
+      (item as any).size || "-",
+      (item as any).gaze || "-",
+      isWindow ? "Length" : "Other",
+      isSizeMode ? "Per Size" : "Per Piece",
       measurement,
       String(item.quantity),
       currency(item.unitPrice),
@@ -136,29 +140,33 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
       fillColor: [240, 240, 245],
       textColor: [30, 30, 40],
       fontStyle: "bold",
-      fontSize: 7.5,
+      fontSize: 6,
       halign: "center",
       valign: "middle",
     },
     bodyStyles: {
-      fontSize: 7.5,
-      cellPadding: { top: 3, right: 3, bottom: 3, left: 3 },
+      fontSize: 6,
+      cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
       valign: "middle",
     },
     styles: {
       lineColor: [210, 215, 225],
       lineWidth: 0.3,
       valign: "middle",
+      overflow: "linebreak",
     },
     columnStyles: {
-      0: { halign: "center", cellWidth: 8 },
-      1: { cellWidth: 36 },
-      2: { cellWidth: 28 },
-      3: { halign: "center", cellWidth: 16 },
-      4: { cellWidth: 30 },
-      5: { halign: "center", cellWidth: 10 },
-      6: { halign: "right", cellWidth: 24 },
-      7: { halign: "right", cellWidth: 32 },
+      0: { halign: "center", cellWidth: 6 },
+      1: { cellWidth: 24 },
+      2: { cellWidth: 16 },
+      3: { cellWidth: 14 },
+      4: { cellWidth: 14 },
+      5: { halign: "center", cellWidth: 14 },
+      6: { halign: "center", cellWidth: 14 },
+      7: { cellWidth: 22 },
+      8: { halign: "center", cellWidth: 7 },
+      9: { halign: "right", cellWidth: 18 },
+      10: { halign: "right", cellWidth: 18 },
     },
     didParseCell: (cellData) => {
       if (cellData.section === "body" && cellData.column.index === 0) {
@@ -171,11 +179,13 @@ export function createQuotationPdf(data: Quotation, company?: CompanyProfile): j
 
   // --- TOTALS SECTION (right-aligned box) ---
   const totalMeasurement = data.items.reduce((sum, item) => {
-    const isWindow = (item as any).itemType === "length";
-    if (isWindow) {
+    const isSizeMode = (item as any).pricingMode === "size";
+    const isLength = (item as any).itemType === "length";
+    if (!isSizeMode) return sum;
+    if (isLength) {
       return sum + ((item as any).length || 0) * item.quantity;
     }
-    const area = (item.sqft && item.sqft > 0) ? item.sqft : (item.width * item.height);
+    const area = (item.sqft && item.sqft > 0) ? item.sqft : ((item as any).width * (item as any).height);
     return sum + area * item.quantity;
   }, 0);
 
