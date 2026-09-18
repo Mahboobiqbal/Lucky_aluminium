@@ -413,7 +413,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         # Calculate net stock change per product (keyed by name+color+size+gaze)
         stock_changes = {}
         for old in old_items:
-            old_consumed = await _consumed_units(db, old.product_name, old.item_type, old.width, old.height, old.length, old.quantity, old.color, old.size, old.gaze)
+            old_consumed = float(await _consumed_units(db, old.product_name, old.item_type, old.width, old.height, old.length, old.quantity, old.color, old.size, old.gaze))
             key = (old.product_name, old.color, old.size, old.gaze)
             stock_changes[key] = stock_changes.get(key, 0) + old_consumed
         for item in body.items:
@@ -421,7 +421,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
             color = getattr(item, "color", None)
             size = getattr(item, "size", None)
             gaze = getattr(item, "gaze", None)
-            new_consumed = await _consumed_units(db, product_name, getattr(item, "itemType", None), float(getattr(item, "width", 0) or 0), float(getattr(item, "height", 0) or 0), float(getattr(item, "length", 0) or 0), item.quantity, color, size, gaze)
+            new_consumed = float(await _consumed_units(db, product_name, getattr(item, "itemType", None), float(getattr(item, "width", 0) or 0), float(getattr(item, "height", 0) or 0), float(getattr(item, "length", 0) or 0), item.quantity, color, size, gaze))
             key = (product_name, color, size, gaze)
             stock_changes[key] = stock_changes.get(key, 0) - new_consumed
         
