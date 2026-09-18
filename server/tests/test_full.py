@@ -130,6 +130,9 @@ T("Product has gaze", pr.get("gaze") == "Double")
 code, pr_u = PUT(h, f"/api/products/{pr_id}", {"id": pr_id, "code": f"TP-{TS}", "name": f"TestProd-{TS}", "category": "Test", "unit": "pcs", "basePrice": 200, "color": "Gold", "size": "6x6", "gaze": "Single"})
 T("Update product", pr_u.get("basePrice") == 200 and pr_u.get("color") == "Gold")
 
+code, pr_alt = POST(h, "/api/products", {"code": f"TP2-{TS}", "name": f"TestProd-{TS}", "category": "Test", "unit": "pcs", "basePrice": 150, "color": "Silver", "size": "4x4", "gaze": "Double"})
+T("Create duplicate-name product", code == 200 and pr_alt.get("id", 0) > 0)
+
 code, pr_list = GET(h, "/api/products")
 T("Product list is array", isinstance(pr_list, list))
 
@@ -233,7 +236,10 @@ code, o = POST(h, "/api/orders", {
     "number": f"ORD-{TS}", "customerId": cu_id, "customerName": "TestCust",
     "orderDate": "2026-09-14T00:00:00", "subtotal": 2000, "discountPercent": 5,
     "extraCharges": 500, "total": 2400, "status": "pending",
-    "items": [{"productName": f"TestProd-{TS}", "color": "Gold", "size": "6x6", "gaze": "Single", "itemType": "window", "width": 4, "height": 5, "quantity": 2, "unitPrice": 200, "amount": 400}]
+    "items": [
+        {"productName": f"TestProd-{TS}", "color": "Gold", "size": "6x6", "gaze": "Single", "itemType": "window", "width": 4, "height": 5, "quantity": 2, "unitPrice": 200, "amount": 400},
+        {"productName": f"TestProd-{TS}", "color": "Silver", "size": "4x4", "gaze": "Double", "itemType": "window", "width": 2, "height": 3, "quantity": 1, "unitPrice": 150, "amount": 150}
+    ]
 })
 T("Create order", code == 200 and o.get("id", 0) > 0)
 o_id = o["id"]
@@ -244,10 +250,14 @@ T("Order extraCharges", o.get("extraCharges") == 500)
 code, o_list = GET(h, "/api/orders")
 o_match = [x for x in o_list if x["id"] == o_id]
 if o_match and o_match[0]["items"]:
-    oi = o_match[0]["items"][0]
-    T("Order item color", oi.get("color") == "Gold")
-    T("Order item size", oi.get("size") == "6x6")
-    T("Order item gaze", oi.get("gaze") == "Single")
+    oi1, oi2 = o_match[0]["items"]
+    T("Order item 1 color", oi1.get("color") == "Gold")
+    T("Order item 1 size", oi1.get("size") == "6x6")
+    T("Order item 1 gaze", oi1.get("gaze") == "Single")
+    T("Order item 2 color", oi2.get("color") == "Silver")
+    T("Order item 2 size", oi2.get("size") == "4x4")
+    T("Order item 2 gaze", oi2.get("gaze") == "Double")
+    T("Order item 2 unitPrice", oi2.get("unitPrice") == 150)
 else:
     T("Order item color", False, "no items")
 

@@ -21,6 +21,7 @@ class InventoryItem(Base):
     current_stock: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     min_stock: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     cost_price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    sale_price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     supplier: Mapped[str | None] = mapped_column(String(200), default=None)
     width_ft: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     height_ft: Mapped[float] = mapped_column(Numeric(12, 2), default=0)

@@ -131,6 +131,7 @@ async def _sync_purchase_inventory(purchase: Purchase, items: list, db: AsyncSes
                 current_stock=total_stock,
                 min_stock=0,
                 cost_price=float(getattr(item, "purchasePrice", 0) or 0),
+                sale_price=float(getattr(item, "salePrice", 0) or 0),
                 supplier=purchase.supplier_name,
                 width_ft=width_ft,
                 height_ft=height_ft,
@@ -150,6 +151,8 @@ async def _sync_purchase_inventory(purchase: Purchase, items: list, db: AsyncSes
             inventory.supplier = inventory.supplier or purchase.supplier_name
             if float(getattr(item, "purchasePrice", 0) or 0) > 0:
                 inventory.cost_price = float(getattr(item, "purchasePrice", 0) or 0)
+            if float(getattr(item, "salePrice", 0) or 0) > 0:
+                inventory.sale_price = float(getattr(item, "salePrice", 0) or 0)
             if width_ft > 0:
                 inventory.width_ft = width_ft
             if height_ft > 0:

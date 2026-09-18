@@ -111,6 +111,10 @@ async def lifespan(app: FastAPI):
                     "width_ft": "REAL DEFAULT 0",
                     "height_ft": "REAL DEFAULT 0",
                     "stock_qty": "REAL DEFAULT 0",
+                    "sale_price": "REAL DEFAULT 0",
+                    "pricing_mode": "VARCHAR(20) DEFAULT 'piece'",
+                    "item_type": "VARCHAR(20) DEFAULT 'window'",
+                    "length": "REAL DEFAULT 0",
                 }.items():
                     if col_name not in inventory_columns:
                         sync_conn.execute(text(f"ALTER TABLE inventory ADD COLUMN {col_name} {col_sql}"))
@@ -149,6 +153,22 @@ async def lifespan(app: FastAPI):
                 customer_columns = {c["name"] for c in inspector.get_columns("customers")}
                 if "previous_balance" not in customer_columns:
                     sync_conn.execute(text("ALTER TABLE customers ADD COLUMN previous_balance REAL DEFAULT 0"))
+            # Backfill inventory sale_price from purchase_items where sale_price is 0
+            if "inventory" in tables and "purchase_items" in tables:
+                inv_cols = {c["name"] for c in inspector.get_columns("inventory")}
+                if "sale_price" in inv_cols:
+                    sync_conn.execute(text("""
+                        UPDATE inventory SET sale_price = (
+                            SELECT pi.sale_price FROM purchase_items pi
+                            WHERE LOWER(pi.product_name) = LOWER(inventory.name)
+                            AND LOWER(COALESCE(pi.color, '')) = LOWER(COALESCE(inventory.color, ''))
+                            AND LOWER(COALESCE(pi.size, '')) = LOWER(COALESCE(inventory.size, ''))
+                            AND LOWER(COALESCE(pi.gaze, '')) = LOWER(COALESCE(inventory.gaze, ''))
+                            AND COALESCE(pi.sale_price, 0) > 0
+                            ORDER BY pi.id DESC
+                            LIMIT 1
+                        ) WHERE COALESCE(sale_price, 0) = 0
+                    """))
         await conn.run_sync(_ensure_columns)
 
     # Seed the single admin user from environment variables

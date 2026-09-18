@@ -82,7 +82,7 @@ async def create_quotation(body: QuotationCreate, db: AsyncSession = Depends(get
         pname = item.productName
         if pname and pname not in product_cache:
             pres = await db.execute(select(Product).where(Product.id == item.productId) if item.productId else select(Product).where(Product.name == pname))
-            product_cache[pname] = pres.scalar_one_or_none()
+            product_cache[pname] = pres.scalars().first()
 
     calculated_items = []
     for item in body.items:
@@ -203,7 +203,7 @@ async def update_quotation(quotation_id: int, body: QuotationUpdate, db: AsyncSe
         pname = item.productName
         if pname and pname not in product_cache:
             pres = await db.execute(select(Product).where(Product.id == item.productId) if item.productId else select(Product).where(Product.name == pname))
-            product_cache[pname] = pres.scalar_one_or_none()
+            product_cache[pname] = pres.scalars().first()
 
     calculated_items = []
     for item in body.items:

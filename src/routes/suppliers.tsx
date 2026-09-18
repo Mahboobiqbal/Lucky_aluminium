@@ -142,7 +142,12 @@ function SuppliersPage() {
       return i.pricingMode === "size" && dim ? dim * i.quantity * i.purchasePrice : i.quantity * i.purchasePrice;
     };
     if (["quantity", "purchasePrice", "salePrice", "pricingMode", "length", "widthFt", "heightFt", "itemType"].includes(field)) {
-      items[index].amount = calcAmount(items[index]);
+      const numVal = typeof value === "string" ? parseFloat(value) : value;
+      if (!isNaN(numVal) && numVal !== 0) {
+        items[index].amount = calcAmount(items[index]);
+      } else {
+        items[index].amount = 0;
+      }
     }
     setPurchaseForm({ ...purchaseForm, items, totalAmount: items.reduce((s, i) => s + i.amount, 0) });
   };
@@ -329,9 +334,9 @@ function SuppliersPage() {
                                   <div><Label className="text-xs">H (ft)</Label><Input type="number" value={item.heightFt || ""} onChange={(e) => updatePurchaseItem(idx, "heightFt", e.target.value === "" ? undefined : Number(e.target.value))} className="h-8" min="0" step="0.01" /></div>
                                 </>
                               )}
-                              <div><Label className="text-xs">Qty</Label><Input type="number" value={item.quantity || ""} onChange={(e) => updatePurchaseItem(idx, "quantity", Number(e.target.value))} className="h-8" min="1" /></div>
-                              <div><Label className="text-xs">{item.pricingMode === "size" ? (isWindow ? "Price / ft" : "Price / sqft") : "Price / pc"}</Label><Input type="number" min="0" value={item.purchasePrice || ""} onChange={(e) => updatePurchaseItem(idx, "purchasePrice", Number(e.target.value))} className="h-8" step="0.01" /></div>
-                              <div><Label className="text-xs">Sale Price</Label><Input type="number" min="0" value={item.salePrice || ""} onChange={(e) => updatePurchaseItem(idx, "salePrice", Number(e.target.value))} className="h-8" step="0.01" /></div>
+                              <div><Label className="text-xs">Qty</Label><Input type="number" value={item.quantity || ""} onChange={(e) => updatePurchaseItem(idx, "quantity", e.target.value === "" ? 0 : Number(e.target.value))} className="h-8" min="1" /></div>
+                              <div><Label className="text-xs">{item.pricingMode === "size" ? (isWindow ? "Price / ft" : "Price / sqft") : "Price / pc"}</Label><Input type="number" min="0" defaultValue={item.purchasePrice || ""} onBlur={(e) => updatePurchaseItem(idx, "purchasePrice", e.target.value === "" ? 0 : Number(e.target.value))} className="h-8" step="0.01" /></div>
+                              <div><Label className="text-xs">Sale Price</Label><Input type="number" min="0" defaultValue={item.salePrice || ""} onBlur={(e) => updatePurchaseItem(idx, "salePrice", e.target.value === "" ? 0 : Number(e.target.value))} className="h-8" step="0.01" /></div>
                               <div><Label className="text-xs">Amount</Label><div className="h-8 px-2 rounded border bg-muted/50 flex items-center text-sm font-medium">{currency(item.amount)}</div>{purchaseForm.items.length > 1 && <Button variant="ghost" size="sm" onClick={() => { const items = purchaseForm.items.filter((_, i) => i !== idx); setPurchaseForm({ ...purchaseForm, items, totalAmount: items.reduce((s, i) => s + i.amount, 0) }); }} className="mt-2 h-6 w-full text-destructive">Remove</Button>}</div>
                             </div>
                           </div>

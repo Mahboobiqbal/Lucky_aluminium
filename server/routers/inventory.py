@@ -24,7 +24,7 @@ def _to_response(i: InventoryItem) -> dict:
         "itemType": i.item_type,
         "pricingMode": i.pricing_mode,
         "currentStock": float(i.current_stock), "minStock": float(i.min_stock),
-        "costPrice": float(i.cost_price), "supplier": i.supplier,
+        "costPrice": float(i.cost_price), "salePrice": float(i.sale_price or 0), "supplier": i.supplier,
         "widthFt": float(i.width_ft or 0), "heightFt": float(i.height_ft or 0),
         "length": float(i.length or 0),
         "stockQty": float(i.stock_qty or 0), "createdAt": i.created_at,

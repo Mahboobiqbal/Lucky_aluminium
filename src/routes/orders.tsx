@@ -69,9 +69,11 @@ type Order = {
 
 type Customer = { id: number; name: string };
 type Product = { id: number; name: string; basePrice: number; active: boolean };
-type InventoryItem = { id: number; name: string; color?: string; size?: string; gaze?: string; itemType?: string; pricingMode?: string; currentStock: number; widthFt?: number; heightFt?: number; length?: number };
+type InventoryItem = { id: number; name: string; color?: string; size?: string; gaze?: string; itemType?: string; pricingMode?: string; currentStock: number; costPrice?: number; salePrice?: number; widthFt?: number; heightFt?: number; length?: number };
 
 const emptyItem: OrderItem = { productName: "", color: "", size: "", gaze: "", itemType: "length", width: 0, height: 0, length: 0, quantity: 0, unitPrice: 0, amount: 0 };
+
+const normalizeVariant = (value?: string) => (value || "").trim().toLowerCase();
 
 function OrdersPage() {
   const { can } = useAuth();
@@ -129,30 +131,45 @@ function OrdersPage() {
   const filtered = (Array.isArray(list) ? list : []).filter((o) => !q || [o.number, o.customerName].some((v) => v.toLowerCase().includes(q.toLowerCase())));
 
   const getAvailableStock = (productName: string, color?: string, size?: string, gaze?: string): number | null => {
-    const items = (Array.isArray(inventory) ? inventory : []).filter((i) => i.name.toLowerCase() === productName.toLowerCase());
+    const items = (Array.isArray(inventory) ? inventory : []).filter((i) =>
+      normalizeVariant(i.name) === normalizeVariant(productName) &&
+      normalizeVariant(i.color) === normalizeVariant(color) &&
+      normalizeVariant(i.size) === normalizeVariant(size) &&
+      normalizeVariant(i.gaze) === normalizeVariant(gaze)
+    );
     if (!items.length) return null;
-    const exact = items.find((i) => (i.color || "") === (color || "") && (i.size || "") === (size || "") && (i.gaze || "") === (gaze || ""));
-    return exact ? exact.currentStock : items[0].currentStock;
+    return items[0].currentStock;
   };
 
-  const invOf = (productName: string) => (Array.isArray(inventory) ? inventory : []).find((i) => i.name.toLowerCase() === productName.toLowerCase());
+  const invOf = (productName: string, color?: string, size?: string, gaze?: string) => (Array.isArray(inventory) ? inventory : []).find((i) =>
+    normalizeVariant(i.name) === normalizeVariant(productName) &&
+    normalizeVariant(i.color) === normalizeVariant(color) &&
+    normalizeVariant(i.size) === normalizeVariant(size) &&
+    normalizeVariant(i.gaze) === normalizeVariant(gaze)
+  );
+  const productOf = (productName: string, color?: string, size?: string, gaze?: string) => (Array.isArray(products) ? products : []).find((p) =>
+    normalizeVariant(p.name) === normalizeVariant(productName) &&
+    normalizeVariant((p as any).color) === normalizeVariant(color) &&
+    normalizeVariant((p as any).size) === normalizeVariant(size) &&
+    normalizeVariant((p as any).gaze) === normalizeVariant(gaze)
+  );
   const productLabel = (productName: string) => {
     const inv = invOf(productName);
     const variants = [inv?.color, inv?.size, inv?.gaze].filter(Boolean);
     return variants.length ? `${productName} • ${variants.join(" / ")}` : productName;
   };
 
-  const isSizeMode = (productName: string) => invOf(productName)?.pricingMode === "size";
+  const isSizeMode = (productName: string, color?: string, size?: string, gaze?: string) => invOf(productName, color, size, gaze)?.pricingMode === "size";
 
   const unitOf = (productName: string, itemType?: string): string => {
     const inv = invOf(productName);
     const type = inv?.itemType || itemType || "window";
-    return isSizeMode(productName) ? (type === "length" ? "ft" : "sqft") : "pcs";
+    return isSizeMode(productName, inv?.color, inv?.size, inv?.gaze) ? (type === "length" ? "ft" : "sqft") : "pcs";
   };
 
   const consumedOf = (item: OrderItem): number => {
-    if (!isSizeMode(item.productName)) return item.quantity;
-    const inv = invOf(item.productName);
+    if (!isSizeMode(item.productName, item.color, item.size, item.gaze)) return item.quantity;
+    const inv = invOf(item.productName, item.color, item.size, item.gaze);
     const type = inv?.itemType || item.itemType || "window";
     if (type === "length") {
       const dim = item.length > 0 ? item.length : (inv?.length || 0);
@@ -186,12 +203,12 @@ function OrdersPage() {
     const items = [...form.items];
     const next = { ...items[index], ...patch };
     if (next.productName) {
-      const inv = invOf(next.productName);
+      const inv = invOf(next.productName, next.color, next.size, next.gaze) || invOf(next.productName);
       next.color = next.color || inv?.color || "";
       next.size = next.size || inv?.size || "";
       next.gaze = next.gaze || inv?.gaze || "";
     }
-    if (isSizeMode(next.productName)) {
+    if (isSizeMode(next.productName, next.color, next.size, next.gaze)) {
       if (next.itemType === "length") {
         next.amount = next.length * next.quantity * next.unitPrice;
       } else {
@@ -251,9 +268,9 @@ function OrdersPage() {
       }
       const items = form.items.map((i) => ({
         ...i,
-        color: i.color || invOf(i.productName)?.color || "",
-        size: i.size || invOf(i.productName)?.size || "",
-        gaze: i.gaze || invOf(i.productName)?.gaze || "",
+        color: i.color || invOf(i.productName, i.color, i.size, i.gaze)?.color || "",
+        size: i.size || invOf(i.productName, i.color, i.size, i.gaze)?.size || "",
+        gaze: i.gaze || invOf(i.productName, i.color, i.size, i.gaze)?.gaze || "",
         width: i.width || 0,
         height: i.height || 0,
         length: i.length || 0,
@@ -428,14 +445,17 @@ function OrdersPage() {
                           if (v === "__none__") return updateItem(index, { productName: "" });
                           const inv = (Array.isArray(inventory) ? inventory : []).find((i) => `inv-${i.name}|${i.color || ""}|${i.size || ""}|${i.gaze || ""}` === v);
                           if (!inv) return;
-                          const prod = products.find((p) => p.name.toLowerCase() === inv.name.toLowerCase());
+                          const prod = productOf(inv.name, inv.color, inv.size, inv.gaze);
                           updateItem(index, {
                             productName: inv.name,
                             color: inv.color || "",
                             size: inv.size || "",
                             gaze: inv.gaze || "",
                             itemType: inv.itemType === "length" ? "length" : "window",
-                            unitPrice: prod?.basePrice || item.unitPrice,
+                            width: inv.widthFt || 0,
+                            height: inv.heightFt || 0,
+                            length: inv.length || 0,
+                            unitPrice: inv.salePrice || prod?.basePrice || item.unitPrice,
                           });
                         }}>
                           <SelectTrigger className="h-8 overflow-hidden"><SelectValue placeholder="Select product" /></SelectTrigger>
@@ -522,7 +542,7 @@ function OrdersPage() {
                           className={`h-8 ${item.productName && getAvailableStock(item.productName, item.color, item.size, item.gaze) !== null && consumedOf(item) > (getAvailableStock(item.productName, item.color, item.size, item.gaze) || 0) ? "border-rose-500 focus:ring-rose-500" : ""}`}
                         />
                       </div>
-                      <div><Label className="text-xs">Unit Price{isSizeMode(item.productName) ? (item.itemType === "length" ? " /ft" : " /sqft") : " /pc"}</Label><Input type="number" min="0" value={item.unitPrice || ""} onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })} className="h-8" /></div>
+                      <div><Label className="text-xs">Unit Price{isSizeMode(item.productName, item.color, item.size, item.gaze) ? (item.itemType === "length" ? " /ft" : " /sqft") : " /pc"}</Label><Input type="number" min="0" value={item.unitPrice || ""} onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })} className="h-8" /></div>
                       <div><Label className="text-xs">Amount</Label><div className="h-8 px-3 rounded border bg-muted/40 flex items-center text-sm font-semibold">{currency(item.amount)}</div></div>
                       <div className="flex items-end justify-center pb-0.5"><Button variant="ghost" size="sm" className="h-8 w-8 px-0 text-destructive" onClick={() => { const items = form.items.filter((_, i) => i !== index); const { subtotal, total } = recalc(items); setForm({ ...form, items, subtotal, total }); }} disabled={form.items.length === 1}><Trash2 className="size-3.5" /></Button></div>
                     </div>

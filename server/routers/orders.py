@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,6 +20,42 @@ VALID_ORDER_STATUSES = ("pending", "confirmed", "in_production", "ready", "deliv
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
 
+def _normalized_text(value: str | None) -> str:
+    return (value or "").strip().lower()
+
+
+def _product_variant_key(product_name: str, color: str | None = None, size: str | None = None, gaze: str | None = None, product_id: int | None = None):
+    return (
+        int(product_id) if product_id else None,
+        _normalized_text(product_name),
+        _normalized_text(color),
+        _normalized_text(size),
+        _normalized_text(gaze),
+    )
+
+
+def _inventory_query(product_name: str, color: str | None = None, size: str | None = None, gaze: str | None = None):
+    q = select(InventoryItem).where(func.lower(func.coalesce(func.trim(InventoryItem.name), "")) == _normalized_text(product_name))
+    if color is not None:
+        q = q.where(func.lower(func.coalesce(func.trim(InventoryItem.color), "")) == _normalized_text(color))
+    if size is not None:
+        q = q.where(func.lower(func.coalesce(func.trim(InventoryItem.size), "")) == _normalized_text(size))
+    if gaze is not None:
+        q = q.where(func.lower(func.coalesce(func.trim(InventoryItem.gaze), "")) == _normalized_text(gaze))
+    return q
+
+
+def _product_query(product_name: str, color: str | None = None, size: str | None = None, gaze: str | None = None):
+    q = select(Product).where(func.lower(func.coalesce(func.trim(Product.name), "")) == _normalized_text(product_name))
+    if color is not None:
+        q = q.where(func.lower(func.coalesce(func.trim(Product.color), "")) == _normalized_text(color))
+    if size is not None:
+        q = q.where(func.lower(func.coalesce(func.trim(Product.size), "")) == _normalized_text(size))
+    if gaze is not None:
+        q = q.where(func.lower(func.coalesce(func.trim(Product.gaze), "")) == _normalized_text(gaze))
+    return q
+
+
 async def _adjust_customer_previous_balance(db: AsyncSession, customer_id: int | None, delta: float):
     """Roll an order's previousBalance delta into the customer's running previous_balance."""
     if not customer_id or not delta:
@@ -33,14 +69,7 @@ async def _adjust_customer_previous_balance(db: AsyncSession, customer_id: int |
 async def _adjust_stock(db: AsyncSession, product_name: str, delta: float, color: str = None, size: str = None, gaze: str = None):
     if not product_name:
         return
-    q = select(InventoryItem).where(InventoryItem.name == product_name)
-    if color:
-        q = q.where(InventoryItem.color == color)
-    if size:
-        q = q.where(InventoryItem.size == size)
-    if gaze:
-        q = q.where(InventoryItem.gaze == gaze)
-    result = await db.execute(q.with_for_update())
+    result = await db.execute(_inventory_query(product_name, color, size, gaze).with_for_update())
     item = result.scalar_one_or_none()
     if not item:
         return
@@ -51,15 +80,8 @@ async def _consumed_units(db: AsyncSession, product_name: str, item_type: str, w
     """Stock units an order item consumes, based on the inventory item's pricing mode."""
     if not product_name:
         return 0
-    q = select(InventoryItem).where(InventoryItem.name == product_name)
-    if color:
-        q = q.where(InventoryItem.color == color)
-    if size:
-        q = q.where(InventoryItem.size == size)
-    if gaze:
-        q = q.where(InventoryItem.gaze == gaze)
-    result = await db.execute(q)
-    inv_item = result.scalar_one_or_none()
+    result = await db.execute(_inventory_query(product_name, color, size, gaze))
+    inv_item = result.scalars().first()
     if inv_item and inv_item.pricing_mode == "size":
         item_type = item_type or inv_item.item_type or "window"
         if item_type == "length":
@@ -82,15 +104,8 @@ async def _check_stock(db: AsyncSession, items: list) -> list:
         color = getattr(item, "color", None)
         size = getattr(item, "size", None)
         gaze = getattr(item, "gaze", None)
-        q = select(InventoryItem).where(InventoryItem.name == product_name)
-        if color:
-            q = q.where(InventoryItem.color == color)
-        if size:
-            q = q.where(InventoryItem.size == size)
-        if gaze:
-            q = q.where(InventoryItem.gaze == gaze)
-        result = await db.execute(q.with_for_update())
-        inv_item = result.scalar_one_or_none()
+        result = await db.execute(_inventory_query(product_name, color, size, gaze).with_for_update())
+        inv_item = result.scalars().first()
         if not inv_item:
             continue
         available = float(inv_item.current_stock or 0)
@@ -241,14 +256,18 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
         # Server-side financial calculation — never trust client amounts
         product_cache = {}
         for item in body.items:
-            pname = item.productName
-            if pname and pname not in product_cache:
-                pres = await db.execute(select(Product).where(Product.id == item.productId) if item.productId else select(Product).where(Product.name == pname))
-                product_cache[pname] = pres.scalar_one_or_none()
+            cache_key = _product_variant_key(item.productName, getattr(item, "color", None), getattr(item, "size", None), getattr(item, "gaze", None), item.productId)
+            if cache_key not in product_cache:
+                if item.productId:
+                    pres = await db.execute(select(Product).where(Product.id == item.productId))
+                else:
+                    pres = await db.execute(_product_query(item.productName, getattr(item, "color", None), getattr(item, "size", None), getattr(item, "gaze", None)))
+                product_cache[cache_key] = pres.scalars().first()
 
         calculated_items = []
         for item in body.items:
-            product = product_cache.get(item.productName)
+            cache_key = _product_variant_key(item.productName, getattr(item, "color", None), getattr(item, "size", None), getattr(item, "gaze", None), item.productId)
+            product = product_cache.get(cache_key)
             server_price = float(product.base_price) if product else float(item.unitPrice)
             item_type = item.itemType or "window"
             qty = item.quantity
@@ -256,16 +275,11 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
             h = float(item.height or 0)
             l = float(item.length or 0)
 
-            inv_q = select(InventoryItem).where(InventoryItem.name == item.productName)
-            if getattr(item, "color", None):
-                inv_q = inv_q.where(InventoryItem.color == item.color)
-            if getattr(item, "size", None):
-                inv_q = inv_q.where(InventoryItem.size == item.size)
-            if getattr(item, "gaze", None):
-                inv_q = inv_q.where(InventoryItem.gaze == item.gaze)
-            inv_result = await db.execute(inv_q)
-            inv_item = inv_result.scalar_one_or_none()
+            inv_result = await db.execute(_inventory_query(item.productName, getattr(item, "color", None), getattr(item, "size", None), getattr(item, "gaze", None)))
+            inv_item = inv_result.scalars().first()
             pricing_mode = inv_item.pricing_mode if inv_item else "piece"
+            inv_sale_price = float(inv_item.sale_price) if inv_item and float(getattr(inv_item, "sale_price", 0) or 0) > 0 else 0
+            server_price = inv_sale_price if inv_sale_price > 0 else server_price
             color_value = getattr(item, "color", None) or (inv_item.color if inv_item else None)
             size_value = getattr(item, "size", None) or (inv_item.size if inv_item else None)
             gaze_value = getattr(item, "gaze", None) or (inv_item.gaze if inv_item else None)
@@ -281,7 +295,7 @@ async def create_order(body: OrderCreate, db: AsyncSession = Depends(get_db), _u
                 amount = qty * server_price
 
             calculated_items.append({
-                "productId": item.productId,
+                "productId": product.id if product else item.productId,
                 "productName": item.productName,
                 "color": color_value,
                 "size": size_value,
@@ -423,7 +437,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
                 if gaze:
                     inv_q = inv_q.where(InventoryItem.gaze == gaze)
                 result = await db.execute(inv_q.with_for_update())
-                inv_item = result.scalar_one_or_none()
+                inv_item = result.scalars().first()
                 if inv_item:
                     available = float(inv_item.current_stock or 0)
                     needed = abs(delta)
@@ -453,14 +467,18 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         # Server-side financial calculation — never trust client amounts
         product_cache = {}
         for item in body.items:
-            pname = item.productName
-            if pname and pname not in product_cache:
-                pres = await db.execute(select(Product).where(Product.id == item.productId) if item.productId else select(Product).where(Product.name == pname))
-                product_cache[pname] = pres.scalar_one_or_none()
+            cache_key = _product_variant_key(item.productName, getattr(item, "color", None), getattr(item, "size", None), getattr(item, "gaze", None), item.productId)
+            if cache_key not in product_cache:
+                if item.productId:
+                    pres = await db.execute(select(Product).where(Product.id == item.productId))
+                else:
+                    pres = await db.execute(_product_query(item.productName, getattr(item, "color", None), getattr(item, "size", None), getattr(item, "gaze", None)))
+                product_cache[cache_key] = pres.scalars().first()
 
         calculated_items = []
         for item in body.items:
-            product = product_cache.get(item.productName)
+            cache_key = _product_variant_key(item.productName, getattr(item, "color", None), getattr(item, "size", None), getattr(item, "gaze", None), item.productId)
+            product = product_cache.get(cache_key)
             server_price = float(product.base_price) if product else float(item.unitPrice)
             item_type = item.itemType or "window"
             qty = item.quantity
@@ -468,16 +486,11 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
             h = float(item.height or 0)
             l = float(item.length or 0)
 
-            inv_q = select(InventoryItem).where(InventoryItem.name == item.productName)
-            if getattr(item, "color", None):
-                inv_q = inv_q.where(InventoryItem.color == item.color)
-            if getattr(item, "size", None):
-                inv_q = inv_q.where(InventoryItem.size == item.size)
-            if getattr(item, "gaze", None):
-                inv_q = inv_q.where(InventoryItem.gaze == item.gaze)
-            inv_result = await db.execute(inv_q)
-            inv_item = inv_result.scalar_one_or_none()
+            inv_result = await db.execute(_inventory_query(item.productName, getattr(item, "color", None), getattr(item, "size", None), getattr(item, "gaze", None)))
+            inv_item = inv_result.scalars().first()
             pricing_mode = inv_item.pricing_mode if inv_item else "piece"
+            inv_sale_price = float(inv_item.sale_price) if inv_item and float(getattr(inv_item, "sale_price", 0) or 0) > 0 else 0
+            server_price = inv_sale_price if inv_sale_price > 0 else server_price
             color_value = getattr(item, "color", None) or (inv_item.color if inv_item else None)
             size_value = getattr(item, "size", None) or (inv_item.size if inv_item else None)
             gaze_value = getattr(item, "gaze", None) or (inv_item.gaze if inv_item else None)
@@ -493,7 +506,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
                 amount = qty * server_price
 
             calculated_items.append({
-                "productId": item.productId,
+                "productId": product.id if product else item.productId,
                 "productName": item.productName,
                 "color": color_value,
                 "size": size_value,
