@@ -41,7 +41,7 @@ function startBackend() {
   const exe = getBackendPath();
   if (!exe) {
     console.log("Backend exe not found, skipping backend start");
-    return;
+    return Promise.resolve();
   }
 
   // Read .env file and merge into process env for the backend
@@ -79,6 +79,38 @@ function startBackend() {
   pythonProcess.on("exit", (code) => {
     console.log(`Backend exited with code ${code}`);
     pythonProcess = null;
+  });
+
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const maxAttempts = 30;
+    const check = () => {
+      const req = (envVars.UDYANA_HOST === "127.0.0.1" ? require("http") : require("http")).get(
+        `http://127.0.0.1:8000/api/health`,
+        (res) => {
+          res.resume();
+          if (res.statusCode === 200) {
+            console.log("Backend is ready");
+            resolve();
+          } else if (++attempts < maxAttempts) {
+            setTimeout(check, 1000);
+          } else {
+            console.log("Backend health check timed out, proceeding anyway");
+            resolve();
+          }
+        }
+      );
+      req.on("error", () => {
+        if (++attempts < maxAttempts) {
+          setTimeout(check, 1000);
+        } else {
+          console.log("Backend health check timed out, proceeding anyway");
+          resolve();
+        }
+      });
+      req.setTimeout(2000, () => { req.destroy(); });
+    };
+    setTimeout(check, 2000);
   });
 }
 
@@ -173,7 +205,7 @@ ipcMain.handle("file:read", async (_event, filePath) => {
 });
 
 app.whenReady().then(async () => {
-  startBackend();
+  await startBackend();
   if (!isDev) { await startNitroServer(); }
   createWindow();
 });

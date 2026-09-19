@@ -73,7 +73,7 @@ async def _adjust_stock(db: AsyncSession, product_name: str, delta: float, color
     item = result.scalar_one_or_none()
     if not item:
         return
-    item.current_stock = max(0, float(item.current_stock or 0) + delta)
+    item.current_stock = max(0, float(item.current_stock or 0) + float(delta))
 
 
 async def _consumed_units(db: AsyncSession, product_name: str, item_type: str, width: float, height: float, length: float, quantity: float, color: str = None, size: str = None, gaze: str = None) -> float:
@@ -414,28 +414,29 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         stock_changes = {}
         for old in old_items:
             old_consumed = float(await _consumed_units(db, old.product_name, old.item_type, old.width, old.height, old.length, old.quantity, old.color, old.size, old.gaze))
-            key = (old.product_name, old.color, old.size, old.gaze)
-            stock_changes[key] = stock_changes.get(key, 0) + old_consumed
+            key = (_normalized_text(old.product_name), _normalized_text(old.color), _normalized_text(old.size), _normalized_text(old.gaze))
+            stock_changes[key] = float(stock_changes.get(key, 0)) + float(old_consumed)
         for item in body.items:
             product_name = item.productName if hasattr(item, 'productName') else item.product_name
             color = getattr(item, "color", None)
             size = getattr(item, "size", None)
             gaze = getattr(item, "gaze", None)
             new_consumed = float(await _consumed_units(db, product_name, getattr(item, "itemType", None), float(getattr(item, "width", 0) or 0), float(getattr(item, "height", 0) or 0), float(getattr(item, "length", 0) or 0), item.quantity, color, size, gaze))
-            key = (product_name, color, size, gaze)
-            stock_changes[key] = stock_changes.get(key, 0) - new_consumed
+            key = (_normalized_text(product_name), _normalized_text(color), _normalized_text(size), _normalized_text(gaze))
+            stock_changes[key] = float(stock_changes.get(key, 0)) - float(new_consumed)
+        
         
         # Check if stock is sufficient for the net changes
         errors = []
-        for (product_name, color, size, gaze), delta in stock_changes.items():
+        for (pn, cl, sz, gz), delta in stock_changes.items():
             if delta < 0:  # Only check if we're deducting more than returning
-                inv_q = select(InventoryItem).where(InventoryItem.name == product_name)
-                if color:
-                    inv_q = inv_q.where(InventoryItem.color == color)
-                if size:
-                    inv_q = inv_q.where(InventoryItem.size == size)
-                if gaze:
-                    inv_q = inv_q.where(InventoryItem.gaze == gaze)
+                inv_q = select(InventoryItem).where(func.lower(func.coalesce(func.trim(InventoryItem.name), "")) == pn)
+                if cl:
+                    inv_q = inv_q.where(func.lower(func.coalesce(func.trim(InventoryItem.color), "")) == cl)
+                if sz:
+                    inv_q = inv_q.where(func.lower(func.coalesce(func.trim(InventoryItem.size), "")) == sz)
+                if gz:
+                    inv_q = inv_q.where(func.lower(func.coalesce(func.trim(InventoryItem.gaze), "")) == gz)
                 result = await db.execute(inv_q.with_for_update())
                 inv_item = result.scalars().first()
                 if inv_item:
@@ -443,7 +444,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
                     needed = abs(delta)
                     if needed > available:
                         errors.append({
-                            "product": product_name,
+                            "product": pn,
                             "requested": needed,
                             "available": available,
                             "shortage": needed - available,
