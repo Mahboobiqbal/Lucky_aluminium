@@ -177,7 +177,7 @@ async def lifespan(app: FastAPI):
                 inv_cols = {c["name"] for c in inspector.get_columns("inventory")}
                 if "sale_price" in inv_cols:
                     sync_conn.execute(text("""
-                        UPDATE inventory SET sale_price = (
+                        UPDATE inventory SET sale_price = COALESCE((
                             SELECT pi.sale_price FROM purchase_items pi
                             WHERE LOWER(pi.product_name) = LOWER(inventory.name)
                             AND LOWER(COALESCE(pi.color, '')) = LOWER(COALESCE(inventory.color, ''))
@@ -186,7 +186,7 @@ async def lifespan(app: FastAPI):
                             AND COALESCE(pi.sale_price, 0) > 0
                             ORDER BY pi.id DESC
                             LIMIT 1
-                        ) WHERE COALESCE(sale_price, 0) = 0
+                        ), 0) WHERE COALESCE(sale_price, 0) = 0
                     """))
         await conn.run_sync(_ensure_columns)
 
