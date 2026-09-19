@@ -25,6 +25,10 @@
     {
       "from": "server/.env",
       "to": "server/.env"
+    },
+    {
+      "from": "server/.env",
+      "to": "backend/.env"
     }
   ],
   "electronDist": "node_modules/electron/dist",
