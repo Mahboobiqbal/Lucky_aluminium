@@ -410,17 +410,47 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
         old_items_result = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
         old_items = old_items_result.scalars().all()
         
+        # Pre-resolve null color/size/gaze for each new item from old items
+        resolved_csg = []
+        for item in body.items:
+            c = getattr(item, "color", None)
+            s = getattr(item, "size", None)
+            g = getattr(item, "gaze", None)
+            if c is None and s is None and g is None:
+                pid = item.productId
+                pname = item.productName if hasattr(item, 'productName') else item.product_name
+                candidates = []
+                for oi in old_items:
+                    if pid and oi.product_id == pid:
+                        candidates.append(oi)
+                    elif not pid and _normalized_text(oi.product_name) == _normalized_text(pname):
+                        candidates.append(oi)
+                matched = None
+                if len(candidates) == 1:
+                    matched = candidates[0]
+                elif len(candidates) > 1:
+                    best_score = -1
+                    matched = candidates[0]
+                    nw, nh, nl = float(getattr(item, "width", 0) or 0), float(getattr(item, "height", 0) or 0), float(getattr(item, "length", 0) or 0)
+                    nq = item.quantity
+                    for cm in candidates:
+                        score = (1 if abs(float(cm.width or 0) - nw) < 0.001 else 0) + (1 if abs(float(cm.height or 0) - nh) < 0.001 else 0) + (1 if abs(float(cm.length or 0) - nl) < 0.001 else 0) + (1 if cm.quantity == nq else 0)
+                        if score > best_score:
+                            best_score = score
+                            matched = cm
+                if matched:
+                    c, s, g = matched.color, matched.size, matched.gaze
+            resolved_csg.append((c, s, g))
+        
         # Calculate net stock change per product (keyed by name+color+size+gaze)
         stock_changes = {}
         for old in old_items:
             old_consumed = float(await _consumed_units(db, old.product_name, old.item_type, old.width, old.height, old.length, old.quantity, old.color, old.size, old.gaze))
             key = (_normalized_text(old.product_name), _normalized_text(old.color), _normalized_text(old.size), _normalized_text(old.gaze))
             stock_changes[key] = float(stock_changes.get(key, 0)) + float(old_consumed)
-        for item in body.items:
+        for idx, item in enumerate(body.items):
             product_name = item.productName if hasattr(item, 'productName') else item.product_name
-            color = getattr(item, "color", None)
-            size = getattr(item, "size", None)
-            gaze = getattr(item, "gaze", None)
+            color, size, gaze = resolved_csg[idx]
             new_consumed = float(await _consumed_units(db, product_name, getattr(item, "itemType", None), float(getattr(item, "width", 0) or 0), float(getattr(item, "height", 0) or 0), float(getattr(item, "length", 0) or 0), item.quantity, color, size, gaze))
             key = (_normalized_text(product_name), _normalized_text(color), _normalized_text(size), _normalized_text(gaze))
             stock_changes[key] = float(stock_changes.get(key, 0)) - float(new_consumed)
@@ -477,7 +507,7 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
                 product_cache[cache_key] = pres.scalars().first()
 
         calculated_items = []
-        for item in body.items:
+        for idx, item in enumerate(body.items):
             cache_key = _product_variant_key(item.productName, getattr(item, "color", None), getattr(item, "size", None), getattr(item, "gaze", None), item.productId)
             product = product_cache.get(cache_key)
             server_price = float(product.base_price) if product else float(item.unitPrice)
@@ -487,14 +517,15 @@ async def update_order(order_id: int, body: OrderUpdate, db: AsyncSession = Depe
             h = float(item.height or 0)
             l = float(item.length or 0)
 
-            inv_result = await db.execute(_inventory_query(item.productName, getattr(item, "color", None), getattr(item, "size", None), getattr(item, "gaze", None)))
+            rc, rs, rg = resolved_csg[idx]
+            inv_result = await db.execute(_inventory_query(item.productName, rc, rs, rg))
             inv_item = inv_result.scalars().first()
             pricing_mode = inv_item.pricing_mode if inv_item else "piece"
             inv_sale_price = float(inv_item.sale_price) if inv_item and float(getattr(inv_item, "sale_price", 0) or 0) > 0 else 0
             server_price = inv_sale_price if inv_sale_price > 0 else server_price
-            color_value = getattr(item, "color", None) or (inv_item.color if inv_item else None)
-            size_value = getattr(item, "size", None) or (inv_item.size if inv_item else None)
-            gaze_value = getattr(item, "gaze", None) or (inv_item.gaze if inv_item else None)
+            color_value = getattr(item, "color", None) or rc
+            size_value = getattr(item, "size", None) or rs
+            gaze_value = getattr(item, "gaze", None) or rg
 
             if pricing_mode == "size":
                 if item_type == "length" and l > 0:
