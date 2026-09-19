@@ -11,7 +11,7 @@ from models.inventory import InventoryItem
 from models.product import Product
 from models.purchase import Purchase, PurchaseItem
 from models.supplier import Supplier
-from schemas.purchase import PurchaseCreate, PurchaseResponse
+from schemas.purchase import PurchaseCreate, PurchaseUpdate, PurchaseResponse
 from utils.dates import naive
 from utils.deps import require_permission
 
@@ -46,7 +46,7 @@ async def _sync_purchase_products(purchase: Purchase, items: list, db: AsyncSess
                 func.lower(Product.gaze) == (item_gaze or "").lower(),
             )
         )
-        product = existing_result.scalar_one_or_none()
+        product = existing_result.scalars().first()
 
         if product is None:
             product = Product(
@@ -105,7 +105,7 @@ async def _sync_purchase_inventory(purchase: Purchase, items: list, db: AsyncSes
                 func.lower(InventoryItem.gaze) == (item_gaze or "").lower(),
             )
         )
-        inventory = existing_result.scalar_one_or_none()
+        inventory = existing_result.scalars().first()
 
         width_ft = float(getattr(item, "widthFt", 0) or 0)
         height_ft = float(getattr(item, "heightFt", 0) or 0)
@@ -295,6 +295,108 @@ async def create_purchase(body: PurchaseCreate, db: AsyncSession = Depends(get_d
     return _to_response(result.scalar_one())
 
 
+@router.put("/{purchase_id}")
+async def update_purchase(purchase_id: int, body: PurchaseUpdate, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("purchase", "create"))):
+    result = await db.execute(
+        select(Purchase).options(selectinload(Purchase.items)).where(Purchase.id == purchase_id)
+    )
+    purchase = result.scalar_one_or_none()
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase not found")
+
+    if body.supplierId:
+        sup_result = await db.execute(select(Supplier).where(Supplier.id == body.supplierId))
+        if not sup_result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Supplier not found")
+
+    try:
+        for item in purchase.items:
+            product_name = (getattr(item, "product_name", "") or "").strip()
+            if not product_name:
+                continue
+            normalized_name = _normalize_product_name(product_name)
+            inv_result = await db.execute(select(InventoryItem).where(func.lower(InventoryItem.name) == normalized_name))
+            inventory = inv_result.scalars().first()
+            if not inventory:
+                continue
+            width_ft = float(getattr(item, "width_ft", 0) or 0)
+            height_ft = float(getattr(item, "height_ft", 0) or 0)
+            length = float(getattr(item, "length", 0) or 0)
+            quantity = float(getattr(item, "quantity", 0) or 0)
+            item_type = getattr(item, "item_type", "window") or "window"
+            pricing_mode = getattr(item, "pricing_mode", "piece") or "piece"
+            if pricing_mode == "size":
+                total_stock = length * quantity if item_type == "length" and length else (width_ft * height_ft * quantity if width_ft and height_ft else quantity)
+            else:
+                total_stock = quantity
+            inventory.current_stock = max(0, float(inventory.current_stock or 0) - total_stock)
+            inventory.stock_qty = max(0, float(inventory.stock_qty or 0) - quantity)
+
+        calculated_amounts = []
+        for item in body.items:
+            pricing_mode = getattr(item, "pricingMode", "piece") or "piece"
+            item_type = getattr(item, "itemType", "window") or "window"
+            qty = float(getattr(item, "quantity", 0) or 0)
+            w = float(getattr(item, "widthFt", 0) or 0)
+            h = float(getattr(item, "heightFt", 0) or 0)
+            l = float(getattr(item, "length", 0) or 0)
+            purchase_price = float(getattr(item, "purchasePrice", 0) or 0)
+            if pricing_mode == "size":
+                if item_type == "length" and l > 0:
+                    amount = l * qty * purchase_price
+                elif w > 0 and h > 0:
+                    amount = w * h * qty * purchase_price
+                else:
+                    amount = qty * purchase_price
+            else:
+                amount = qty * purchase_price
+            calculated_amounts.append(round(amount, 2))
+
+        server_total = round(sum(calculated_amounts), 2)
+
+        purchase.invoice_number = body.invoiceNumber
+        purchase.supplier_id = body.supplierId
+        purchase.supplier_name = body.supplierName
+        purchase.payment_type = body.paymentType
+        purchase.total_amount = server_total
+        purchase.date = naive(body.date)
+        purchase.notes = body.notes
+
+        for oi in purchase.items:
+            await db.delete(oi)
+        await db.flush()
+
+        for idx, item in enumerate(body.items):
+            db.add(PurchaseItem(
+                purchase_id=purchase.id,
+                product_name=item.productName,
+                color=item.color,
+                size=item.size,
+                gaze=item.gaze,
+                item_type=item.itemType,
+                pricing_mode=item.pricingMode,
+                width_ft=item.widthFt,
+                height_ft=item.heightFt,
+                length=item.length,
+                quantity=item.quantity,
+                purchase_price=item.purchasePrice,
+                sale_price=item.salePrice,
+                amount=calculated_amounts[idx],
+            ))
+
+        await _sync_purchase_products(purchase, body.items, db)
+        await _sync_purchase_inventory(purchase, body.items, db)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    result = await db.execute(
+        select(Purchase).options(selectinload(Purchase.items)).where(Purchase.id == purchase.id)
+    )
+    return _to_response(result.scalar_one())
+
+
 @router.delete("/{purchase_id}")
 async def delete_purchase(purchase_id: int, db: AsyncSession = Depends(get_db), _user=Depends(require_permission("purchase", "delete"))):
     result = await db.execute(
@@ -312,7 +414,7 @@ async def delete_purchase(purchase_id: int, db: AsyncSession = Depends(get_db), 
 
             normalized_name = _normalize_product_name(product_name)
             inv_result = await db.execute(select(InventoryItem).where(func.lower(InventoryItem.name) == normalized_name))
-            inventory = inv_result.scalar_one_or_none()
+            inventory = inv_result.scalars().first()
             if not inventory:
                 continue
 

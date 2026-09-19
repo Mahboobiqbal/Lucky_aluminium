@@ -56,6 +56,8 @@ function SuppliersPage() {
   const [previewInvoice, setPreviewInvoice] = useState<PurchaseInvoiceData | null>(null);
   const [previewReceipt, setPreviewReceipt] = useState<PaymentReceiptData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [editPurchase, setEditPurchase] = useState<Purchase | null>(null);
+  const [deletePurchaseTarget, setDeletePurchaseTarget] = useState<Purchase | null>(null);
 
   const company = companyFromSettings(settings);
 
@@ -224,6 +226,47 @@ function SuppliersPage() {
     } catch (err: any) { toast.error(err.message || "Failed"); }
   };
 
+  const openEditPurchase = (purchase: Purchase) => {
+    setEditPurchase(purchase);
+    setPurchaseForm({
+      invoiceNumber: purchase.invoiceNumber,
+      supplierId: purchase.supplierId,
+      supplierName: purchase.supplierName,
+      items: purchase.items.map((i) => ({ productName: i.productName, color: i.color || "", size: i.size || "", gaze: i.gaze || "", itemType: (i.itemType || "window") as "length" | "window", pricingMode: (i.pricingMode || "piece") as "piece" | "size", widthFt: i.widthFt || undefined, heightFt: i.heightFt || undefined, length: i.length || 0, quantity: i.quantity, purchasePrice: i.purchasePrice, salePrice: i.salePrice, amount: i.amount })),
+      paymentType: purchase.paymentType,
+      totalAmount: purchase.totalAmount,
+      date: new Date(purchase.date).getTime(),
+    });
+    setPurchaseOpen(true);
+  };
+
+  const saveEditPurchase = async () => {
+    if (!editPurchase) return;
+    if (!purchaseForm.invoiceNumber.trim()) return toast.error("Invoice number required");
+    if (!purchaseForm.supplierName.trim()) return toast.error("Supplier required");
+    if (!purchaseForm.items[0]?.productName) return toast.error("At least one product required");
+    try {
+      await api.put(`/api/purchases/${editPurchase.id}`, {
+        invoiceNumber: purchaseForm.invoiceNumber, supplierId: purchaseForm.supplierId, supplierName: purchaseForm.supplierName,
+        items: purchaseForm.items, paymentType: purchaseForm.paymentType, totalAmount: purchaseForm.totalAmount,
+        date: new Date(purchaseForm.date).toISOString(),
+      });
+      toast.success("Purchase updated");
+      setPurchaseOpen(false);
+      setEditPurchase(null);
+      void fetchData(purchaseForm.supplierId || selectedSupplierId);
+    } catch (err: any) { toast.error(err.message || "Failed"); }
+  };
+
+  const removePurchase = async (purchase: Purchase) => {
+    try {
+      await api.delete(`/api/purchases/${purchase.id}`);
+      toast.success("Purchase deleted");
+      setDeletePurchaseTarget(null);
+      void fetchData(purchase.supplierId || selectedSupplierId);
+    } catch (err: any) { toast.error(err.message || "Failed"); }
+  };
+
   const selectSupplier = (id: number) => { setSelectedSupplierId(id); setShowStatement(false); };
   const goBack = () => { setSelectedSupplierId(null); setShowStatement(false); };
   const exportPdf = async () => {
@@ -242,7 +285,7 @@ function SuppliersPage() {
     }>
       <PageContainer>
         {selectedSupplier ? (
-          <SupplierDashboard supplier={selectedSupplier as any} transactions={supplierTransactions} ledgerEntries={supplierLedger} totalPurchases={totalPurchases} totalPayments={totalPayments} outstandingBalance={outstandingBalance} lastPurchaseDate={lastPurchaseDate} showStatement={showStatement} onBack={goBack} onNewPurchase={() => openPurchase(selectedSupplier.id)} onMakePayment={openPayment} onViewHistory={() => { setShowStatement(false); setTimeout(() => document.getElementById("transaction-history")?.scrollIntoView({ behavior: "smooth" }), 100); }} onGenerateStatement={() => { setShowStatement(true); setTimeout(() => document.getElementById("supplier-statement")?.scrollIntoView({ behavior: "smooth" }), 100); }} onExportPdf={exportPdf} purchases={supplierPurchases as any} company={company} />
+          <SupplierDashboard supplier={selectedSupplier as any} transactions={supplierTransactions} ledgerEntries={supplierLedger} totalPurchases={totalPurchases} totalPayments={totalPayments} outstandingBalance={outstandingBalance} lastPurchaseDate={lastPurchaseDate} showStatement={showStatement} onBack={goBack} onNewPurchase={() => openPurchase(selectedSupplier.id)} onMakePayment={openPayment} onViewHistory={() => { setShowStatement(false); setTimeout(() => document.getElementById("transaction-history")?.scrollIntoView({ behavior: "smooth" }), 100); }} onGenerateStatement={() => { setShowStatement(true); setTimeout(() => document.getElementById("supplier-statement")?.scrollIntoView({ behavior: "smooth" }), 100); }} onExportPdf={exportPdf} onEditPurchase={(p) => openEditPurchase(p as any)} onDeletePurchase={(p) => setDeletePurchaseTarget(p as any)} purchases={supplierPurchases as any} company={company} />
         ) : (
           <SupplierList suppliers={list as any} selectedSupplierId={selectedSupplierId ?? undefined} onSelect={selectSupplier} onRemove={can("suppliers", "delete") ? setDeleteTarget : (() => {})} />
         )}
@@ -264,10 +307,10 @@ function SuppliersPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={purchaseOpen} onOpenChange={setPurchaseOpen}>
+      <Dialog open={purchaseOpen} onOpenChange={(v) => { setPurchaseOpen(v); if (!v) setEditPurchase(null); }}>
         <DialogContent className="max-w-[calc(100vw-1.5rem)] sm:max-w-7xl lg:max-w-[96vw] max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border bg-card shadow-2xl">
           <DialogHeader className="pb-2 border-b border-border/80">
-            <DialogTitle className="text-2xl font-semibold tracking-tight">New Purchase</DialogTitle>
+            <DialogTitle className="text-2xl font-semibold tracking-tight">{editPurchase ? "Edit Purchase" : "New Purchase"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-5 pt-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 rounded-xl bg-muted/30 p-3 border border-border/80">
@@ -350,7 +393,7 @@ function SuppliersPage() {
             </div>
             <div className="flex justify-end pt-4 border-t"><div className="flex items-center justify-between w-64"><span className="font-semibold">Total:</span><span className="text-lg font-bold text-primary">{currency(purchaseForm.totalAmount)}</span></div></div>
           </div>
-          <DialogFooter><Button variant="outline" size="sm" onClick={() => setPurchaseOpen(false)}>Cancel</Button><Button size="sm" onClick={savePurchase}>Save Purchase</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" size="sm" onClick={() => { setPurchaseOpen(false); setEditPurchase(null); }}>Cancel</Button><Button size="sm" onClick={editPurchase ? saveEditPurchase : savePurchase}>{editPurchase ? "Update" : "Save Purchase"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -372,6 +415,13 @@ function SuppliersPage() {
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Delete supplier?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => { if (deleteTarget != null) { removeSupplier(deleteTarget); setDeleteTarget(null); } }}>Delete</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deletePurchaseTarget != null} onOpenChange={() => setDeletePurchaseTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>Delete purchase?</AlertDialogTitle><AlertDialogDescription>This will reverse all inventory stock changes made by this purchase. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => { if (deletePurchaseTarget) removePurchase(deletePurchaseTarget); }}>Delete</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </AppShell>

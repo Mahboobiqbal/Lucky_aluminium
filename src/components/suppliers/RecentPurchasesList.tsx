@@ -1,9 +1,15 @@
 import { useMemo, useState } from "react";
 import { currency, dateShort } from "@/lib/format";
-import { ShoppingCart, ChevronDown, ChevronUp, Package } from "lucide-react";
+import { ShoppingCart, ChevronDown, ChevronUp, Package, Pencil, Trash2 } from "lucide-react";
 import type { Purchase } from "@/lib/db";
 
-export function RecentPurchasesList({ purchases }: { purchases: Purchase[] }) {
+type Props = {
+  purchases: Purchase[];
+  onEdit?: (purchase: Purchase) => void;
+  onDelete?: (purchase: Purchase) => void;
+};
+
+export function RecentPurchasesList({ purchases, onEdit, onDelete }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const recentPurchases = useMemo(() => {
@@ -96,6 +102,10 @@ export function RecentPurchasesList({ purchases }: { purchases: Purchase[] }) {
                           Note: {purchase.notes}
                         </div>
                       )}
+                      <div className="mt-2 pt-2 border-t border-border flex gap-2">
+                        {onEdit && <button onClick={(e) => { e.stopPropagation(); onEdit(purchase); }} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"><Pencil className="size-3" />Edit</button>}
+                        {onDelete && <button onClick={(e) => { e.stopPropagation(); onDelete(purchase); }} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"><Trash2 className="size-3" />Delete</button>}
+                      </div>
                     </div>
                   </div>
                 )}

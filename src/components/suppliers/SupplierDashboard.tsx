@@ -34,6 +34,8 @@ export function SupplierDashboard({
   onViewHistory,
   onGenerateStatement,
   onExportPdf,
+  onEditPurchase,
+  onDeletePurchase,
   purchases,
   company,
 }: {
@@ -51,6 +53,8 @@ export function SupplierDashboard({
   onViewHistory: () => void;
   onGenerateStatement: () => void;
   onExportPdf: () => void;
+  onEditPurchase: (purchase: Purchase) => void;
+  onDeletePurchase: (purchase: Purchase) => void;
   purchases: Purchase[];
   company: CompanyProfile;
 }) {
@@ -83,7 +87,7 @@ export function SupplierDashboard({
         <PurchaseProductsSummary purchases={purchases} />
       </div>
 
-      <RecentPurchasesList purchases={purchases} />
+      <RecentPurchasesList purchases={purchases} onEdit={onEditPurchase} onDelete={onDeletePurchase} />
 
       <div id="transaction-history">
         <SupplierTransactionHistory transactions={ledgerEntries} purchases={purchases} supplier={supplier} company={company} outstandingBalance={outstandingBalance} />

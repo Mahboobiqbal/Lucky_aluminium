@@ -80,6 +80,10 @@ class PurchaseCreate(PurchaseBase):
     items: list[PurchaseItemCreate] = []
 
 
+class PurchaseUpdate(PurchaseBase):
+    items: list[PurchaseItemCreate] = []
+
+
 class PurchaseResponse(PurchaseBase):
     id: int
     items: list[PurchaseItemResponse] = []
