@@ -26,13 +26,14 @@ def _get_frontend_dir():
             meipass / "frontend",
             exe_dir / "frontend",
             exe_dir / "_internal" / "frontend",
+            exe_dir / "app" / "public",
+            exe_dir.parent / "app" / "public",
+            meipass / "public",
             meipass,
         ]
         for c in candidates:
-            if c.is_dir():
+            if c.is_dir() and (c / "index.html").exists():
                 return c
-        print(f"[DEBUG] Frontend not found. MEIPASS={meipass}, exe_dir={exe_dir}")
-        print(f"[DEBUG] MEIPASS contents: {list(meipass.iterdir()) if meipass.is_dir() else 'NOT DIR'}")
         return None
     else:
         base = pathlib.Path(__file__).resolve().parent.parent
@@ -82,6 +83,16 @@ async def lifespan(app: FastAPI):
         def _ensure_columns(sync_conn):
             inspector = inspect(sync_conn)
             tables = set(inspector.get_table_names())
+            if "products" in tables:
+                product_columns = {c["name"] for c in inspector.get_columns("products")}
+                for col_name, col_sql in {
+                    "color": "VARCHAR(100) DEFAULT NULL",
+                    "size": "VARCHAR(100) DEFAULT NULL",
+                    "gaze": "VARCHAR(100) DEFAULT NULL",
+                    "extra_charges": "REAL DEFAULT 0",
+                }.items():
+                    if col_name not in product_columns:
+                        sync_conn.execute(text(f"ALTER TABLE products ADD COLUMN {col_name} {col_sql}"))
             if "purchase_items" in tables:
                 purchase_item_columns = {c["name"] for c in inspector.get_columns("purchase_items")}
                 if "color" not in purchase_item_columns:
@@ -98,10 +109,18 @@ async def lifespan(app: FastAPI):
                 quotation_columns = {c["name"] for c in inspector.get_columns("quotations")}
                 if "hardware_charges" not in quotation_columns:
                     sync_conn.execute(text("ALTER TABLE quotations ADD COLUMN hardware_charges REAL DEFAULT 0"))
+                if "extra_charges" not in quotation_columns:
+                    sync_conn.execute(text("ALTER TABLE quotations ADD COLUMN extra_charges REAL DEFAULT 0"))
+                if "discount_percent" not in quotation_columns:
+                    sync_conn.execute(text("ALTER TABLE quotations ADD COLUMN discount_percent REAL DEFAULT 0"))
             if "orders" in tables:
                 order_columns = {c["name"] for c in inspector.get_columns("orders")}
                 if "hardware_charges" not in order_columns:
                     sync_conn.execute(text("ALTER TABLE orders ADD COLUMN hardware_charges REAL DEFAULT 0"))
+                if "extra_charges" not in order_columns:
+                    sync_conn.execute(text("ALTER TABLE orders ADD COLUMN extra_charges REAL DEFAULT 0"))
+                if "discount_percent" not in order_columns:
+                    sync_conn.execute(text("ALTER TABLE orders ADD COLUMN discount_percent REAL DEFAULT 0"))
             if "inventory" in tables:
                 inventory_columns = {c["name"] for c in inspector.get_columns("inventory")}
                 for col_name, col_sql in {
